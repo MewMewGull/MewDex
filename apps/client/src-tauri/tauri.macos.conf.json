@@ -1,0 +1,6 @@
+{
+  "bundle": {
+    "externalBin": ["binaries/mewdex-node"],
+    "resources": { "engine/": "engine/" }
+  }
+}

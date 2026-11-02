@@ -1,0 +1,8 @@
+{
+  "nsis": {
+    "url": "https://github.com/tauri-apps/binary-releases/releases/download/nsis-3.13/nsis-3.13.zip",
+    "sha1": "db14f8af2ea346b786c6ae19343f61aaf5e09b8e",
+    "source": "https://github.com/tauri-apps/tauri/blob/dev/crates/tauri-bundler/src/bundle/windows/nsis/mod.rs"
+  },
+  "webview2Bootstrapper": "https://go.microsoft.com/fwlink/p/?LinkId=2124703"
+}

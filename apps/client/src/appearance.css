@@ -1,0 +1,87 @@
+:root {
+  --ui-scale: 1;
+  --message-font-size: 16px;
+  --ui-font: Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --accent: #9ccba6;
+  --accent-contrast: #142019;
+  --tone-b8e5bb: var(--accent);
+  --tone-183021: var(--accent-contrast);
+  color-scheme: dark;
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+@media (prefers-color-scheme: light) {
+  :root[data-theme="system"] {
+    color-scheme: light;
+  }
+}
+body {
+  font-family: var(--ui-font);
+}
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+.message-text,
+.message.user .message-text {
+  font-size: var(--message-font-size);
+}
+.settings-dialog .primary,
+.send-button {
+  background: var(--accent);
+  color: var(--accent-contrast);
+}
+.appearance-settings > label {
+  display: grid;
+  gap: 9px;
+  margin: 20px 0;
+  font-size: calc(13px * var(--ui-scale));
+}
+.appearance-settings > label.checkbox {
+  display: flex;
+  align-items: center;
+}
+.appearance-settings input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+  padding: 0;
+}
+.appearance-settings input[type="color"] {
+  width: 50px;
+  height: 34px;
+  padding: 3px;
+  cursor: pointer;
+}
+.appearance-settings output {
+  font-variant-numeric: tabular-nums;
+}
+.appearance-colors {
+  display: flex;
+  gap: 12px;
+}
+.appearance-colors button {
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  outline-offset: 3px;
+}
+.appearance-colors button[aria-pressed="true"] {
+  outline: 2px solid var(--accent);
+}
+.appearance-preview {
+  padding: 22px;
+  border: 1px solid var(--tone-354259);
+  border-radius: 12px;
+  background: var(--tone-10131b);
+}
+.appearance-preview p {
+  font-size: var(--message-font-size);
+  line-height: 1.8;
+}
+.appearance-preview strong {
+  font-size: calc(13px * var(--ui-scale));
+}

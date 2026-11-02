@@ -1,0 +1,32 @@
+{
+  "pkgconf": {
+    "version": "3.0.10",
+    "url": "https://distfiles.ariadne.space/pkgconf/pkgconf-3.0.10.tar.xz",
+    "sha256": "9371b2f6372da574d4c6dc96fe9b1463037bcf6afcb6671c1555afde7b17e2de",
+    "source": "https://github.com/Homebrew/homebrew-core/blob/main/Formula/p/pkgconf.rb"
+  },
+  "libyaml": {
+    "version": "0.2.5",
+    "url": "https://pyyaml.org/download/libyaml/yaml-0.2.5.tar.gz",
+    "sha256": "c642ae9b75fee120b2d96c712538bd2cf283228d2337df2cf2988e3c02678ef4",
+    "source": "https://pyyaml.org/wiki/LibYAML"
+  },
+  "libimobiledevice": {
+    "version": "1.4.0",
+    "url": "https://github.com/libimobiledevice/libimobiledevice/releases/download/1.4.0/libimobiledevice-1.4.0.tar.bz2",
+    "sha256": "23cc0077e221c7d991bd0eb02150a0d49199bcca1ddf059edccee9ffd914939d",
+    "source": "https://github.com/Homebrew/homebrew-core/blob/main/Formula/lib/libimobiledevice.rb"
+  },
+  "ruby": {
+    "version": "3.4.12",
+    "url": "https://cache.ruby-lang.org/pub/ruby/3.4/ruby-3.4.12.tar.gz",
+    "sha256": "5e5d85ad93b0adcccbad47733680f4892bd0078e3342437f7babce01c1872479",
+    "source": "https://www.ruby-lang.org/en/downloads/"
+  },
+  "cocoapods": {
+    "version": "1.17.0",
+    "url": "https://rubygems.org/downloads/cocoapods-1.17.0.gem",
+    "sha256": "dacf6f11ac3b00d60e6dd326485b616935230aacf95f385d145db27bfdf284af",
+    "source": "https://rubygems.org/api/v2/rubygems/cocoapods/versions/1.17.0.json"
+  }
+}

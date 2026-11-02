@@ -1,0 +1,17 @@
+{
+  "engine": "@openai/codex",
+  "version": "0.162.1",
+  "sourceCommit": "092d3acd6bec3e3a14bdc7e7a2810ab628ab759d",
+  "transport": "stdio",
+  "mewdexProtocol": 1,
+  "experimentalMethods": [
+    "thread/backgroundTerminals/clean",
+    "thread/backgroundTerminals/list"
+  ],
+  "experimentalParameters": [
+    "turn/start.collaborationMode",
+    "thread/start.baseInstructions",
+    "thread/fork.baseInstructions"
+  ],
+  "distribution": "Use an existing matching binary or a project-local official package. Do not upgrade the global installation."
+}

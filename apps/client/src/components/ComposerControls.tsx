@@ -1,0 +1,353 @@
+import { useEffect, type ReactNode } from "react";
+import {
+  Check,
+  ChevronDown,
+  CircleGauge,
+  Code2,
+  FlaskConical,
+  Globe,
+  MessageSquareText,
+  ShieldCheck,
+  Eye,
+  SlidersHorizontal,
+} from "lucide-react";
+import type { Device, MewDexClient, Policy, Session } from "@mewdex/sdk";
+import { useModelCatalog } from "../useModelCatalog";
+import {
+  reasoningLabel,
+  selectedModel,
+  selectPolicyModel,
+} from "../modelSelection";
+
+function closeMenu(button: HTMLElement) {
+  const details = button.closest("details");
+  if (details) {
+    details.open = false;
+    details.querySelector("summary")?.focus({ preventScroll: true });
+  }
+}
+function ToolbarMenu({
+  label,
+  icon,
+  children,
+  disabled = false,
+  className = "",
+}: {
+  label: string;
+  icon: ReactNode;
+  children: ReactNode;
+  disabled?: boolean;
+  className?: string;
+}) {
+  return (
+    <details className={`composer-menu ${className}`} data-composer-menu>
+      <summary
+        aria-label={label}
+        title={label}
+        aria-disabled={disabled}
+        onClick={(event) => {
+          if (disabled) event.preventDefault();
+        }}
+      >
+        {icon}
+      </summary>
+      <div className="composer-menu-content">{children}</div>
+    </details>
+  );
+}
+export function ComposerControls({
+  client,
+  device,
+  projectId,
+  session,
+  value,
+  onChange,
+  disabled,
+  connected,
+  dirty,
+  onSettings,
+}: {
+  client: MewDexClient;
+  device?: Device;
+  projectId: string;
+  session?: Session;
+  value: Policy;
+  onChange: (patch: Partial<Policy>) => void;
+  disabled: boolean;
+  connected: boolean;
+  dirty: boolean;
+  onSettings: () => void;
+}) {
+  const { catalog, models } = useModelCatalog(
+    client,
+    { deviceId: device?.id ?? "", projectId, sessionId: session?.id },
+    connected &&
+      !!device?.online &&
+      !!device.capabilities?.includes("model-catalog"),
+  );
+  const inherited =
+    session?.defaultModel || models.find((item) => item.isDefault)?.model;
+  const model = selectedModel(models, value.model, inherited);
+  const actualModel = value.model || inherited || session?.model;
+  const modelLabel = model?.displayName || actualModel || "默认模型";
+  const effort = value.reasoningEffort || model?.defaultReasoningEffort;
+  const effortLabel = effort ? reasoningLabel(effort) : "默认强度";
+  const usage = session?.contextUsage;
+  const capacity = usage?.modelContextWindow;
+  const used = usage?.totalTokens;
+  const percent =
+    used != null && capacity && capacity > 0
+      ? Math.min(100, Math.max(0, (used / capacity) * 100))
+      : null;
+  const access = value.accessMode || "workspace";
+  const accessLabel =
+    access === "read-only"
+      ? "只读访问"
+      : access === "workspace-network"
+        ? "工作区与网络"
+        : "工作区权限";
+  const strategy = value.noTests ? "no-tests" : value.mode;
+  const strategies = [
+    { id: "edit", label: "直接修改" },
+    { id: "focused", label: "局部验证" },
+    { id: "full", label: "完整验证" },
+    { id: "no-tests", label: "不运行验证" },
+  ];
+  const strategyLabel =
+    strategies.find((item) => item.id === strategy)?.label || "任务策略";
+  const running = session?.state === "running";
+  const applicationHint =
+    running && dirty ? "；修改用于后续回合，当前执行继续使用原设置" : "";
+  useEffect(() => {
+    const pointer = (event: PointerEvent) => {
+      for (const menu of document.querySelectorAll<HTMLDetailsElement>(
+        "details[data-composer-menu][open]",
+      ))
+        if (!menu.contains(event.target as Node)) menu.open = false;
+    };
+    const keyboard = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      const menu = (event.target as Element)?.closest<HTMLDetailsElement>(
+        "details[data-composer-menu][open]",
+      );
+      if (menu) {
+        menu.open = false;
+        menu.querySelector("summary")?.focus();
+        event.stopPropagation();
+      }
+    };
+    document.addEventListener("pointerdown", pointer);
+    document.addEventListener("keydown", keyboard);
+    return () => {
+      document.removeEventListener("pointerdown", pointer);
+      document.removeEventListener("keydown", keyboard);
+    };
+  }, []);
+  return (
+    <div className="composer-inline-controls">
+      <ToolbarMenu
+        label={`访问权限：${accessLabel}${applicationHint}`}
+        disabled={disabled || !device?.capabilities?.includes("access-modes")}
+        icon={
+          access === "read-only" ? (
+            <Eye size={16} />
+          ) : access === "workspace-network" ? (
+            <Globe size={16} />
+          ) : (
+            <ShieldCheck size={16} />
+          )
+        }
+      >
+        <strong>访问权限</strong>
+        {[
+          { id: "read-only", label: "只读访问", note: "查看项目文件" },
+          {
+            id: "workspace",
+            label: "工作区权限",
+            note: "可修改项目，额外访问需批准",
+          },
+          {
+            id: "workspace-network",
+            label: "工作区与网络",
+            note: "允许项目读写及网络访问",
+          },
+        ].map((item) => (
+          <button
+            key={item.id}
+            aria-pressed={access === item.id}
+            onClick={(event) => {
+              onChange({
+                accessMode: item.id === "workspace" ? undefined : item.id,
+              });
+              closeMenu(event.currentTarget);
+            }}
+          >
+            <span>
+              <b>{item.label}</b>
+              <small>{item.note}</small>
+            </span>
+            {access === item.id && <Check size={14} />}
+          </button>
+        ))}
+      </ToolbarMenu>
+      <ToolbarMenu
+        label={`任务策略：${value.collaborationMode === "plan" ? "方案讨论 · " : ""}${strategyLabel}${applicationHint}`}
+        disabled={disabled}
+        icon={
+          value.collaborationMode === "plan" ? (
+            <MessageSquareText size={16} />
+          ) : strategy === "edit" ? (
+            <Code2 size={16} />
+          ) : (
+            <FlaskConical size={16} />
+          )
+        }
+      >
+        <strong>任务策略</strong>
+        {strategies.map((item) => (
+          <button
+            key={item.id}
+            aria-pressed={strategy === item.id}
+            onClick={(event) => {
+              onChange(
+                item.id === "no-tests"
+                  ? { noTests: true }
+                  : { mode: item.id, noTests: false },
+              );
+              closeMenu(event.currentTarget);
+            }}
+          >
+            <span>{item.label}</span>
+            {strategy === item.id && <Check size={14} />}
+          </button>
+        ))}
+        <button
+          onClick={(event) => {
+            closeMenu(event.currentTarget);
+            onSettings();
+          }}
+        >
+          <SlidersHorizontal size={14} />
+          更多任务设置…
+        </button>
+      </ToolbarMenu>
+      <span className="composer-toolbar-space" />
+      <ToolbarMenu
+        label={
+          percent == null
+            ? "上下文使用情况"
+            : `上下文已使用 ${Math.round(percent)}%`
+        }
+        icon={<CircleGauge size={16} />}
+        className="composer-context-menu"
+      >
+        <strong>上下文使用情况</strong>
+        {percent != null ? (
+          <>
+            <progress max={100} value={percent} />
+            <p>
+              已使用 {Math.round(percent)}%，剩余 {Math.round(100 - percent)}%
+            </p>
+            <small>
+              {used?.toLocaleString()} / {capacity?.toLocaleString()} tokens
+            </small>
+          </>
+        ) : (
+          <p>
+            {session?.engineStarted
+              ? "引擎尚未返回上下文用量。"
+              : "发送后显示实际上下文用量。"}
+          </p>
+        )}
+        {actualModel && <small>模型：{actualModel}</small>}
+        {usage && (
+          <small>
+            最近请求：输入 {usage.inputTokens.toLocaleString()} · 输出{" "}
+            {usage.outputTokens.toLocaleString()}
+          </small>
+        )}
+      </ToolbarMenu>
+      <ToolbarMenu
+        label={`模型与思考强度：${modelLabel} · ${effortLabel}${applicationHint}`}
+        disabled={disabled}
+        className="composer-model-menu"
+        icon={
+          <>
+            <span className="composer-model-name">{modelLabel}</span>
+            <span className="composer-effort-label">{effortLabel}</span>
+            <ChevronDown size={12} />
+          </>
+        }
+      >
+        <strong>模型与思考强度</strong>
+        <label>
+          模型
+          <select
+            aria-label="模型"
+            value={value.model ?? ""}
+            disabled={disabled}
+            onChange={(event) =>
+              onChange(
+                selectPolicyModel(value, event.target.value, models, inherited),
+              )
+            }
+          >
+            <option value="">{inherited || "执行端默认模型"}</option>
+            {value.model &&
+              !models.some((item) => item.model === value.model) && (
+                <option value={value.model}>{value.model}</option>
+              )}
+            {models.map((item) => (
+              <option key={item.id} value={item.model}>
+                {item.displayName || item.model}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          思考强度
+          <select
+            aria-label="思考强度"
+            value={value.reasoningEffort ?? ""}
+            disabled={
+              disabled || !device?.capabilities?.includes("reasoning-policy")
+            }
+            onChange={(event) =>
+              onChange({ reasoningEffort: event.target.value || undefined })
+            }
+          >
+            <option value="">
+              {model?.defaultReasoningEffort
+                ? `${reasoningLabel(model.defaultReasoningEffort)}（默认）`
+                : "执行端默认强度"}
+            </option>
+            {value.reasoningEffort &&
+              !model?.supportedReasoningEfforts.some(
+                (item) => item.reasoningEffort === value.reasoningEffort,
+              ) && (
+                <option value={value.reasoningEffort}>
+                  {reasoningLabel(value.reasoningEffort)}
+                </option>
+              )}
+            {model?.supportedReasoningEfforts.map((item) => (
+              <option key={item.reasoningEffort} value={item.reasoningEffort}>
+                {reasoningLabel(item.reasoningEffort)}
+              </option>
+            ))}
+          </select>
+        </label>
+        {catalog.hasNextPage && (
+          <button
+            disabled={catalog.isFetching}
+            onClick={() => void catalog.fetchNextPage()}
+          >
+            加载更多模型
+          </button>
+        )}
+        {catalog.error && (
+          <small>模型目录暂不可读，可在任务设置中填写模型。</small>
+        )}
+      </ToolbarMenu>
+    </div>
+  );
+}

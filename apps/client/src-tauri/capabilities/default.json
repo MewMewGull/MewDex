@@ -1,0 +1,13 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main-window",
+  "description": "Input client window; user-initiated HTTPS links open in the system browser",
+  "windows": ["main"],
+  "permissions": [
+    "core:default",
+    "notification:default",
+    { "identifier": "opener:allow-open-url", "allow": [
+      { "url": "https://*" }
+    ] }
+  ]
+}

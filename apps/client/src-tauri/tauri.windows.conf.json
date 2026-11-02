@@ -1,0 +1,19 @@
+{
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "MewDex",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 800,
+        "minHeight": 640,
+        "dragDropEnabled": false
+      }
+    ]
+  },
+  "bundle": {
+    "externalBin": ["binaries/mewdex-node"],
+    "resources": { "engine/": "engine/" }
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "windows-workbench",
+  "description": "Let the Windows input workbench show and focus its own window after a notification action.",
+  "platforms": ["windows"],
+  "windows": ["main"],
+  "permissions": [
+    "core:window:allow-show",
+    "core:window:allow-unminimize",
+    "core:window:allow-set-focus"
+  ]
+}

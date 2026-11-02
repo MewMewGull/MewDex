@@ -1,0 +1,25 @@
+{
+  "name": "mewdex",
+  "version": "0.1.0-dev",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MewMewGull/MewDex.git"
+  },
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @mewdex/client",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "build:ui": "npm run build --workspace @mewdex/client",
+    "test:sdk": "npm run test --workspace @mewdex/sdk",
+    "test:client": "npm run test --workspace @mewdex/client"
+  },
+  "devDependencies": {
+    "prettier": "3.5.3"
+  }
+}

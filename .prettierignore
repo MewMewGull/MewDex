@@ -1,0 +1,6 @@
+.local/
+.state/
+node_modules/
+apps/client/src-tauri/
+packages/sdk/src/protocol.ts
+third_party/
