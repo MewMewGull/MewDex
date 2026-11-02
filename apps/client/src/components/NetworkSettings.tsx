@@ -12,6 +12,7 @@ import {
   ShieldCheck,
   Unplug,
   Palette,
+  MessageCircle,
 } from "lucide-react";
 import {
   MewDexClient,
@@ -30,6 +31,7 @@ import { hasTouchInput } from "../inputViewport";
 import { AppearanceSettings } from "./AppearanceSettings";
 import { CopyButton } from "./CopyButton";
 import { MewDexAccountSettings } from "./MewDexAccountSettings";
+import { MessagingSettings } from "./MessagingSettings";
 
 type Section =
   | "account"
@@ -38,6 +40,7 @@ type Section =
   | "drafts"
   | "pairing"
   | "models"
+  | "messaging"
   | "access";
 
 const initialAccess = (): Access => ({
@@ -269,6 +272,11 @@ export function NetworkSettings({
                 icon: <Monitor size={16} />,
               },
               {
+                id: "messaging" as const,
+                label: "消息渠道",
+                icon: <MessageCircle size={16} />,
+              },
+              {
                 id: "access" as const,
                 label: "访问权限",
                 icon: <ShieldCheck size={16} />,
@@ -277,6 +285,9 @@ export function NetworkSettings({
           : []),
       ]}
     >
+      {section === "messaging" && identity.role === "admin" && (
+        <MessagingSettings client={client} devices={devices} />
+      )}
       {section === "account" && (
         <MewDexAccountSettings
           client={client}

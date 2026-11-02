@@ -18,6 +18,15 @@ in [docs/licensing.md](docs/licensing.md) and
 - MewDex modifications are documented in
   [MEWDEX-PATCHES.md](third_party/tauri-plugin-notification/MEWDEX-PATCHES.md).
 
+## Hermes messaging reference
+
+The message adapters and conversation routing in `internal/messaging` reference
+the architecture and wire protocols of [NousResearch/Hermes Agent](https://github.com/NousResearch/hermes-agent)
+at commit `f0d94882e89ab8d4098b5bb2f166adfb9ee0a0ab` (MIT, copyright 2025 Nous Research).
+The integration is implemented in Go; Hermes is not installed or run. Its
+original [MIT license](third_party/hermes-agent/LICENSE) is retained with the
+[reference inventory](third_party/hermes-agent/README.md).
+
 ## Separately obtained Codex engine
 
 Desktop development packages obtain OpenAI Codex separately, at the version and

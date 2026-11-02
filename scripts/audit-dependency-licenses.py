@@ -30,6 +30,9 @@ REVIEWED_GO_LICENSES = {
     ("github.com/dustin/go-humanize", "v1.0.1"): "MIT",
     ("github.com/ebitengine/purego", "v0.11.2"): "Apache-2.0",
     ("github.com/google/uuid", "v1.6.0"): "BSD-3-Clause",
+    ("github.com/gogo/protobuf", "v1.3.2"): "BSD-3-Clause",
+    ("github.com/gorilla/websocket", "v1.5.0"): "BSD-2-Clause",
+    ("github.com/larksuite/oapi-sdk-go/v3", "v3.12.2"): "MIT",
     ("github.com/kevinburke/ssh_config", "v1.6.0"): "MIT",
     ("github.com/mattn/go-isatty", "v0.0.20"): "MIT",
     ("github.com/ncruces/go-strftime", "v0.1.9"): "MIT",
@@ -187,6 +190,9 @@ def main():
         "vendored": [{
             "name": "tauri-plugin-notification", "version": "2.8.0",
             "license": "Apache-2.0 OR MIT", "path": "third_party/tauri-plugin-notification",
+        }, {
+            "name": "Hermes Agent messaging reference", "version": "f0d94882e89ab8d4098b5bb2f166adfb9ee0a0ab",
+            "license": "MIT", "path": "third_party/hermes-agent",
         }],
         "engine": read_json(ROOT / "engine.lock.json"),
     }

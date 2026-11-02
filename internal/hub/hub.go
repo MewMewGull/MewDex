@@ -17,6 +17,7 @@ import (
 	"mewdex/internal/attachments"
 	"mewdex/internal/config"
 	"mewdex/internal/gateway"
+	"mewdex/internal/messaging"
 	"mewdex/internal/protocol"
 	"mewdex/internal/store"
 )
@@ -39,19 +40,20 @@ func (p *peer) send(ctx context.Context, f protocol.Frame) error {
 }
 
 type Hub struct {
-	config        config.Config
-	store         *store.Store
-	local         Runner
-	mu            sync.Mutex
-	peers         map[string]*peer
-	wake          chan struct{}
-	attachments   *attachments.Store
-	gatewayStatus func() any
-	ctx           context.Context
-	subscribers   map[string]map[*websocket.Conn]bool
-	revokeGateway func(string)
-	modelGateway  *gateway.Gateway
-	logins        map[string]loginWindow
+	config          config.Config
+	store           *store.Store
+	local           Runner
+	mu              sync.Mutex
+	peers           map[string]*peer
+	wake            chan struct{}
+	attachments     *attachments.Store
+	gatewayStatus   func() any
+	ctx             context.Context
+	subscribers     map[string]map[*websocket.Conn]bool
+	revokeGateway   func(string)
+	modelGateway    *gateway.Gateway
+	logins          map[string]loginWindow
+	messageChannels *messaging.Manager
 }
 
 func New(c config.Config, s *store.Store) *Hub {
@@ -247,6 +249,8 @@ func (h *Hub) api(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch {
+	case strings.HasPrefix(r.URL.Path, "/v1/messaging"):
+		h.messagingAPI(w, r)
 	case r.URL.Path == "/v1/mewdex/account":
 		h.mewdexAccount(w, r)
 	case r.Method == "GET" && r.URL.Path == "/v1/bootstrap":

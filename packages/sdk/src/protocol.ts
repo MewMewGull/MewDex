@@ -492,3 +492,37 @@ export interface ServerInfo {
   authentication: ServerAuthentication;
 }
 
+export interface MessagingChannel {
+  platform: string;
+  enabled: boolean;
+  deviceId: string;
+  projectId: string;
+  allowedUsers: string[];
+  allowedChats: string[];
+  appId: string;
+  botUserId: string;
+  accountId: string;
+  credentialConfigured: boolean;
+  state: string;
+  detail: string;
+  lastEventAt: string;
+  lastSenderId: string;
+  lastChatId: string;
+}
+
+export interface MessagingUpdate {
+  enabled: boolean;
+  deviceId: string;
+  projectId: string;
+  allowedUsers: string[];
+  allowedChats: string[];
+  appId: string;
+  botUserId: string;
+  secret?: string | null;
+}
+
+export interface MessagingLogin {
+  state: string;
+  url: string;
+}
+

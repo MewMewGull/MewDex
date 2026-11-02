@@ -35,6 +35,9 @@ import {
   type Project,
   type MewDexAccount,
   type ServerInfo,
+  type MessagingChannel,
+  type MessagingUpdate,
+  type MessagingLogin,
 } from "./protocol.ts";
 
 export class MewDexError extends Error {
@@ -148,6 +151,34 @@ export class MewDexClient {
 
   private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
     return (await this.response(path, init)).json() as Promise<T>;
+  }
+
+  messagingChannels(signal?: AbortSignal): Promise<MessagingChannel[]> {
+    return this.request("/v1/messaging", { signal });
+  }
+
+  updateMessagingChannel(
+    platform: string,
+    update: MessagingUpdate,
+  ): Promise<MessagingChannel[]> {
+    return this.request(`/v1/messaging/${encodeURIComponent(platform)}`, {
+      method: "PUT",
+      body: JSON.stringify(update),
+    });
+  }
+
+  beginWeixinLogin(signal?: AbortSignal): Promise<MessagingLogin> {
+    return this.request("/v1/messaging/weixin/login", {
+      method: "POST",
+      signal,
+    });
+  }
+
+  pollWeixinLogin(signal?: AbortSignal): Promise<MessagingLogin> {
+    return this.request("/v1/messaging/weixin/login/poll", {
+      method: "POST",
+      signal,
+    });
   }
 
   async pair(

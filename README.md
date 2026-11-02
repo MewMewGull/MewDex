@@ -4,6 +4,10 @@
 
 A cross-platform AI workbench. Input clients and execution devices are independent: any authorized client can start or resume a conversation on any authorized execution device in the same network. Phones act as input clients; computers can provide both input and execution; servers support headless execution.
 
+WeChat, QQ, and Feishu inputs are configured in **Settings → Message channels**.
+See the [messaging setup guide](docs/messaging.md) for credentials, access lists,
+and supported message types.
+
 ## Source and license
 
 The source repository is [MewMewGull/MewDex](https://github.com/MewMewGull/MewDex), with `main` as its default branch:

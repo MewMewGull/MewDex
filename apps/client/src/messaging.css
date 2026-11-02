@@ -1,0 +1,121 @@
+.messaging-settings,
+.messaging-channel fieldset {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+.messaging-channel fieldset {
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.messaging-heading,
+.messaging-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.messaging-heading h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+.messaging-settings > .messaging-heading h3,
+.messaging-channel .messaging-heading h3 {
+  margin: 0;
+}
+.messaging-platforms button,
+.messaging-login > button,
+.messaging-discovery > button {
+  padding: 8px 12px;
+  border: 1px solid var(--tone-344054);
+  border-radius: 8px;
+  color: var(--tone-cfdae9);
+  font-size: calc(12px * var(--ui-scale, 1));
+}
+.messaging-platforms button:hover,
+.messaging-login > button:hover,
+.messaging-discovery > button:hover {
+  background: var(--tone-17202c);
+}
+.messaging-platforms,
+.messaging-targets {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.messaging-platforms button[aria-pressed="true"] {
+  background: var(--tone-17202c);
+  border-color: var(--tone-b8e5bb);
+  color: var(--tone-b8e5bb);
+}
+.messaging-targets {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+.messaging-channel label:not(.checkbox) {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+.messaging-channel label + label {
+  margin-top: 0;
+}
+.messaging-channel .messaging-targets select {
+  margin-bottom: 0;
+}
+.messaging-channel .messaging-actions .primary {
+  margin-top: 0;
+}
+.messaging-channel input:not([type="checkbox"]),
+.messaging-channel select,
+.messaging-channel textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.messaging-channel textarea {
+  resize: vertical;
+}
+.messaging-status {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--tone-9bb6d9);
+}
+.messaging-status-connected {
+  color: var(--tone-b8e5bb);
+}
+.messaging-status-delivery_error,
+.messaging-status-storage_error {
+  color: var(--tone-f1b7bc);
+}
+.messaging-login,
+.messaging-discovery {
+  padding: 12px;
+  border: 1px solid var(--tone-344054);
+  border-radius: 10px;
+}
+.messaging-discovery p,
+.messaging-id {
+  overflow-wrap: anywhere;
+}
+.messaging-qr {
+  display: grid;
+  justify-items: center;
+  margin-top: 14px;
+}
+.messaging-qr img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+.messaging-actions {
+  justify-content: flex-start;
+  flex-wrap: wrap;
+}
+@media (max-width: 520px) {
+  .messaging-targets {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

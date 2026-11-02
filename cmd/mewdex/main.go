@@ -454,6 +454,13 @@ func serveOwned(ctx context.Context, c config.Config) error {
 	if ctx.Err() != nil {
 		return nil
 	}
+	if h != nil {
+		closeMessaging, err := h.StartMessaging(ctx)
+		if err != nil {
+			return err
+		}
+		defer closeMessaging()
+	}
 	control.Ready(localHubURL)
 	if c.Hub && c.ProfilePath != "" {
 		root := filepath.Dir(c.ProfilePath)
