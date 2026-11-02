@@ -1,3 +1,7 @@
+A Codex-based, cross-platform agent for starting and resuming tasks on your computer remotely from a phone or chat app. Still being built, one wish at a time…
+
+-----
+
 # MewDex
 
 **English** | [简体中文](README.zh-CN.md)
