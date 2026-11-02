@@ -9,8 +9,10 @@ import (
 	"path/filepath"
 	"time"
 
+	"mewdex/internal/backhaul"
 	"mewdex/internal/localnode"
 	"mewdex/internal/protocol"
+	"mewdex/internal/startup"
 )
 
 // The installer calls the same manager as the workbench. The selected data
@@ -68,6 +70,13 @@ func install(args []string) error {
 				return err
 			}
 			enabled = status.Startup != nil && status.Startup.RequestedEnabled
+			if _, err := os.Stat(filepath.Join(*root, "startup.json")); errors.Is(err, os.ErrNotExist) {
+				legacy, err := legacyStartup(ctx, *root)
+				if err != nil {
+					return err
+				}
+				enabled = legacy
+			}
 		}
 		choice := "false"
 		if enabled {
@@ -77,6 +86,34 @@ func install(args []string) error {
 	}
 	if *uninstall {
 		*autostart = false
+	}
+	if !*uninstall {
+		status, err := m.Handle(ctx, localnode.Request{Operation: "status"})
+		if err != nil {
+			return err
+		}
+		if status.Snapshot.Ready {
+			// The normal update operation refuses active/unconfirmed work before
+			// touching the current service. Keep the old tunnel until this succeeds.
+			if _, err := m.Handle(ctx, localnode.Request{Operation: "service.update", ExpectedDeviceID: status.Snapshot.DeviceID, ExpectedInstanceID: status.Snapshot.InstanceID}); err != nil {
+				return err
+			}
+		}
+		legacy, err := legacyStartup(ctx, *root)
+		if err != nil {
+			return err
+		}
+		if legacy {
+			status, err := m.Handle(ctx, localnode.Request{Operation: "status"})
+			if err != nil {
+				return err
+			}
+			if status.Snapshot.Configured && status.Snapshot.Hub {
+				if _, err := m.Handle(ctx, localnode.Request{Operation: "proxy.import", ExpectedDeviceID: status.Snapshot.DeviceID}); err != nil {
+					return err
+				}
+			}
+		}
 	}
 	if err := m.SaveStartupPreference(ctx, *autostart); err != nil {
 		return err
@@ -92,4 +129,32 @@ func install(args []string) error {
 		return errors.New("installer requires an absolute workbench path")
 	}
 	return os.WriteFile(filepath.Join(*root, "workbench.json"), protocol.JSON(map[string]string{"path": *workbench}), 0600)
+}
+
+func legacyStartup(ctx context.Context, root string) (bool, error) {
+	legacy := filepath.Join(root, "ingress")
+	if _, err := os.Stat(filepath.Join(legacy, "hub-managed")); err == nil {
+		return false, nil
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return false, err
+	}
+	if _, err := os.Stat(filepath.Join(legacy, "startup.json")); errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	} else if err != nil {
+		return false, err
+	}
+	_, binding, err := backhaul.Read(legacy)
+	if err != nil {
+		return false, err
+	}
+	backend, err := startup.Native()
+	if err != nil {
+		return false, err
+	}
+	controller, err := startup.New(legacy, backend)
+	if err != nil {
+		return false, err
+	}
+	status, err := controller.Status(ctx, binding)
+	return status.RequestedEnabled, err
 }

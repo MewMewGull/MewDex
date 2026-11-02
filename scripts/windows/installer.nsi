@@ -90,7 +90,7 @@ Function StartupPage
   ${If} $AutoStart == "true"
     ${NSD_Check} $StartupCheckbox
   ${EndIf}
-  ${NSD_CreateLabel} 0 80u 100% 48u "首次安装默认关闭；升级保留当前设置。新设备完成首次配置后生效。之后可在桌面端的“本机设备 → 启动设置”中修改。"
+  ${NSD_CreateLabel} 0 80u 100% 60u "首次安装默认关闭；升级保留当前设置。新设备完成首次配置后生效。之后可在桌面端的“本机设备 → 启动设置”中修改。升级会接管已有公网代理，并更新空闲的 Hub；有未完成任务时暂停升级。"
   Pop $0
   nsDialogs::Show
 FunctionEnd

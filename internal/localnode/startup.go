@@ -12,6 +12,7 @@ import (
 	"mewdex/internal/lifecycle"
 	"mewdex/internal/runtimefiles"
 	"mewdex/internal/serviceguard"
+	"mewdex/internal/serviceport"
 	"mewdex/internal/startup"
 )
 
@@ -164,6 +165,15 @@ func (m *Manager) RunManaged(ctx context.Context, owner string, serve func(conte
 	}
 	if m.describe(c).PairingRequired {
 		return nil
+	}
+	if c.Hub {
+		if err := serviceport.Check(c.Listen); err != nil {
+			var occupied *serviceport.OccupiedError
+			if errors.As(err, &occupied) && discoverHub(ctx, c) != nil {
+				return nil
+			}
+			return err
+		}
 	}
 	if !c.Hub && c.Executor {
 		if err = m.pairExecutor(ctx, c, ""); err != nil {

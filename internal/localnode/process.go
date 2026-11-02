@@ -9,6 +9,7 @@ import (
 	"mewdex/internal/config"
 	"mewdex/internal/lifecycle"
 	"mewdex/internal/runtimefiles"
+	"mewdex/internal/serviceport"
 )
 
 func (m *Manager) start(ctx context.Context) error {
@@ -36,6 +37,17 @@ func (m *Manager) start(ctx context.Context) error {
 	}
 	var exited <-chan error
 	if state.State != "starting" {
+		if c.Hub {
+			if err := serviceport.Check(c.Listen); err != nil {
+				var occupied *serviceport.OccupiedError
+				if errors.As(err, &occupied) {
+					if hub := discoverHub(ctx, c); hub != nil {
+						return &existingHubError{Hub: hub}
+					}
+				}
+				return err
+			}
+		}
 		registered, err := m.startRegistered(ctx)
 		if err != nil {
 			return err
@@ -78,6 +90,15 @@ func (m *Manager) start(ctx context.Context) error {
 		state, err = m.status(ctx)
 		if err == nil && state.Ready {
 			return nil
+		}
+		if err == nil && state.State == "stopped" && c.Hub {
+			var occupied *serviceport.OccupiedError
+			if err := serviceport.Check(c.Listen); errors.As(err, &occupied) {
+				if hub := discoverHub(ctx, c); hub != nil {
+					return &existingHubError{Hub: hub}
+				}
+				return err
+			}
 		}
 		select {
 		case <-ctx.Done():

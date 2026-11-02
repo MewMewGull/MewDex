@@ -10,7 +10,7 @@ export function LocalServiceActions({
   const { snapshot, busy } = device;
   if (!snapshot) return null;
   const stopped = snapshot.state === "stopped";
-  const locked = busy || device.editingProjects;
+  const locked = busy;
   return (
     <>
       <div className="local-device-actions overview-actions">
@@ -20,16 +20,18 @@ export function LocalServiceActions({
             disabled={
               locked ||
               snapshot.pairingRequired ||
-              (!snapshot.ready && !stopped)
+              (!snapshot.ready && !stopped && !device.existingHub)
             }
             onClick={() => void device.enter()}
           >
             {device.phase ||
               (device.connectionPending
                 ? "保存本机输入连接"
-                : snapshot.ready
-                  ? "进入本机工作台"
-                  : "启动并进入工作台")}
+                : device.existingHub
+                  ? "连接已运行的 Hub"
+                  : snapshot.ready
+                    ? "进入本机工作台"
+                    : "启动并进入工作台")}
           </button>
         ) : (
           <button
@@ -49,6 +51,12 @@ export function LocalServiceActions({
           </button>
         )}
       </div>
+      {device.existingHub && (
+        <p className="muted" role="status">
+          已检测到运行中的 Hub：{device.existingHub.baseUrl}。连接后使用该 Hub
+          的账号或密钥登录。
+        </p>
+      )}
       {!snapshot.hub && snapshot.ready && onJoinNetwork && (
         <section className="local-input-next">
           <h4>打开输入工作台</h4>

@@ -2,7 +2,9 @@ package hubproxy
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/pem"
 	"fmt"
@@ -45,7 +47,15 @@ func privateKey(t *testing.T) (ssh.Signer, []byte) {
 func fixture(t *testing.T) sshFixture {
 	t.Helper()
 	root := t.TempDir()
-	host, _ := privateKey(t)
+	hostPrivate, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	host, err := ssh.NewSignerFromKey(hostPrivate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	alternative, _ := privateKey(t)
 	identity, raw := privateKey(t)
 	key := filepath.Join(root, "专用 SSH key")
 	hosts := filepath.Join(root, "known hosts")
@@ -72,6 +82,7 @@ func fixture(t *testing.T) sshFixture {
 		return nil, nil
 	}}
 	server.AddHostKey(host)
+	server.AddHostKey(alternative) // The preferred default is intentionally not in known_hosts.
 	workers.Go(func() {
 		for {
 			raw, err := listener.Accept()

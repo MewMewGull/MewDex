@@ -30,6 +30,7 @@ REVIEWED_GO_LICENSES = {
     ("github.com/dustin/go-humanize", "v1.0.1"): "MIT",
     ("github.com/ebitengine/purego", "v0.11.2"): "Apache-2.0",
     ("github.com/google/uuid", "v1.6.0"): "BSD-3-Clause",
+    ("github.com/kevinburke/ssh_config", "v1.6.0"): "MIT",
     ("github.com/mattn/go-isatty", "v0.0.20"): "MIT",
     ("github.com/ncruces/go-strftime", "v0.1.9"): "MIT",
     ("github.com/remyoudompheng/bigfft", "v0.0.0-20230129092748-24d4a6f8daec"): "BSD-3-Clause",

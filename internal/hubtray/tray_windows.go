@@ -79,13 +79,17 @@ type iconData struct {
 func utf(s string) *uint16 { p, _ := windows.UTF16PtrFromString(s); return p }
 
 func Start(parent context.Context, root string, stopHub context.CancelFunc) func() {
+	return start(parent, root, stopHub, nil)
+}
+
+func start(parent context.Context, root string, stopHub context.CancelFunc, ready func(uintptr)) func() {
 	ctx, cancel := context.WithCancel(parent)
 	done := make(chan struct{})
-	go func() { defer close(done); run(ctx, root, stopHub) }()
+	go func() { defer close(done); run(ctx, root, stopHub, ready) }()
 	return func() { cancel(); <-done }
 }
 
-func run(ctx context.Context, root string, stopHub context.CancelFunc) {
+func run(ctx context.Context, root string, stopHub context.CancelFunc, ready func(uintptr)) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 	var window uintptr
@@ -203,6 +207,9 @@ func run(ctx context.Context, root string, stopHub context.CancelFunc) {
 	icon.Icon, _, _ = loadIcon.Call(0, 32512)
 	copy(icon.Tip[:], windows.StringToUTF16("MewDex Hub · 后台服务与公网代理"))
 	notifyIcon.Call(0, uintptr(unsafe.Pointer(&icon)))
+	if ready != nil {
+		ready(window)
+	}
 	defer notifyIcon.Call(2, uintptr(unsafe.Pointer(&icon)))
 	closeOnCancel := context.AfterFunc(ctx, func() { postMessage.Call(window, 0x0010, 0, 0) })
 	defer closeOnCancel()

@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { Request } from "../localProtocol";
 import {
   ArchiveRestore,
   Circle,
-  Folder,
   Monitor,
   Power,
   RefreshCw,
@@ -13,16 +13,16 @@ import type { Connection } from "../platform";
 import { useLocalDevice, type LocalDeviceController } from "../useLocalDevice";
 import { SettingsFrame } from "./SettingsFrame";
 import { LocalSetupPanel } from "./LocalSetupPanel";
-import { ProjectDirectoryEditor } from "./ProjectDirectoryEditor";
 import { DeviceDataPanel } from "./DeviceDataPanel";
 import { StartupPanel } from "./StartupPanel";
+import { HubListenerPanel } from "./HubListenerPanel";
 import { HubProxyPanel } from "./HubProxyPanel";
 import { CleanupPanel } from "./CleanupPanel";
 import { LocalInstallationPanel } from "./LocalInstallationPanel";
 import { LocalServiceActions } from "./LocalServiceActions";
 import { localServiceStates as states } from "../localDevice";
 
-type Section = "overview" | "projects" | "startup" | "data" | "maintenance";
+type Section = "overview" | "startup" | "data" | "maintenance";
 
 interface LocalDeviceDialogProps {
   open: boolean;
@@ -49,9 +49,24 @@ function LocalDeviceContents({
   onJoinNetwork,
   onInstallationChanged,
 }: LocalDeviceDialogProps & { onInstallationChanged: () => void }) {
-  const device = useLocalDevice(open, onConnect, () => onOpenChange(false));
+  const device = useLocalDevice(
+    open,
+    onConnect,
+    () => onOpenChange(false),
+    onJoinNetwork,
+  );
   const [section, setSection] = useState<Section>("overview");
-  const { snapshot, setup, busy } = device;
+  const [portPending, setPortPending] = useState(false);
+  const [proxyPending, setProxyPending] = useState(false);
+  const pendingSettings = portPending || proxyPending;
+  const settingsQueue = useRef<Promise<unknown>>(Promise.resolve());
+  function saveSetting(request: Request) {
+    const result = settingsQueue.current.then(() => device.apply(request));
+    settingsQueue.current = result.catch(() => {});
+    return result;
+  }
+  const { snapshot, busy } = device;
+  const actionsDevice = { ...device, busy: busy || pendingSettings };
   const configured = !!snapshot?.configured;
   const stopped = snapshot?.state === "stopped";
   useEffect(() => {
@@ -61,12 +76,12 @@ function LocalDeviceContents({
     <SettingsFrame<Section>
       open={open}
       onOpenChange={(value) => {
-        if (!device.working) onOpenChange(value);
+        if (!device.working && !pendingSettings) onOpenChange(value);
       }}
       title="本机设备"
-      description="管理这台电脑的执行、项目与后台服务。"
+      description="管理这台电脑的后台服务、启动与数据。"
       className="local-device-dialog"
-      closeDisabled={device.working}
+      closeDisabled={device.working || pendingSettings}
       closeLabel="关闭本机设备设置"
       selected={section}
       onSelect={setSection}
@@ -78,15 +93,6 @@ function LocalDeviceContents({
         },
         ...(configured
           ? [
-              ...(snapshot.executor
-                ? [
-                    {
-                      id: "projects" as const,
-                      label: "项目目录",
-                      icon: <Folder size={16} />,
-                    },
-                  ]
-                : []),
               {
                 id: "startup" as const,
                 label: "启动设置",
@@ -117,14 +123,6 @@ function LocalDeviceContents({
           >
             <RefreshCw size={14} />
           </button>
-        </div>
-      )}
-      {device.editingProjects && section !== "projects" && (
-        <div className="local-draft-notice">
-          <Folder size={16} />
-          <span>项目目录有未保存的更改</span>
-          <button onClick={() => setSection("projects")}>继续编辑</button>
-          <button onClick={device.cancelProjectEdit}>放弃更改</button>
         </div>
       )}
       {device.dataBusy && section !== "data" && (
@@ -189,14 +187,14 @@ function LocalDeviceContents({
               </h3>
               <p>
                 {snapshot.ready
-                  ? "项目在这台电脑执行，可以从网络中的输入端继续对话。"
+                  ? "项目与对话统一在 Hub 工作台中管理。"
                   : stopped
                     ? "启动服务后即可继续本机任务。"
                     : "查看当前状态后继续操作。"}
               </p>
             </div>
             <LocalServiceActions
-              device={device}
+              device={actionsDevice}
               onJoinNetwork={onJoinNetwork}
             />
             {snapshot.pairingRequired && (
@@ -222,9 +220,7 @@ function LocalDeviceContents({
               <div>
                 <Circle size={7} fill="currentColor" />
                 <span>
-                  {snapshot.executor
-                    ? `${snapshot.projects.length} 个执行项目`
-                    : "仅运行设备网络"}
+                  {snapshot.executor ? "已启用本机任务执行" : "仅运行设备网络"}
                 </span>
               </div>
               <div>
@@ -234,60 +230,22 @@ function LocalDeviceContents({
           </>
         )}
       </div>
-      <div hidden={section !== "projects"}>
-        {configured && snapshot?.executor && (
-          <section className="local-projects">
-            <h3>项目目录</h3>
-            <p className="muted">
-              项目可进入工作台后通过“创建项目”添加。这里用于维护已有的本机目录配置，留空不影响启动服务。
-            </p>
-            {device.editingProjects ? (
-              <>
-                <ProjectDirectoryEditor
-                  projects={setup.projects}
-                  disabled={busy}
-                  onChange={device.updateProjects}
-                  onAdd={() => void device.work(device.addProject)}
-                />
-                <div className="local-device-actions">
-                  <button
-                    className="primary"
-                    disabled={busy || !stopped}
-                    onClick={() => void device.saveProjects()}
-                  >
-                    保存项目
-                  </button>
-                  <button disabled={busy} onClick={device.cancelProjectEdit}>
-                    取消
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                {snapshot.projects.map((project) => (
-                  <article key={project.id}>
-                    <strong>{project.name}</strong>
-                    <code>{project.path}</code>
-                  </article>
-                ))}
-                <button
-                  disabled={busy || !stopped}
-                  onClick={device.beginProjectEdit}
-                >
-                  编辑项目目录
-                </button>
-                {!stopped && (
-                  <p className="muted">停止服务后可以调整项目目录。</p>
-                )}
-              </>
-            )}
-          </section>
-        )}
-      </div>
       <div hidden={section !== "startup"}>
+        <HubListenerPanel
+          snapshot={snapshot}
+          busy={busy}
+          onPendingChange={setPortPending}
+          onChange={(port) =>
+            saveSetting({
+              operation: "service.port",
+              expectedDeviceId: snapshot?.deviceId,
+              listener: { port },
+            })
+          }
+        />
         <StartupPanel
           snapshot={snapshot}
-          busy={busy || device.editingProjects}
+          busy={busy || pendingSettings}
           revision={device.revision}
           onWork={device.work}
           onChange={(enabled) =>
@@ -300,21 +258,28 @@ function LocalDeviceContents({
         />
         <HubProxyPanel
           snapshot={snapshot}
-          busy={busy || device.editingProjects}
+          busy={busy}
           revision={device.revision}
           onWork={device.work}
-          onChange={(request) => device.apply({ ...request, expectedDeviceId: snapshot?.deviceId })}
+          onPendingChange={setProxyPending}
+          importDisabled={pendingSettings}
+          onChange={(request) =>
+            saveSetting({ ...request, expectedDeviceId: snapshot?.deviceId })
+          }
         />
       </div>
       <div hidden={section !== "maintenance"}>
         {configured && snapshot && (
           <>
             {!snapshot.hub && snapshot.executor && (
-              <ExecutorPairing device={device} onJoinNetwork={onJoinNetwork} />
+              <ExecutorPairing
+                device={actionsDevice}
+                onJoinNetwork={onJoinNetwork}
+              />
             )}
             <CleanupPanel
               snapshot={snapshot}
-              busy={busy || device.editingProjects}
+              busy={busy || pendingSettings}
               revision={device.revision}
               onWork={device.work}
               onSnapshot={device.receive}
@@ -359,13 +324,13 @@ function LocalDeviceContents({
       </div>
       <div hidden={section !== "data"}>
         <LocalInstallationPanel
-          busy={busy || device.editingProjects}
+          busy={busy || pendingSettings}
           onWork={device.work}
           onChanged={onInstallationChanged}
         />
         <DeviceDataPanel
           snapshot={snapshot}
-          busy={device.working || device.editingProjects}
+          busy={device.working || pendingSettings}
           onSnapshot={device.receive}
           onActivity={device.setDataBusy}
           onRestored={device.restored}
@@ -388,7 +353,7 @@ function ExecutorPairing({
 }) {
   const { snapshot, setup, busy } = device;
   const stopped = snapshot?.state === "stopped";
-  const locked = busy || device.editingProjects;
+  const locked = busy;
   return (
     <section className="device-data executor-repair">
       <h3>本机执行的网络连接</h3>

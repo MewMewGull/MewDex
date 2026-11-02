@@ -275,16 +275,19 @@ function App() {
           open={localDeviceOpen}
           onOpenChange={setLocalDeviceOpen}
           onConnect={saveConnection}
-          onJoinNetwork={
-            !connection
-              ? (url) => {
-                  input.chooseNetwork();
-                  setConnectionTarget(url);
-                  setConnectingExisting(true);
-                  setLocalDeviceOpen(false);
-                }
-              : undefined
-          }
+          onJoinNetwork={(url) => {
+            if (
+              connection?.baseURL.replace(/\/$/, "") === url.replace(/\/$/, "")
+            ) {
+              input.retry();
+              setLocalDeviceOpen(false);
+              return;
+            }
+            input.chooseNetwork();
+            setConnectionTarget(url);
+            setConnectingExisting(true);
+            setLocalDeviceOpen(false);
+          }}
         />
       )}
     </>

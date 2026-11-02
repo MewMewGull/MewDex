@@ -2,6 +2,7 @@ package hubproxy
 
 import (
 	"context"
+	"crypto/ed25519"
 	"encoding/json"
 	"errors"
 	"io"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"golang.org/x/crypto/ssh"
+	"golang.org/x/crypto/ssh/knownhosts"
 	"mewdex/internal/protocol"
 )
 
@@ -129,6 +131,7 @@ func tunnel(ctx context.Context, s Settings, target string, publish func(string,
 		return errors.New("无法连接 SSH 服务器，将自动重试。")
 	}
 	defer raw.Close()
+	preferKnownHostKeys(auth, address, raw.RemoteAddr())
 	closeOnCancel := context.AfterFunc(ctx, func() { _ = raw.Close() })
 	defer closeOnCancel()
 	_ = raw.SetDeadline(time.Now().Add(15 * time.Second))
@@ -185,6 +188,32 @@ func tunnel(ctx context.Context, s Settings, target string, publish func(string,
 		case err := <-results:
 			return err
 		case <-check.C:
+		}
+	}
+}
+
+// OpenSSH prefers the host-key algorithms already recorded for the endpoint.
+// Go's default ordering is independent of known_hosts; with several server
+// keys it can otherwise select an unrecorded key and reject a trusted server.
+// Query the verifier locally using a sentinel key, then retain its strict
+// callback for the actual handshake. No newly offered key is ever trusted.
+func preferKnownHostKeys(auth *ssh.ClientConfig, address string, remote net.Addr) {
+	probe, _ := ssh.NewPublicKey(ed25519.PublicKey(make([]byte, ed25519.PublicKeySize)))
+	var mismatch *knownhosts.KeyError
+	if err := auth.HostKeyCallback(address, remote, probe); !errors.As(err, &mismatch) || len(mismatch.Want) == 0 {
+		return
+	}
+	seen := map[string]bool{}
+	for _, want := range mismatch.Want {
+		algorithms := []string{want.Key.Type()}
+		if want.Key.Type() == ssh.KeyAlgoRSA {
+			algorithms = []string{ssh.KeyAlgoRSASHA512, ssh.KeyAlgoRSASHA256}
+		}
+		for _, algorithm := range algorithms {
+			if !seen[algorithm] {
+				seen[algorithm] = true
+				auth.HostKeyAlgorithms = append(auth.HostKeyAlgorithms, algorithm)
+			}
 		}
 	}
 }

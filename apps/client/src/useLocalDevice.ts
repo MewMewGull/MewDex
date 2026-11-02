@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { Project } from "@mewdex/sdk";
-import { chooseProject, deviceRequest } from "./localDevice";
-import type { Request, Setup, Snapshot } from "./localProtocol";
+import { deviceRequest } from "./localDevice";
+import type { HubDiscovery, Request, Setup, Snapshot } from "./localProtocol";
 import type { Connection } from "./platform";
 
 const initialSetup = (): Setup => ({
@@ -22,6 +21,7 @@ export function useLocalDevice(
   open: boolean,
   onConnect: (connection: Connection) => Promise<void>,
   onClose: () => void,
+  onExistingHub?: (url: string) => void,
 ) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [setup, setSetup] = useState<Setup>(initialSetup);
@@ -31,8 +31,8 @@ export function useLocalDevice(
   const [error, setError] = useState("");
   const [phase, setPhase] = useState("");
   const [revision, setRevision] = useState(0);
-  const [editingProjects, setEditingProjects] = useState(false);
   const [pairingMessage, setPairingMessage] = useState("");
+  const [existingHub, setExistingHub] = useState<HubDiscovery | null>(null);
   const initialized = useRef(false);
   const operation = useRef(false);
   const paired = useRef<{ deviceId: string; connection: Connection } | null>(
@@ -62,7 +62,6 @@ export function useLocalDevice(
     if (!open) return;
     let active = true;
     initialized.current = false;
-    setEditingProjects(false);
     setReading(true);
     setError("");
     void deviceRequest({ operation: "status" })
@@ -80,16 +79,50 @@ export function useLocalDevice(
     };
   }, [open, receive]);
 
+  useEffect(() => {
+    let active = true;
+    setExistingHub(null);
+    if (
+      open &&
+      snapshot?.hub &&
+      !snapshot.ready &&
+      snapshot.operations?.includes("hub.discover")
+    ) {
+      void deviceRequest({ operation: "hub.discover" })
+        .then((result) => {
+          if (active) setExistingHub(result.existingHub ?? null);
+        })
+        .catch(() => {});
+    }
+    return () => {
+      active = false;
+    };
+  }, [
+    open,
+    snapshot?.deviceId,
+    snapshot?.baseUrl,
+    snapshot?.hub,
+    snapshot?.ready,
+  ]);
+
   async function refresh() {
     const value = (await deviceRequest({ operation: "status" })).snapshot;
     receive(value);
     return value;
   }
   async function apply(request: Request) {
+    if (["service.port", "proxy.apply"].includes(request.operation))
+      setError("");
     try {
       const value = await deviceRequest(request);
       receive(value.snapshot);
-      if (["setup", "projects", "repair.executor"].includes(request.operation))
+      if (request.operation === "service.port") {
+        paired.current = null;
+        setExistingHub(null);
+      }
+      if (
+        ["setup", "repair.executor", "service.port"].includes(request.operation)
+      )
         setRevision((value) => value + 1);
       return value;
     } catch (cause) {
@@ -115,25 +148,6 @@ export function useLocalDevice(
   }
   function updateSetup(value: Partial<Setup>) {
     setSetup((old) => ({ ...old, ...value }));
-  }
-  function updateProjects(change: (projects: Project[]) => Project[]) {
-    setSetup((old) => ({ ...old, projects: change(old.projects) }));
-  }
-  async function addProject() {
-    const path = await chooseProject();
-    if (path)
-      updateProjects((projects) =>
-        projects.some((project) => project.path === path)
-          ? projects
-          : [
-              ...projects,
-              {
-                id: "",
-                name: path.split(/[\\/]/).filter(Boolean).at(-1) ?? path,
-                path,
-              },
-            ],
-      );
   }
   async function enter(current: Snapshot) {
     setPhase("正在连接工作台…");
@@ -161,11 +175,28 @@ export function useLocalDevice(
     onClose();
   }
   async function startAndEnter(current: Snapshot) {
+    if (!current.ready && existingHub) {
+      if (!onExistingHub)
+        throw new Error(`已发现 Hub，请连接 ${existingHub.baseUrl} 并登录。`);
+      onExistingHub(existingHub.baseUrl);
+      return;
+    }
     if (!current.ready) {
       setPhase("正在启动本机服务…");
-      current = (
-        await apply({ operation: "start", expectedDeviceId: current.deviceId })
-      ).snapshot;
+      const result = await apply({
+        operation: "start",
+        expectedDeviceId: current.deviceId,
+      });
+      if (result.existingHub) {
+        setExistingHub(result.existingHub);
+        if (!onExistingHub)
+          throw new Error(
+            `已发现 Hub，请连接 ${result.existingHub.baseUrl} 并登录。`,
+          );
+        onExistingHub(result.existingHub.baseUrl);
+        return;
+      }
+      current = result.snapshot;
     }
     if (current.hub) await enter(current);
   }
@@ -202,7 +233,6 @@ export function useLocalDevice(
   const restored = useCallback(() => {
     paired.current = null;
     initialized.current = false;
-    setEditingProjects(false);
     setPairingMessage("");
     setSetup((value) => ({ ...value, invitation: "" }));
     setRevision((value) => value + 1);
@@ -218,8 +248,8 @@ export function useLocalDevice(
     error,
     phase,
     revision,
-    editingProjects,
     pairingMessage,
+    existingHub,
     receive,
     connectionPending: !!paired.current,
     setDataBusy,
@@ -227,8 +257,6 @@ export function useLocalDevice(
     apply,
     work,
     updateSetup,
-    updateProjects,
-    addProject,
     saveSetup,
     repair,
     restored,
@@ -250,22 +278,6 @@ export function useLocalDevice(
           expectedDeviceId: snapshot?.deviceId,
           expectedInstanceId: snapshot?.instanceId,
         });
-      }),
-    beginProjectEdit: () => {
-      updateSetup({
-        projects: snapshot!.projects.map((project) => ({ ...project })),
-      });
-      setEditingProjects(true);
-    },
-    cancelProjectEdit: () => setEditingProjects(false),
-    saveProjects: () =>
-      work(async () => {
-        await apply({
-          operation: "projects",
-          expectedDeviceId: snapshot?.deviceId,
-          projects: setup.projects,
-        });
-        setEditingProjects(false);
       }),
   };
 }

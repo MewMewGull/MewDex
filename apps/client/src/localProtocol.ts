@@ -90,6 +90,15 @@ export interface StartupInfo {
   message?: string;
 }
 
+export interface ListenerRequest {
+  port: number;
+}
+
+export interface HubDiscovery {
+  baseUrl: string;
+  protocolVersion: number;
+}
+
 export interface HubProxySettings {
   enabled: boolean;
   host: string;
@@ -107,6 +116,24 @@ export interface HubProxyInfo {
   state: string;
   message?: string;
   legacyAvailable: boolean;
+}
+
+export interface SSHProfile {
+  alias: string;
+  host: string;
+  port: number;
+  user: string;
+  identityFile: string;
+  knownHostsFile: string;
+  importable: boolean;
+  warnings: string[];
+}
+
+export interface SSHConfigInfo {
+  configPath: string;
+  found: boolean;
+  profiles: SSHProfile[];
+  message: string;
 }
 
 export interface CleanupRequest {
@@ -171,6 +198,7 @@ export interface Request {
   pairing?: PairingRequest | null;
   job?: JobRequest | null;
   startup?: StartupRequest | null;
+  listener?: ListenerRequest | null;
   hubProxy?: HubProxySettings | null;
   upgrade?: UpgradeRequest | null;
   cleanup?: CleanupRequest | null;
@@ -221,6 +249,8 @@ export interface Result {
   job?: JobInfo | null;
   startup?: StartupInfo | null;
   hubProxy?: HubProxyInfo | null;
+  sshConfig?: SSHConfigInfo | null;
+  existingHub?: HubDiscovery | null;
   cleanup?: CleanupInfo | null;
 }
 

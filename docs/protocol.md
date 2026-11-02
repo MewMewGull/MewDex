@@ -221,6 +221,12 @@ Hub 的 `mewdex-accounts` 能力声明账号接口，`central-projects` 声明�
 
 `startup.status` 读取本安装的系统启动登记与配置匹配状态；`startup.apply` 接收 `StartupRequest.enabled`，启用或移除未来启动入口，不隐式停止当前服务。返回的 `StartupInfo` 包含系统作用范围、请求意图、实际登记、配置与入口匹配及待核对状态，不含执行身份或模型凭据。结果未知后只查询状态；显式重试先核对已接受结果，不重新建立另一登记。
 
+`service.port` 接收 `ListenerRequest.port`（1–65535）和 `expectedDeviceId`，仅在 Hub 停止时保存用户指定的监听端口，保持监听主机与设备身份，并同步已有自启动登记。保存不隐式启动服务；未识别到 Hub 的端口占用通过 `start` 返回包含端口号的错误，不自动换端口或采用其他 Hub 的管理配置。
+
+`hub.discover` 只读取当前监听端口的公开 Hub 信息，结果通过 `Result.existingHub={baseUrl,protocolVersion}` 返回；不返回凭据、不修改当前配置或进程归属。`start` 发现端口上已经运行 MewDex Hub 时也返回该字段，桌面端转入该地址的标准登录流程；其他服务占用仍返回端口冲突。登录页会再次核对协议和认证方式，识别到 Hub 本身不构成登录。
+
+`proxy.ssh.config` 要求 `expectedDeviceId` 匹配当前本机 Hub，读取当前用户的 `.ssh/config`，通过 `Result.sshConfig` 返回具体 Host 别名及其服务器、端口、用户、私钥路径、主机密钥文件路径和可导入状态。读取不修改设置或原 SSH 文件，不读取私钥内容，也不建立 SSH 连接。输入端选定主机后仍通过 `proxy.apply` 保存可编辑的连接参数；公网地址、代理开关和远端转发设置保留原值。
+
 系统入口执行固定程序的 `managed -root ... -owner ...` 前台模式。安装租约覆盖服务与引擎清理全过程；被禁用、被恢复或已变化的配置不自动启动。所有权标识只用于避免误动其他登记，不是网络授权凭据。手机与网页输入端不暴露此本机接口。
 
 `project.location` 是只读本机操作，要求 `expectedDeviceId` 匹配当前配置，并用 `projectId` 选择已配置项目。结果的可选 `project` 返回规范目录；请求不接受自选路径。桌面原生宿主可据此定位本机项目目录，手机和网页只使用网络文件接口。

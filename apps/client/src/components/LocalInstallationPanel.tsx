@@ -70,7 +70,7 @@ export function LocalInstallationPanel({
       <h3>继续使用已有配置</h3>
       <p className="muted">
         这台电脑已有 MewDex 服务时，选择它的
-        device.json，继续管理原来的设备、项目与对话。
+        device.json，继续管理原来的设备与服务数据。
       </p>
       {error && (
         <p className="error" role="alert">
@@ -99,18 +99,11 @@ export function LocalInstallationPanel({
           <code className="local-installation-path">{preview.root}</code>
           <p>
             {preview.snapshot.configured
-              ? `${localServiceStates[preview.snapshot.state] ?? preview.snapshot.state} · ${preview.snapshot.projects.length} 个项目`
+              ? (localServiceStates[preview.snapshot.state] ?? preview.snapshot.state)
               : preview.snapshot.setupPending
                 ? "此目录有尚未完成的配置。"
                 : "此目录尚未配置，可以从这里开始。"}
           </p>
-          {preview.snapshot.configured && (
-            <ul className="local-installation-projects">
-              {preview.snapshot.projects.map((project) => (
-                <li key={project.id}>{project.name || project.id}</li>
-              ))}
-            </ul>
-          )}
           <p className="muted">
             工作台将记住这个管理位置。原服务继续保持当前状态，配置、账号与历史留在原处。
           </p>

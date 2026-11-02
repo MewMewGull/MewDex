@@ -95,6 +95,11 @@ func (m *Manager) importProxy(ctx context.Context) (*HubProxyInfo, error) {
 	if !c.Hub {
 		return nil, errors.New("反向代理只能由 Hub 管理")
 	}
+	if _, err := os.Stat(filepath.Join(m.options.Root, "ingress", "hub-managed")); err == nil {
+		return m.proxyStatus(ctx)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return nil, err
+	}
 	legacy := filepath.Join(m.options.Root, "ingress")
 	old, _, err := backhaul.Read(legacy)
 	if err != nil {

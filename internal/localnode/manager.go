@@ -10,6 +10,7 @@ import (
 	"mewdex/internal/backup"
 	"mewdex/internal/config"
 	"mewdex/internal/engine"
+	"mewdex/internal/hubproxy"
 	"mewdex/internal/lifecycle"
 	"mewdex/internal/protocol"
 	"mewdex/internal/startup"
@@ -26,6 +27,8 @@ type Options struct {
 	// BootSession is a trusted platform seam for deterministic lifecycle checks;
 	// it is never accepted from a desktop or network request.
 	BootSession func() (string, error)
+	// SSHHome is a trusted host/test override, never accepted from a request.
+	SSHHome string
 }
 
 type Manager struct{ options Options }
@@ -50,6 +53,37 @@ func (m *Manager) profile() string { return filepath.Join(m.options.Root, "devic
 func (m *Manager) draft() string   { return filepath.Join(m.options.Root, "device.setup.json") }
 
 func (m *Manager) Handle(ctx context.Context, request Request) (Result, error) {
+	if request.Operation == "proxy.ssh.config" {
+		c, err := config.Read(m.profile())
+		if err != nil {
+			return Result{}, err
+		}
+		if !c.Hub || request.ExpectedDeviceID == "" || request.ExpectedDeviceID != c.DeviceID {
+			return Result{}, errors.New("请先刷新当前 Hub，再读取本机 SSH 配置")
+		}
+		home := m.options.SSHHome
+		if home == "" {
+			home, err = os.UserHomeDir()
+			if err != nil {
+				return Result{}, errors.New("无法确定本机用户目录")
+			}
+		}
+		sshConfig, err := hubproxy.ReadSSHConfig(home)
+		if err != nil {
+			return Result{}, err
+		}
+		snapshot, err := m.status(ctx)
+		return Result{Snapshot: snapshot, SSHConfig: &sshConfig}, err
+	}
+	if request.Operation == "hub.discover" {
+		c, err := config.Read(m.profile())
+		if err != nil {
+			return Result{}, err
+		}
+		info := discoverHub(ctx, c)
+		snapshot, err := m.status(ctx)
+		return Result{Snapshot: snapshot, ExistingHub: info}, err
+	}
 	if request.Operation == "proxy.status" {
 		info, err := m.proxyStatus(ctx)
 		if err != nil {
@@ -125,13 +159,19 @@ func (m *Manager) Handle(ctx context.Context, request Request) (Result, error) {
 		return Result{}, errors.New("another local service operation is in progress")
 	}
 	defer lock.Close()
+	if request.Operation == "service.port" && request.ExpectedDeviceID == "" {
+		return Result{}, errors.New("请先刷新当前设备，再修改监听端口")
+	}
 	if (request.Operation == "cleanup.prepare" || request.Operation == "cleanup.apply") && request.ExpectedDeviceID == "" {
 		return Result{}, errors.New("refresh this device before preparing its cleanup recovery")
 	}
 	var installation *lifecycle.Lock
-	if request.Operation == "setup" || request.Operation == "projects" || request.Operation == "backup" || request.Operation == "restore.prepare" || request.Operation == "restore.apply" || request.Operation == "repair.executor" || request.Operation == "upgrade.prepare" || request.Operation == "upgrade.apply" {
+	if request.Operation == "setup" || request.Operation == "projects" || request.Operation == "service.port" || request.Operation == "backup" || request.Operation == "restore.prepare" || request.Operation == "restore.apply" || request.Operation == "repair.executor" || request.Operation == "upgrade.prepare" || request.Operation == "upgrade.apply" {
 		installation, err = lifecycle.Installation(m.options.Root)
 		if err != nil {
+			if request.Operation == "service.port" {
+				return Result{}, errors.New("请先停止本机服务，再修改监听端口")
+			}
 			return Result{}, errors.New("stop the local installation before changing its state")
 		}
 		defer func() {
@@ -155,6 +195,7 @@ func (m *Manager) Handle(ctx context.Context, request Request) (Result, error) {
 	var proxyInfo *HubProxyInfo
 	var upgradeInfo *UpgradeInfo
 	var cleanupInfo *CleanupInfo
+	var discovered *HubDiscovery
 	switch request.Operation {
 	case "cleanup.prepare":
 		cleanupInfo, err = m.prepareCleanup(request.Cleanup)
@@ -164,10 +205,17 @@ func (m *Manager) Handle(ctx context.Context, request Request) (Result, error) {
 		err = m.setup(ctx, request.Setup)
 	case "start":
 		err = m.start(ctx)
+		var existing *existingHubError
+		if errors.As(err, &existing) {
+			discovered = existing.Hub
+			err = nil
+		}
 	case "stop":
 		err = m.stop(ctx, request.ExpectedInstanceID)
 	case "service.update":
 		err = m.updateService(ctx, request.ExpectedInstanceID)
+	case "service.port":
+		err = m.applyListener(ctx, request.Listener)
 	case "projects":
 		err = m.projects(request.Projects)
 	case "backup":
@@ -210,7 +258,7 @@ func (m *Manager) Handle(ctx context.Context, request Request) (Result, error) {
 		snapshot = Snapshot{State: "unreadable", Projects: []protocol.Project{}, Message: err.Error()}
 		err = nil
 	}
-	return Result{Snapshot: snapshot, Backup: backupInfo, Restore: restoreInfo, Startup: startupInfo, HubProxy: proxyInfo, Upgrade: upgradeInfo, Cleanup: cleanupInfo}, err
+	return Result{Snapshot: snapshot, Backup: backupInfo, Restore: restoreInfo, Startup: startupInfo, HubProxy: proxyInfo, ExistingHub: discovered, Upgrade: upgradeInfo, Cleanup: cleanupInfo}, err
 }
 
 func (m *Manager) report(phase string) {
@@ -228,7 +276,7 @@ func (m *Manager) archiveProgress(value backup.Progress) {
 func (m *Manager) status(ctx context.Context) (snapshot Snapshot, resultErr error) {
 	defer func() {
 		snapshot.StartupPreference, _ = m.StartupPreference()
-		snapshot.Operations = []string{"service.update", "proxy.status", "proxy.apply", "proxy.import", "backup", "restore.prepare", "restore.apply", "restore.status", "upgrade.prepare", "upgrade.apply", "upgrade.status", "repair.executor", "startup.status", "startup.apply", "job.start", "job.status", "job.cancel", "cleanup.status", "cleanup.prepare", "cleanup.apply"}
+		snapshot.Operations = []string{"service.update", "service.port", "hub.discover", "proxy.status", "proxy.apply", "proxy.import", "proxy.ssh.config", "backup", "restore.prepare", "restore.apply", "restore.status", "upgrade.prepare", "upgrade.apply", "upgrade.status", "repair.executor", "startup.status", "startup.apply", "job.start", "job.status", "job.cancel", "cleanup.status", "cleanup.prepare", "cleanup.apply"}
 	}()
 	snapshot = Snapshot{State: "unconfigured", Projects: []protocol.Project{}}
 	c, err := config.Read(m.profile())

@@ -9,6 +9,7 @@ export function ConnectScreen({
   onConnect,
   onLocalDevice,
   initialURL,
+  joining,
 }: {
   onConnect: (connection: Connection) => Promise<void>;
   onLocalDevice?: () => void;
@@ -30,13 +31,39 @@ export function ConnectScreen({
   useEffect(() => {
     if (initialURL) {
       request.current?.abort();
+      const controller = new AbortController();
+      request.current = controller;
       setURL(initialURL);
       setServer(null);
       setPassword("");
       setKey("");
       setPaired(null);
+      setError("");
+      if (!joining) {
+        setBusy(false);
+        return () => controller.abort();
+      }
+      setBusy(true);
+      void readConnection(
+        (signal) =>
+          new MewDexClient({ baseURL: initialURL }).checkServer(signal),
+        controller.signal,
+      )
+        .then((info) => {
+          if (controller.signal.aborted) return;
+          setMode(info.authentication.defaultMethod);
+          setServer(info);
+        })
+        .catch((cause) => {
+          if (!controller.signal.aborted)
+            setError(cause instanceof Error ? cause.message : String(cause));
+        })
+        .finally(() => {
+          if (request.current === controller) setBusy(false);
+        });
+      return () => controller.abort();
     }
-  }, [initialURL]);
+  }, [initialURL, joining]);
   useEffect(() => () => request.current?.abort(), []);
   useEffect(() => {
     if (server) userInput.current?.focus();

@@ -28,6 +28,7 @@ import (
 	"mewdex/internal/lifecycle"
 	"mewdex/internal/protocol"
 	"mewdex/internal/serviceguard"
+	"mewdex/internal/serviceport"
 	"mewdex/internal/store"
 	"mewdex/internal/transport"
 )
@@ -262,6 +263,16 @@ func serve(ctx context.Context, c config.Config) error {
 func serveOwned(ctx context.Context, c config.Config) error {
 	ctx, stop := context.WithCancel(ctx)
 	defer stop()
+	// Reserve the configured port before opening databases or starting an engine.
+	var hubListener net.Listener
+	if c.Hub {
+		var err error
+		hubListener, err = serviceport.Listen(c.Listen)
+		if err != nil {
+			return err
+		}
+		defer hubListener.Close()
+	}
 	errorsCh := make(chan error, 2)
 	control, err := lifecycle.Start(c.DataDir, c.DeviceID, stop)
 	if err != nil {
@@ -393,10 +404,7 @@ func serveOwned(ctx context.Context, c config.Config) error {
 	}
 	localHubURL := ""
 	if h != nil {
-		listener, err := net.Listen("tcp", c.Listen)
-		if err != nil {
-			return err
-		}
+		listener := hubListener
 		host, port, _ := net.SplitHostPort(listener.Addr().String())
 		if ip := net.ParseIP(host); ip != nil && ip.IsUnspecified() {
 			host = "127.0.0.1"

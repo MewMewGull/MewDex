@@ -98,6 +98,13 @@ export function LocalSetupPanel({ device }: { device: LocalDeviceController }) {
             <small>让这台电脑执行任务</small>
           </button>
         </div>
+        {setup.hub && <label>
+          Hub 监听端口
+          <input type="number" min={1} max={65535} step={1} required
+            value={setup.listen?.split(":").at(-1) ?? "47830"}
+            onChange={(event) => updateSetup({ listen: `127.0.0.1:${event.target.value}` })} />
+          <small>默认 47830；端口被占用时请自行修改。</small>
+        </label>}
         {!setup.hub && (
           <label>
             设备网络地址
@@ -135,16 +142,6 @@ export function LocalSetupPanel({ device }: { device: LocalDeviceController }) {
         <fieldset disabled={locked}>
           {setup.hub && (
             <>
-              <label>
-                本机服务地址
-                <input
-                  value={setup.listen}
-                  onChange={(event) =>
-                    updateSetup({ listen: event.target.value })
-                  }
-                  required
-                />
-              </label>
               <label className="checkbox">
                 <input
                   type="checkbox"

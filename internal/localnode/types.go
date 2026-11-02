@@ -2,6 +2,7 @@
 package localnode
 
 import (
+	"mewdex/internal/hubproxy"
 	"mewdex/internal/protocol"
 	"mewdex/internal/startup"
 )
@@ -37,6 +38,7 @@ type Request struct {
 	Pairing            *PairingRequest    `json:"pairing,omitempty"`
 	Job                *JobRequest        `json:"job,omitempty"`
 	Startup            *StartupRequest    `json:"startup,omitempty"`
+	Listener           *ListenerRequest   `json:"listener,omitempty"`
 	HubProxy           *HubProxySettings  `json:"hubProxy,omitempty"`
 	Upgrade            *UpgradeRequest    `json:"upgrade,omitempty"`
 	Cleanup            *CleanupRequest    `json:"cleanup,omitempty"`
@@ -183,16 +185,18 @@ type Connection struct {
 }
 
 type Result struct {
-	Project    *protocol.Project `json:"project,omitempty"`
-	Snapshot   Snapshot          `json:"snapshot"`
-	Connection *Connection       `json:"connection,omitempty"`
-	Backup     *BackupInfo       `json:"backup,omitempty"`
-	Restore    *RestoreInfo      `json:"restore,omitempty"`
-	Upgrade    *UpgradeInfo      `json:"upgrade,omitempty"`
-	Job        *JobInfo          `json:"job,omitempty"`
-	Startup    *StartupInfo      `json:"startup,omitempty"`
-	HubProxy   *HubProxyInfo     `json:"hubProxy,omitempty"`
-	Cleanup    *CleanupInfo      `json:"cleanup,omitempty"`
+	Project     *protocol.Project       `json:"project,omitempty"`
+	Snapshot    Snapshot                `json:"snapshot"`
+	Connection  *Connection             `json:"connection,omitempty"`
+	Backup      *BackupInfo             `json:"backup,omitempty"`
+	Restore     *RestoreInfo            `json:"restore,omitempty"`
+	Upgrade     *UpgradeInfo            `json:"upgrade,omitempty"`
+	Job         *JobInfo                `json:"job,omitempty"`
+	Startup     *StartupInfo            `json:"startup,omitempty"`
+	HubProxy    *HubProxyInfo           `json:"hubProxy,omitempty"`
+	SSHConfig   *hubproxy.SSHConfigInfo `json:"sshConfig,omitempty"`
+	ExistingHub *HubDiscovery           `json:"existingHub,omitempty"`
+	Cleanup     *CleanupInfo            `json:"cleanup,omitempty"`
 }
 
 type Response struct {

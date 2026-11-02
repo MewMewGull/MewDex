@@ -1,14 +1,14 @@
 {
   "schemaVersion": 1,
-  "reviewDate": "2026-11-02",
+  "reviewDate": "2026-11-03",
   "scope": "Package-level license declarations, all npm lockfile entries, all Rust targets/features, declared Go requirements; not binary-release clearance or an audit of every embedded file, SDK, system library, or engine dependency.",
   "inputHashFormat": "SHA-256 of UTF-8 files after CRLF-to-LF normalization, matching Git text storage",
   "inputs": {
     "apps/client/src-tauri/Cargo.lock": "c7d91edaa958df509a56646703e17f59c6d4a32dad40e6e5ff37ce1e71319edf",
     "apps/client/src-tauri/Cargo.toml": "e3c0229a0d838178a0a43478e0b8267bc2760296af5d04becee195f705666ca8",
     "engine.lock.json": "45ee964b80ae895b7b4a12088df5154f5803263915cbcb744d878366f5f3c033",
-    "go.mod": "cb65d3722789e02db87727e963c41cd81f6dcf8680062eb3af30ae4c2b3407f0",
-    "go.sum": "460430db564bc761f1aaacdcfcbe32aa5b067588a5c187a71cfcd14ae60543c8",
+    "go.mod": "b0abf275aea8590f5ec759bbdad254eb0fdc21a636c12851f89d5d881bfeff69",
+    "go.sum": "18ad0f98dfa9f67d18d0b766434645cc56877475c36aab502c4a9d44aa49bb21",
     "package-lock.json": "304e5a821a9cfcefe01bb75cea5de13becb56dee5a4a2437c244b6e54edc7283",
     "scripts/native-vault-risk/Cargo.lock": "03f48d3da73e5f477948327b51c6f31a8556ebf16d110f52eed2b8d0e2d8c56d",
     "scripts/native-vault-risk/Cargo.toml": "ad575172bebbe984a6263ed7cf42ebb1b9cb6593daabe83c859669198b025aa1",
@@ -8547,6 +8547,18 @@
       ]
     },
     {
+      "name": "github.com/kevinburke/ssh_config",
+      "version": "v1.6.0",
+      "license": "MIT",
+      "direct": true,
+      "evidence": [
+        {
+          "file": "LICENSE",
+          "sha256": "a15a6f732df3a033a71853ce1d255bd671f00fbc537fa629b78d71baecda0ace"
+        }
+      ]
+    },
+    {
       "name": "github.com/mattn/go-isatty",
       "version": "v0.0.20",
       "license": "MIT",
@@ -8586,7 +8598,7 @@
       "name": "golang.org/x/crypto",
       "version": "v0.55.0",
       "license": "BSD-3-Clause",
-      "direct": false,
+      "direct": true,
       "evidence": [
         {
           "file": "LICENSE",
