@@ -147,15 +147,19 @@ export function ComposerControls({
     <div className="composer-inline-controls">
       <ToolbarMenu
         label={`访问权限：${accessLabel}${applicationHint}`}
+        className="composer-labeled-menu"
         disabled={disabled || !device?.capabilities?.includes("access-modes")}
         icon={
-          access === "read-only" ? (
-            <Eye size={16} />
-          ) : access === "workspace-network" ? (
-            <Globe size={16} />
-          ) : (
-            <ShieldCheck size={16} />
-          )
+          <>
+            {access === "read-only" ? (
+              <Eye size={16} />
+            ) : access === "workspace-network" ? (
+              <Globe size={16} />
+            ) : (
+              <ShieldCheck size={16} />
+            )}
+            <span className="composer-control-label">{accessLabel}</span>
+          </>
         }
       >
         <strong>访问权限</strong>
@@ -192,15 +196,21 @@ export function ComposerControls({
       </ToolbarMenu>
       <ToolbarMenu
         label={`任务策略：${value.collaborationMode === "plan" ? "方案讨论 · " : ""}${strategyLabel}${applicationHint}`}
+        className="composer-labeled-menu"
         disabled={disabled}
         icon={
-          value.collaborationMode === "plan" ? (
-            <MessageSquareText size={16} />
-          ) : strategy === "edit" ? (
-            <Code2 size={16} />
-          ) : (
-            <FlaskConical size={16} />
-          )
+          <>
+            {value.collaborationMode === "plan" ? (
+              <MessageSquareText size={16} />
+            ) : strategy === "edit" ? (
+              <Code2 size={16} />
+            ) : (
+              <FlaskConical size={16} />
+            )}
+            <span className="composer-control-label">
+              {value.collaborationMode === "plan" ? "方案讨论" : strategyLabel}
+            </span>
+          </>
         }
       >
         <strong>任务策略</strong>

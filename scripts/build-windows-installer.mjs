@@ -8,7 +8,7 @@ if (process.platform !== 'win32') throw new Error('Build the Windows installer o
 const root = path.resolve(import.meta.dirname, '..');
 const input = process.argv[2];
 if (!input || ![3,4].includes(process.argv.length)) throw new Error('Usage: node scripts/build-windows-installer.mjs <prepared desktop build folder> [installer-name.exe]');
-const installerName = process.argv[3] ?? 'MewDex-Windows-x64-20261102-Hub-Setup.exe';
+const installerName = process.argv[3] ?? 'MewDex-Windows-x64.exe';
 if (!/^[A-Za-z0-9_.-]+\.exe$/.test(installerName)) throw new Error('Installer name must be a plain .exe filename');
 const source = path.resolve(root, input);
 const relative = path.relative(root, source);

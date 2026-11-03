@@ -1,13 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Gauge,
-  LogIn,
-  LogOut,
-  Settings,
-  ChevronUp,
-  RefreshCw,
-} from "lucide-react";
+import { Gauge, LogIn, LogOut, ChevronUp, RefreshCw } from "lucide-react";
 import type {
   Device,
   MewDexClient,
@@ -66,7 +59,6 @@ export function AccountMenu({
   localAvailable,
   connected,
   admin,
-  onSettings,
   onLogin,
   identity,
   mewdexSupported,
@@ -78,7 +70,6 @@ export function AccountMenu({
   localAvailable: boolean;
   connected: boolean;
   admin: boolean;
-  onSettings: () => void;
   onLogin: (deviceId: string) => void;
   identity: Identity;
   mewdexSupported: boolean;
@@ -187,7 +178,7 @@ export function AccountMenu({
     >
       <summary
         className="workspace-settings-entry"
-        aria-label="MewDex 账号、节点订阅与设置"
+        aria-label="MewDex 账号与节点订阅"
       >
         <span className="avatar account-avatar">
           {title.slice(0, 1).toUpperCase()}
@@ -286,15 +277,6 @@ export function AccountMenu({
             登录此节点的 ChatGPT
           </button>
         )}
-        <button
-          onClick={() => {
-            if (menu.current) menu.current.open = false;
-            onSettings();
-          }}
-        >
-          <Settings size={16} />
-          设置<small>Ctrl+,</small>
-        </button>
         {value?.signedIn && admin && (
           <button
             disabled={!enabled || busy || !value.logoutSupported}

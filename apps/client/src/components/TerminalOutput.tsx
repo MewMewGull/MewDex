@@ -1,21 +1,45 @@
 import { useEffect, useRef, useState } from "react";
 import { Terminal as XTerminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
-import { SearchAddon } from "@xterm/addon-search";
+import { SearchAddon, type ISearchOptions } from "@xterm/addon-search";
 import { ArrowDown } from "lucide-react";
 import "@xterm/xterm/css/xterm.css";
 import { CopyButton } from "./CopyButton";
 import { OutputFindBar } from "./OutputFindBar";
 import { useOutputView, type TerminalReading } from "../useOutputReading";
 
-const decorations = {
-  matchBackground: "#3e5237",
-  matchBorder: "#61734f",
-  matchOverviewRuler: "#61734f",
-  activeMatchBackground: "#697f45",
-  activeMatchBorder: "#b3cb8a",
-  activeMatchColorOverviewRuler: "#b3cb8a",
-};
+function terminalColors(host: HTMLElement) {
+  const styles = getComputedStyle(host);
+  const canvas = document.createElement("canvas");
+  canvas.width = canvas.height = 1;
+  const context = canvas.getContext("2d")!;
+  // The search addon requires hex colors, including for CSS color-mix tokens.
+  function color(property: string) {
+    context.fillStyle = styles.getPropertyValue(property).trim();
+    context.fillRect(0, 0, 1, 1);
+    const channels = context.getImageData(0, 0, 1, 1).data;
+    return `#${Array.from(channels.slice(0, 3), (channel) => channel.toString(16).padStart(2, "0")).join("")}`;
+  }
+  const accent = color("--accent-text");
+  const border = color("--accent-border");
+  const selection = color("--accent-selection");
+  return {
+    theme: {
+      background: color("background-color"),
+      foreground: color("color"),
+      selectionBackground: selection,
+      selectionInactiveBackground: selection,
+    },
+    decorations: {
+      matchBackground: color("--accent-surface"),
+      matchBorder: border,
+      matchOverviewRuler: border,
+      activeMatchBackground: selection,
+      activeMatchBorder: accent,
+      activeMatchColorOverviewRuler: accent,
+    },
+  };
+}
 
 export function TerminalOutput({
   view,
@@ -35,6 +59,7 @@ export function TerminalOutput({
   const host = useRef<HTMLDivElement>(null);
   const terminal = useRef<XTerminal | null>(null);
   const search = useRef<SearchAddon | null>(null);
+  const decorations = useRef<ISearchOptions["decorations"]>(undefined);
   const previous = useRef("");
   const reading = useRef(onReadingEarlier);
   reading.current = onReadingEarlier;
@@ -48,6 +73,8 @@ export function TerminalOutput({
   const [selected, setSelected] = useState(false);
   const [following, setFollowing] = useState(view.viewport?.pinned ?? true);
   useEffect(() => {
+    const colors = terminalColors(host.current!);
+    decorations.current = colors.decorations;
     const term = new XTerminal({
       convertEol: true,
       disableStdin: true,
@@ -55,11 +82,7 @@ export function TerminalOutput({
       fontSize: 11,
       fontFamily: "Consolas, monospace",
       scrollback: 5000,
-      theme: {
-        background: "#0d1119",
-        foreground: "#a6b7cc",
-        selectionBackground: "#405b53",
-      },
+      theme: colors.theme,
     });
     const fit = new FitAddon();
     const finder = new SearchAddon();
@@ -88,6 +111,26 @@ export function TerminalOutput({
       setSelected(term.hasSelection()),
     );
     const results = finder.onDidChangeResults(setMatches);
+    const updateTheme = () => {
+      const colors = terminalColors(host.current!);
+      term.options.theme = colors.theme;
+      decorations.current = colors.decorations;
+      const request = searchRequest.current;
+      if (restored.current && request.findOpen && request.query) {
+        finder.clearDecorations();
+        finder.findNext(request.query, {
+          decorations: decorations.current,
+          incremental: true,
+        });
+      }
+    };
+    const appearance = new MutationObserver(updateTheme);
+    appearance.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["style", "data-theme"],
+    });
+    const systemTheme = matchMedia("(prefers-color-scheme: light)");
+    systemTheme.addEventListener("change", updateTheme);
     return () => {
       if (restored.current)
         view.viewport = {
@@ -95,6 +138,8 @@ export function TerminalOutput({
           pinned: term.buffer.active.viewportY === term.buffer.active.baseY,
         };
       observer.disconnect();
+      appearance.disconnect();
+      systemTheme.removeEventListener("change", updateTheme);
       scrolling.dispose();
       selection.dispose();
       results.dispose();
@@ -116,7 +161,7 @@ export function TerminalOutput({
         const request = searchRequest.current;
         if (request.findOpen && request.query)
           search.current?.findNext(request.query, {
-            decorations,
+            decorations: decorations.current,
             incremental: true,
           });
         const savedViewport = initialViewport.current;
@@ -136,13 +181,17 @@ export function TerminalOutput({
       search.current?.clearDecorations();
       setMatches({ resultIndex: -1, resultCount: 0 });
     } else if (restored.current)
-      search.current?.findNext(query, { decorations, incremental: true });
+      search.current?.findNext(query, {
+        decorations: decorations.current,
+        incremental: true,
+      });
   }, [query, findOpen]);
   function next(previous = false) {
     if (!query) return;
     const finder = search.current;
-    if (previous) finder?.findPrevious(query, { decorations });
-    else finder?.findNext(query, { decorations });
+    if (previous)
+      finder?.findPrevious(query, { decorations: decorations.current });
+    else finder?.findNext(query, { decorations: decorations.current });
   }
   return (
     <div className="terminal-view">

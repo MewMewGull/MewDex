@@ -101,6 +101,8 @@ const manifest={format:1,version,target:target.vendor,package:metadata.name,pack
 await writeFile(path.join(resources,'mewdex-engine.json'),JSON.stringify(manifest,null,2)+'\n',{mode:0o600});
 const binaries=path.join(output,'binaries');await mkdir(binaries,{recursive:true,mode:0o700});
 const helper=path.join(binaries,`mewdex-node-${target.rust}${target.exe}`);
+const npmCLI=process.env.npm_execpath ?? path.join(path.dirname(process.execPath),'node_modules','npm','bin','npm-cli.js');
+run(process.execPath,[npmCLI,'run','build:ui'],{windowsHide:true});
 run('go',['build','-trimpath',...(target.goos==='windows'?['-ldflags=-H=windowsgui']:[]),'-o',helper,'./cmd/mewdex'],{env:{...process.env,GOOS:target.goos,GOARCH:target.goarch,...(targetKey!==hostKey?{CGO_ENABLED:'0'}:{})}});
 const report={at:new Date().toISOString(),platform:target.rust,output,engineVersion:version,packageIntegrityVerified:true,engineFiles:files.length,helper,helperSha256:await hash(helper),modelCredentialsRead:false,finalCandidate:false};
 await mkdir('.state/evidence',{recursive:true});

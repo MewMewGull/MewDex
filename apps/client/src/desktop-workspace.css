@@ -3,29 +3,142 @@
   --panel-subtle: var(--tone-151923);
   --panel-border: var(--tone-354051);
   --text-strong: var(--tone-e0e7f2);
+  --text-default: var(--tone-adb9cf);
   --text-muted: var(--tone-91a5be);
-  --accent-text: var(--accent);
   --project-files-width: clamp(320px, 30vw, 440px);
-  --tone-b8e5bb: var(--accent-text);
 }
-:root[data-theme="light"] {
-  --accent-text: color-mix(in srgb, var(--accent) 50%, #000);
+.workspace-navigation {
+  display: grid;
+  gap: 3px;
+  padding: 2px 0 10px;
+  border-bottom: 1px solid var(--tone-262b38);
+  flex-shrink: 0;
 }
-@media (prefers-color-scheme: light) {
-  :root[data-theme="system"] {
-    --accent-text: color-mix(in srgb, var(--accent) 50%, #000);
-  }
+.workspace-navigation > button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  margin: 0;
+  padding: 9px 11px;
+  border: 0;
+  border-radius: 8px;
+  text-align: left;
+  font-size: calc(12px * var(--ui-scale, 1));
+  color: var(--text-strong);
+  background: transparent;
 }
-.workspace-heading-button {
+.workspace-navigation > .new-chat {
+  background: var(--tone-202632);
+}
+.workspace-navigation > button > span {
+  flex: 1;
+}
+.workspace-navigation > button:hover,
+.sidebar-utilities > button:hover {
+  background: var(--tone-242d3c);
+}
+.workspace-navigation kbd,
+.sidebar-utilities kbd {
+  color: var(--text-muted);
+  font-size: calc(10px * var(--ui-scale, 1));
+  white-space: nowrap;
+}
+.workspace-navigation .network-activity-entry.needs-attention {
+  color: var(--tone-d3bf97);
+  background: var(--tone-29251f);
+}
+.conversation-nav-heading > strong {
+  margin-right: auto;
+  font-weight: 550;
+}
+.sidebar-section-label {
+  display: block;
+  padding: 0 9px 5px;
+  color: var(--text-muted);
+  font-size: calc(10px * var(--ui-scale, 1));
+}
+.sidebar-device .device-picker-trigger {
+  margin: 0;
+  padding: 8px 9px;
+  background: transparent;
+  border-color: transparent;
+}
+.sidebar-device .device-picker-current small {
+  display: none;
+}
+.sidebar-device .device-picker-icon {
+  width: 30px;
+  height: 30px;
+}
+.sidebar-utilities {
+  display: flex;
+  gap: 4px;
+  padding: 5px 0 0;
+}
+.sidebar-utilities > button {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex: 1;
+  min-width: 0;
+  padding: 9px;
+  border-radius: 7px;
+  color: var(--text-muted);
+  font-size: calc(11px * var(--ui-scale, 1));
+}
+.sidebar-utilities kbd {
+  margin-left: auto;
+}
+.workspace-context,
+.workspace-device-name {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: inherit;
-  cursor: pointer;
-  padding: 4px 0;
+  min-width: 0;
+}
+.workspace-context {
+  max-width: 100%;
+  font-size: calc(10px * var(--ui-scale, 1));
+}
+.workspace-context > span:first-of-type {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.workspace-context > svg,
+.workspace-device-name > svg {
+  flex-shrink: 0;
+}
+.workspace-device-name {
+  margin-left: 6px;
+  padding-left: 9px;
+  border-left: 1px solid var(--panel-border);
+  white-space: nowrap;
+}
+.header-action-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 9px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  color: var(--text-muted);
+  font-size: calc(11px * var(--ui-scale, 1));
+  white-space: nowrap;
+}
+.header-action-button:hover {
+  color: var(--text-strong);
+  background: var(--tone-242d3c);
+}
+.header-action-button[aria-pressed="true"],
+.header-action-button[aria-expanded="true"] {
+  color: var(--accent-text);
+  border-color: var(--accent-border);
+  background: var(--accent-surface);
 }
 .workspace-category {
-  padding: 16px 9px 7px;
+  padding: 10px 9px 5px;
   font-size: calc(10px * var(--ui-scale));
   color: var(--text-muted);
 }
@@ -73,7 +186,9 @@
   transform: rotate(-90deg);
 }
 .workspace-group-sessions {
-  padding-left: 13px;
+  padding-left: 15px;
+  margin-left: 9px;
+  border-left: 1px solid var(--tone-262b38);
 }
 .workspace-group-sessions .session {
   margin: 2px 0;
@@ -391,11 +506,11 @@ progress::-moz-progress-bar {
   border-radius: 4px;
 }
 .project-files-panel.settings-dialog {
-  inset: 66px 0 0 auto;
+  inset: 74px 0 0 auto;
   transform: none;
   width: var(--project-files-width);
   max-height: none;
-  height: calc(100dvh - 66px);
+  height: calc(100dvh - 74px);
   padding: 20px;
   border-radius: 12px 0 0 12px;
   border-right: 0;
@@ -517,7 +632,7 @@ button:disabled {
   scroll-behavior: auto !important;
 }
 
-/* Compact composer: one action row, with infrequent options in popovers. */
+/* Project, policy and model controls share the same composer toolbar. */
 .composer .composer-toolbar {
   display: flex;
   align-items: center;
@@ -573,6 +688,35 @@ button:disabled {
 }
 .composer-project-control {
   position: relative;
+  flex-direction: row;
+  min-width: 0;
+  width: auto;
+  max-width: 160px;
+  padding: 0 7px;
+  gap: 6px;
+  line-height: 1;
+}
+.composer-project-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: calc(11px * var(--ui-scale, 1));
+}
+.composer-project-control > svg {
+  flex-shrink: 0;
+}
+.composer-labeled-menu > summary {
+  width: auto;
+  max-width: 155px;
+  padding: 0 7px;
+  gap: 5px;
+  font-size: calc(11px * var(--ui-scale, 1));
+}
+.composer-control-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .composer .composer-project-control select {
   position: absolute;
@@ -664,6 +808,13 @@ button:disabled {
 .composer-menu-content > button:hover {
   background: var(--tone-303e52);
 }
+.composer-menu-content > button[aria-pressed="true"] {
+  color: var(--accent-text);
+  background: var(--accent-surface);
+}
+.composer-menu-content > button[aria-pressed="true"]:hover {
+  background: var(--accent-surface-hover);
+}
 .composer-menu-content > button > span {
   display: flex;
   flex-direction: column;
@@ -714,6 +865,43 @@ button:disabled {
   color: var(--text-muted);
   font-size: calc(11px * var(--ui-scale));
   margin: 8px 3px 0;
+}
+@container composer (max-width: 680px) {
+  .composer .composer-toolbar {
+    flex-wrap: wrap;
+    height: auto;
+    row-gap: 7px;
+  }
+  .composer .composer-inline-controls {
+    flex-basis: 100%;
+    order: 1;
+  }
+  .composer-toolbar > .send-options {
+    margin-left: auto;
+  }
+  .composer-project-control {
+    max-width: min(180px, max(60px, calc(100cqw - 160px)));
+  }
+}
+@container composer (max-width: 520px) {
+  .composer-control-label {
+    display: none;
+  }
+  .composer-labeled-menu > summary {
+    width: 28px;
+    padding: 0;
+  }
+}
+@media (max-width: 900px) {
+  .header-action-button > span,
+  .workspace-device-name {
+    display: none;
+  }
+}
+@media (max-width: 640px) {
+  .header-action-button {
+    display: none;
+  }
 }
 
 /* Project creation and editing share a small, folder-first form. */
@@ -1015,10 +1203,10 @@ button:disabled {
 }
 .hub-ssh-import .hub-ssh-apply {
   justify-self: start;
-  border: 1px solid var(--tone-b8e5bb);
+  border: 1px solid var(--accent-border);
   border-radius: 8px;
   padding: 8px 12px;
-  color: var(--tone-b8e5bb);
+  color: var(--accent-text);
 }
 .workspace-project-error {
   color: var(--tone-f1b7bc);

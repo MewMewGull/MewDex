@@ -47,9 +47,9 @@
   gap: 8px;
 }
 .messaging-platforms button[aria-pressed="true"] {
-  background: var(--tone-17202c);
-  border-color: var(--tone-b8e5bb);
-  color: var(--tone-b8e5bb);
+  background: var(--accent-surface);
+  border-color: var(--accent-border);
+  color: var(--accent-text);
 }
 .messaging-targets {
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -84,7 +84,7 @@
   color: var(--tone-9bb6d9);
 }
 .messaging-status-connected {
-  color: var(--tone-b8e5bb);
+  color: var(--status-success-text);
 }
 .messaging-status-delivery_error,
 .messaging-status-storage_error {

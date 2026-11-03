@@ -3,6 +3,7 @@ package hub
 import (
 	"errors"
 	"mewdex/internal/protocol"
+	"mewdex/internal/webui"
 	"net"
 	"net/http"
 	"time"
@@ -24,7 +25,14 @@ func (h *Hub) serverInfo(w http.ResponseWriter, r *http.Request) {
 		auth.Methods = []string{"key", "pair"}
 		auth.DefaultMethod = "key"
 	}
-	reply(w, 200, protocol.ServerInfo{Name: "MewDex", ProtocolVersion: protocol.Version, Capabilities: []string{"mewdex-accounts", "central-projects"}, Authentication: auth})
+	capabilities := []string{"mewdex-accounts", "central-projects"}
+	if webui.Available() {
+		capabilities = append(capabilities, "web-ui")
+		if h.webEnabled != nil && h.webEnabled() {
+			capabilities = append(capabilities, "web-ui-enabled")
+		}
+	}
+	reply(w, 200, protocol.ServerInfo{Name: "MewDex", ProtocolVersion: protocol.Version, Capabilities: capabilities, Authentication: auth})
 }
 
 func (h *Hub) login(w http.ResponseWriter, r *http.Request) {

@@ -12,6 +12,8 @@ WeChat, QQ, and Feishu inputs are configured in **Settings → Message channels*
 See the [messaging setup guide](docs/messaging.md) for credentials, access lists,
 and supported message types.
 
+The desktop app includes the central backend. Opening the app starts its configured local Hub and restores the workbench connection. First use opens local setup. The web workbench is optional and disabled by default. Choose **Start web workbench** under **Settings → Connections and services → Current connection** or the local device overview, then sign in with a MewDex account or login key. The same controls can stop it. Browsers and the API share the Hub address and port, which defaults to `http://127.0.0.1:47830` and follows the configured port. This preference is saved locally. The Hub and an enabled web workbench continue running after the desktop app exits.
+
 ## Source and license
 
 The source repository is [MewMewGull/MewDex](https://github.com/MewMewGull/MewDex), with `main` as its default branch:
@@ -100,7 +102,7 @@ Background tasks continue after the input window closes. The backend service and
 ## Technology and boundaries
 
 - Go: device services, Hub, Codex stdio adapter, and request egress.
-- React / TypeScript: shared input UI for desktop, mobile, and a future web client, plus a separate communication SDK.
+- React / TypeScript: shared input UI for desktop, mobile, and web clients, plus a separate communication SDK.
 - Tauri 2: platform shell; network routing and task execution belong to the backend.
 - SQLite: persistent state other than configuration; attachments are stored separately.
 - Official Codex App Server: reused engine with a pinned compatibility baseline; the user's global Codex configuration and credentials are left unchanged.
@@ -112,6 +114,8 @@ See the [implementation record](docs/implementation.md) for development status, 
 The scope and evidence for encrypted device export, two-phase restore, and current installation upgrades are documented in [device data lifecycle](docs/data-lifecycle.md). The management layer supports preparation, review-result queries, configuration switching, and pairing again. The desktop UI supports background jobs, progress, and cancellation; the complete native UI flow still requires hands-on validation.
 
 ## Development entry points
+
+Run `npm install` and `npm run build:ui` before compiling the Go Hub to embed the shared web UI. Desktop build scripts perform this step automatically. Use `npm run dev` for frontend hot reload.
 
 ```powershell
 go run ./cmd/mewdex init

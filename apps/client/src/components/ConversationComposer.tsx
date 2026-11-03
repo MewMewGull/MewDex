@@ -20,6 +20,7 @@ export function ConversationComposer({
   status,
   planMode,
   projectControl,
+  projectLabel = "选择项目",
   children,
   controls,
 }: {
@@ -51,6 +52,7 @@ export function ConversationComposer({
   status: string;
   planMode: boolean;
   projectControl?: ReactNode;
+  projectLabel?: string;
   children?: ReactNode;
   controls?: ReactNode;
 }) {
@@ -121,10 +123,11 @@ export function ConversationComposer({
               <Plus size={19} />
             </button>
             {projectControl && (
-              <label className="composer-project-control" title={context}>
+              <div className="composer-project-control" title={context}>
                 <FolderOpen size={16} />
+                <span className="composer-project-label">{projectLabel}</span>
                 {projectControl}
-              </label>
+              </div>
             )}
           </div>
           {controls}

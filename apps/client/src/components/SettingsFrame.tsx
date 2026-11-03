@@ -1,4 +1,5 @@
 import {
+  Fragment,
   useId,
   useLayoutEffect,
   useRef,
@@ -8,6 +9,7 @@ import {
 import * as Dialog from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import { useDialogReturnFocus } from "../useDialogReturnFocus";
+import { ResizableDialogContent } from "./ResizableDialogContent";
 
 export function SettingsFrame<T extends string>({
   open,
@@ -24,12 +26,19 @@ export function SettingsFrame<T extends string>({
   navigation = "sidebar",
   navigationLabel = "设置分类",
   footer,
+  sizeKey = "settings",
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
   description: string;
-  sections: { id: T; label: string; icon: ReactNode; disabled?: boolean }[];
+  sections: {
+    id: T;
+    label: string;
+    icon: ReactNode;
+    disabled?: boolean;
+    group?: string;
+  }[];
   selected: T;
   onSelect: (id: T) => void;
   children: ReactNode;
@@ -39,6 +48,7 @@ export function SettingsFrame<T extends string>({
   navigation?: "sidebar" | "tabs";
   navigationLabel?: string;
   footer?: ReactNode;
+  sizeKey?: string;
 }) {
   const id = useId();
   const returnFocus = useDialogReturnFocus();
@@ -78,67 +88,90 @@ export function SettingsFrame<T extends string>({
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
       <Dialog.Portal>
         <Dialog.Overlay className="dialog-overlay" />
-        <Dialog.Content
+        <ResizableDialogContent
+          sizeKey={sizeKey}
           onOpenAutoFocus={returnFocus.capture}
           onCloseAutoFocus={returnFocus.restore}
           className={`settings-dialog settings-frame ${tabbed ? "settings-frame-tabs" : ""} ${className}`}
         >
-          <header className="settings-frame-heading">
-            <div>
-              <Dialog.Title>{title}</Dialog.Title>
-              <Dialog.Description>{description}</Dialog.Description>
-            </div>
-            <Dialog.Close
-              className="icon-button"
-              aria-label={closeLabel}
-              disabled={closeDisabled}
-            >
-              <X size={18} />
-            </Dialog.Close>
-          </header>
-          <div className="settings-frame-layout">
-            <nav
-              className="settings-navigation"
-              role={tabbed ? "tablist" : undefined}
-              aria-label={navigationLabel}
-            >
-              {sections.map((section) => (
-                <button
-                  key={section.id}
-                  id={`${id}-${section.id}`}
-                  role={tabbed ? "tab" : undefined}
-                  aria-current={
-                    !tabbed && section.id === selected ? "page" : undefined
-                  }
-                  aria-selected={tabbed ? section.id === selected : undefined}
-                  aria-controls={tabbed ? `${id}-panel` : undefined}
-                  tabIndex={
-                    tabbed ? (section.id === selected ? 0 : -1) : undefined
-                  }
-                  disabled={section.disabled}
-                  onClick={() => onSelect(section.id)}
-                  onKeyDown={(event) => moveTab(event, section.id)}
+          {(sizeControls) => (
+            <>
+              <header className="settings-frame-heading">
+                <div>
+                  <Dialog.Title>{title}</Dialog.Title>
+                  <Dialog.Description>{description}</Dialog.Description>
+                </div>
+                <div className="settings-frame-actions">
+                  {sizeControls}
+                  <Dialog.Close
+                    className="icon-button"
+                    aria-label={closeLabel}
+                    disabled={closeDisabled}
+                  >
+                    <X size={18} />
+                  </Dialog.Close>
+                </div>
+              </header>
+              <div className="settings-frame-layout">
+                <nav
+                  className="settings-navigation"
+                  role={tabbed ? "tablist" : undefined}
+                  aria-label={navigationLabel}
                 >
-                  {section.icon}
-                  <span>{section.label}</span>
-                </button>
-              ))}
-            </nav>
-            <div
-              className="settings-frame-body"
-              ref={body}
-              id={`${id}-panel`}
-              role={tabbed ? "tabpanel" : undefined}
-              aria-labelledby={tabbed ? `${id}-${selected}` : undefined}
-              tabIndex={tabbed ? 0 : undefined}
-            >
-              {children}
-            </div>
-          </div>
-          {footer && (
-            <footer className="settings-frame-footer">{footer}</footer>
+                  {sections.map((section, index) => (
+                    <Fragment key={section.id}>
+                      {section.group &&
+                        section.group !== sections[index - 1]?.group && (
+                          <span className="settings-navigation-group">
+                            {section.group}
+                          </span>
+                        )}
+                      <button
+                        id={`${id}-${section.id}`}
+                        role={tabbed ? "tab" : undefined}
+                        aria-current={
+                          !tabbed && section.id === selected
+                            ? "page"
+                            : undefined
+                        }
+                        aria-selected={
+                          tabbed ? section.id === selected : undefined
+                        }
+                        aria-controls={tabbed ? `${id}-panel` : undefined}
+                        tabIndex={
+                          tabbed
+                            ? section.id === selected
+                              ? 0
+                              : -1
+                            : undefined
+                        }
+                        disabled={section.disabled}
+                        onClick={() => onSelect(section.id)}
+                        onKeyDown={(event) => moveTab(event, section.id)}
+                      >
+                        {section.icon}
+                        <span>{section.label}</span>
+                      </button>
+                    </Fragment>
+                  ))}
+                </nav>
+                <div
+                  className="settings-frame-body"
+                  ref={body}
+                  id={`${id}-panel`}
+                  role={tabbed ? "tabpanel" : undefined}
+                  aria-labelledby={tabbed ? `${id}-${selected}` : undefined}
+                  tabIndex={tabbed ? 0 : undefined}
+                >
+                  {children}
+                </div>
+              </div>
+              {footer && (
+                <footer className="settings-frame-footer">{footer}</footer>
+              )}
+            </>
           )}
-        </Dialog.Content>
+        </ResizableDialogContent>
       </Dialog.Portal>
     </Dialog.Root>
   );

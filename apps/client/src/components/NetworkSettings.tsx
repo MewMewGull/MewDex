@@ -32,10 +32,12 @@ import { AppearanceSettings } from "./AppearanceSettings";
 import { CopyButton } from "./CopyButton";
 import { MewDexAccountSettings } from "./MewDexAccountSettings";
 import { MessagingSettings } from "./MessagingSettings";
+import { WebWorkbenchButton } from "./WebWorkbenchButton";
 
 type Section =
   | "account"
   | "general"
+  | "connection"
   | "appearance"
   | "drafts"
   | "pairing"
@@ -255,31 +257,61 @@ export function NetworkSettings({
         setError("");
       }}
       sections={[
-        { id: "account", label: "MewDex 账号", icon: <KeyRound size={16} /> },
-        { id: "general", label: "通用", icon: <Bell size={16} /> },
-        { id: "appearance", label: "外观", icon: <Palette size={16} /> },
-        { id: "drafts", label: "草稿", icon: <FilePenLine size={16} /> },
+        {
+          id: "general",
+          label: "通用",
+          icon: <Bell size={16} />,
+          group: "工作台",
+        },
+        {
+          id: "appearance",
+          label: "外观",
+          icon: <Palette size={16} />,
+          group: "工作台",
+        },
+        {
+          id: "drafts",
+          label: "草稿",
+          icon: <FilePenLine size={16} />,
+          group: "工作台",
+        },
+        {
+          id: "connection",
+          label: "连接与服务",
+          icon: <Monitor size={16} />,
+          group: "连接",
+        },
+        {
+          id: "account",
+          label: "MewDex 账号",
+          icon: <KeyRound size={16} />,
+          group: "连接",
+        },
         ...(identity.role === "admin"
           ? [
               {
                 id: "pairing" as const,
                 label: "添加设备",
                 icon: <KeyRound size={16} />,
+                group: "连接",
               },
               {
                 id: "models" as const,
                 label: "节点 ChatGPT",
                 icon: <Monitor size={16} />,
+                group: "模型与访问",
               },
               {
                 id: "messaging" as const,
                 label: "消息渠道",
                 icon: <MessageCircle size={16} />,
+                group: "模型与访问",
               },
               {
                 id: "access" as const,
                 label: "访问权限",
                 icon: <ShieldCheck size={16} />,
+                group: "模型与访问",
               },
             ]
           : []),
@@ -385,6 +417,10 @@ export function NetworkSettings({
               </p>
             )}
           </section>
+        </>
+      )}
+      {section === "connection" && (
+        <>
           {onLocalDevice && (
             <section className="network-section">
               <h3>
@@ -428,6 +464,7 @@ export function NetworkSettings({
                 </dd>
               </div>
             </dl>
+            {onLocalDevice && <WebWorkbenchButton baseURL={baseURL} />}
             <details className="connection-advanced">
               <summary>登录密钥</summary>
               <p className="muted">

@@ -17,6 +17,8 @@ import {
   ChevronDown,
   Folder,
   FolderPlus,
+  Settings,
+  Monitor,
 } from "lucide-react";
 import type { Device, Project, Session } from "@mewdex/sdk";
 import { WorkspaceProjectMenu } from "./WorkspaceProjectMenu";
@@ -25,6 +27,7 @@ import { conversationContext, navigationMatches } from "../workspaceNavigation";
 import { SessionContextMenu } from "./SessionContextMenu";
 import type { UpdateSession } from "./SessionManagement";
 import { SidebarResizeHandle } from "./SidebarResizeHandle";
+import { keyboardModifierLabel } from "../inputKeys";
 
 export function WorkspaceSidebar({
   open,
@@ -39,6 +42,9 @@ export function WorkspaceSidebar({
   activeTasks,
   attentionTasks,
   onActivity,
+  onSearch,
+  onSettings,
+  onLocalDevice,
   onClose,
   onDevice,
   onSession,
@@ -67,6 +73,9 @@ export function WorkspaceSidebar({
   activeTasks: number;
   attentionTasks: number;
   onActivity: () => void;
+  onSearch: () => void;
+  onSettings: () => void;
+  onLocalDevice?: () => void;
   onClose: () => void;
   onDevice: (id: string) => void;
   onSession: (session: Session) => void;
@@ -88,6 +97,7 @@ export function WorkspaceSidebar({
   ) => Promise<void>;
 }) {
   const sidebar = useRef<HTMLElement>(null);
+  const modifier = keyboardModifierLabel();
   const [scope, setScope] = useState<"all" | "unread">("all");
   const [search, setSearch] = useState("");
   const [collapsed, setCollapsed] = useState(new Set<string>());
@@ -213,40 +223,38 @@ export function WorkspaceSidebar({
             <X size={18} />
           </button>
         </div>
-        <DevicePicker
-          devices={devices}
-          selectedId={deviceId}
-          connected={connected === "connected"}
-          onSelect={onDevice}
-        />
-        <button className="new-chat" onClick={onNew}>
-          <Plus size={17} />
-          新对话
-        </button>
-        {activeTasks > 0 && (
+        <nav className="workspace-navigation" aria-label="工作台入口">
+          <button className="new-chat" onClick={onNew}>
+            <Plus size={17} />
+            <span>新对话</span>
+          </button>
           <button
-            className={`network-activity-entry ${attentionTasks ? "needs-attention" : ""}`}
+            className="workspace-nav-item"
+            onClick={onSearch}
+            title="搜索设备、项目与对话"
+          >
+            <Search size={16} />
+            <span>搜索工作台</span>
+            <kbd>{modifier} K</kbd>
+          </button>
+          <button
+            className={`workspace-nav-item network-activity-entry ${attentionTasks ? "needs-attention" : ""}`}
             onClick={onActivity}
             title="正在执行的对话和等待你回复的请求 · Ctrl+Shift+J"
           >
             <Activity size={16} />
             <span>任务与请求</span>
-            <small>
-              {attentionTasks
-                ? `${attentionTasks} 项待处理`
-                : `${activeTasks} 项进行中`}
-            </small>
+            {activeTasks > 0 && (
+              <small>
+                {attentionTasks
+                  ? `${attentionTasks} 项待处理`
+                  : `${activeTasks} 项进行中`}
+              </small>
+            )}
           </button>
-        )}
+        </nav>
         <div className="conversation-nav-heading">
-          <button
-            className="workspace-heading-button"
-            onClick={onWorkspaces}
-            title="选择机器和文件夹，创建项目"
-          >
-            <FolderPlus size={14} />
-            创建项目
-          </button>
+          <strong>项目</strong>
           <div className="conversation-scopes" aria-label="对话范围">
             <button
               aria-pressed={scope === "all"}
@@ -266,12 +274,20 @@ export function WorkspaceSidebar({
               )}
             </button>
           </div>
+          <button
+            className="icon-button"
+            aria-label="创建项目"
+            onClick={onWorkspaces}
+            title="选择机器和文件夹，创建项目"
+          >
+            <FolderPlus size={15} />
+          </button>
         </div>
         <label className="search-field conversation-search">
           <Search size={14} />
           <input
             aria-label="搜索对话、设备或项目"
-            placeholder="搜索对话或项目"
+            placeholder="筛选项目和对话"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
@@ -518,7 +534,31 @@ export function WorkspaceSidebar({
             </p>
           )}
         </nav>
-        <div className="sidebar-bottom">{account}</div>
+        <div className="sidebar-bottom">
+          <div className="sidebar-device">
+            <span className="sidebar-section-label">执行设备</span>
+            <DevicePicker
+              devices={devices}
+              selectedId={deviceId}
+              connected={connected === "connected"}
+              onSelect={onDevice}
+            />
+          </div>
+          <div className="sidebar-utilities">
+            {onLocalDevice && (
+              <button onClick={onLocalDevice}>
+                <Monitor size={15} />
+                <span>本机设备</span>
+              </button>
+            )}
+            <button onClick={onSettings}>
+              <Settings size={15} />
+              <span>设置</span>
+              <kbd>{modifier} ,</kbd>
+            </button>
+          </div>
+          {account}
+        </div>
       </aside>
       <SidebarResizeHandle
         sidebar={sidebar}

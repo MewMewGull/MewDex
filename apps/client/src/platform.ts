@@ -5,6 +5,16 @@ export interface Connection {
   baseURL: string;
   credentials: Credentials;
 }
+
+export function hostedHubURL(): string | undefined {
+  if (
+    !isTauri() &&
+    document
+      .querySelector('meta[name="mewdex-hub"]')
+      ?.getAttribute("content") === "same-origin"
+  )
+    return window.location.origin;
+}
 export interface CredentialStore {
   load(): Promise<SavedConnection | null>;
   save(value: Connection): Promise<void>;
@@ -112,6 +122,22 @@ export async function openExternalLink(raw: string): Promise<void> {
     url.password
   )
     throw new Error("只能打开不含内嵌凭据的 HTTPS 网页");
+  await openLink(url);
+}
+
+export async function openWebWorkbench(raw: string): Promise<void> {
+  const url = new URL(raw);
+  const loopback = ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);
+  if (
+    url.username ||
+    url.password ||
+    (url.protocol !== "https:" && !(url.protocol === "http:" && loopback))
+  )
+    throw new Error("网页版地址需要使用 HTTPS 或本机回环地址");
+  await openLink(url);
+}
+
+async function openLink(url: URL): Promise<void> {
   if (isTauri()) {
     const { openUrl } = await import("@tauri-apps/plugin-opener");
     await openUrl(url.toString());

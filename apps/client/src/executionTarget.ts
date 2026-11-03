@@ -18,7 +18,7 @@ export function executionTarget(device: Device | undefined, projectId: string) {
         : issue === "project"
           ? projectId
             ? "项目不可用"
-            : "待配置项目"
+            : "工作目录未就绪"
           : "";
   const message =
     issue === "device"
@@ -28,7 +28,7 @@ export function executionTarget(device: Device | undefined, projectId: string) {
         : issue === "project"
           ? projectId
             ? "原项目已移除或不在当前访问范围内，原输入保留供复制。"
-            : "先在工作台创建项目并选择工作目录，再开始对话；已有项目不可见时，请确认项目访问权限。"
+            : "默认工作区尚未就绪，请确认执行端已更新并启动。已有项目不可见时，请确认项目访问权限。"
           : "";
   return {
     project,

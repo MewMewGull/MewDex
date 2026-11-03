@@ -30,8 +30,9 @@ export function ConversationWelcome({
   const missingExecutor = !device && !hasExecutors;
   return (
     <div className="welcome">
-      <div className="welcome-symbol">
-        <Layers3 size={32} />
+      <div className="welcome-eyebrow">
+        <Layers3 size={18} />
+        <span>{target.project?.name ?? "MewDex 工作台"}</span>
       </div>
       <h1>
         {loading
@@ -40,7 +41,7 @@ export function ConversationWelcome({
             ? "先接入一台执行设备"
             : target.issue
               ? "选择可以继续工作的地方"
-              : "接下来，想做些什么？"}
+              : "从这里开始下一项工作"}
       </h1>
       <p>
         {loading
@@ -51,7 +52,7 @@ export function ConversationWelcome({
               : "请联系网络管理员接入执行设备，并授予设备和项目的访问权限。"
             : target.issue
               ? target.message
-              : "选择执行设备和项目，让想法继续向前。"}
+              : "在下方描述任务，随时查看执行进度和项目变更。"}
       </p>
       {!loading && !missingExecutor && (
         <button
@@ -63,8 +64,13 @@ export function ConversationWelcome({
             <Monitor size={22} />
           </span>
           <div>
-            <small>{target.project?.name ?? "选择设备或项目"}</small>
-            <strong>{device?.name ?? "选择执行设备"}</strong>
+            <strong>{target.project?.name ?? "选择设备或项目"}</strong>
+            <small>{device?.name ?? "选择执行设备"}</small>
+            {target.project?.path && (
+              <span className="target-path" title={target.project.path}>
+                {target.project.path}
+              </span>
+            )}
           </div>
           <span className="target-status">
             {target.issue ? (

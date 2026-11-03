@@ -1,4 +1,5 @@
 import type { LocalDeviceController } from "../useLocalDevice";
+import { WebWorkbenchButton } from "./WebWorkbenchButton";
 
 export function LocalServiceActions({
   device,
@@ -51,6 +52,9 @@ export function LocalServiceActions({
           </button>
         )}
       </div>
+      {snapshot.hub && snapshot.ready && snapshot.baseUrl && (
+        <WebWorkbenchButton baseURL={snapshot.baseUrl} />
+      )}
       {device.existingHub && (
         <p className="muted" role="status">
           已检测到运行中的 Hub：{device.existingHub.baseUrl}。连接后使用该 Hub

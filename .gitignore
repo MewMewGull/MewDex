@@ -1,5 +1,7 @@
 node_modules/
 dist/
+internal/webui/static/*
+!internal/webui/static/.keep
 target/
 /bin/
 .state/

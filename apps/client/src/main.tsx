@@ -23,6 +23,8 @@ import {
   Paperclip,
   Search,
   X,
+  FolderOpen,
+  PanelRight,
 } from "lucide-react";
 import {
   commandID,
@@ -35,6 +37,8 @@ import {
   type MessageMatch,
 } from "@mewdex/sdk";
 import type { Connection } from "./platform";
+import { hostedHubURL } from "./platform";
+import { useDesktopHub } from "./useDesktopHub";
 import { attachInputViewport } from "./inputViewport";
 import {
   sameSelection,
@@ -53,7 +57,6 @@ import { useInputAlerts } from "./useInputAlerts";
 import { LocalDeviceDialog } from "./components/LocalDeviceDialog";
 import { ConnectScreen } from "./components/ConnectScreen";
 import { Brand } from "./components/Brand";
-import { inputCapabilities } from "./localDevice";
 import { InteractionPanel } from "./components/InteractionPanel";
 import { PolicySettings } from "./components/PolicySettings";
 import { QueueHistoryDialog, QueuePanel } from "./components/QueuePanel";
@@ -158,24 +161,16 @@ function App() {
     queries.clear();
   });
   const { connection, loading } = input;
+  const desktopHub = useDesktopHub(input.retry);
   const [localDeviceOpen, setLocalDeviceOpen] = useState(false);
-  const [localDeviceAvailable, setLocalDeviceAvailable] = useState(false);
+  const localDeviceAvailable = desktopHub.available;
   const [localStartAvailable, setLocalStartAvailable] = useState(false);
   const [connectionTarget, setConnectionTarget] = useState<string>();
   const [connectingExisting, setConnectingExisting] = useState(false);
   useEffect(() => {
-    let active = true;
-    void inputCapabilities()
-      .then((value) => {
-        if (active) setLocalDeviceAvailable(value.localService);
-      })
-      .catch(() => {
-        /* Network inputs remain usable if the native bridge is unavailable. */
-      });
-    return () => {
-      active = false;
-    };
-  }, []);
+    if (desktopHub.setupRequired && !loading && !connection && !input.address)
+      setLocalDeviceOpen(true);
+  }, [desktopHub.setupRequired, loading, connection, input.address]);
   async function saveConnection(value: Connection) {
     await input.save(value);
     setConnectionTarget(undefined);
@@ -185,7 +180,10 @@ function App() {
     ? () => setLocalDeviceOpen(true)
     : undefined;
   let screen: React.ReactNode;
-  if (loading) screen = <div className="loading">正在打开工作台…</div>;
+  const defaultHubURL =
+    connectionTarget ?? desktopHub.baseURL ?? hostedHubURL();
+  if (loading || desktopHub.pending)
+    screen = <div className="loading">正在打开工作台…</div>;
   else if (input.issue)
     screen = (
       <div className="connect-screen">
@@ -262,9 +260,11 @@ function App() {
       <ConnectScreen
         onConnect={saveConnection}
         onLocalDevice={openLocalDevice}
-        initialURL={connectionTarget}
-        joining={connectingExisting}
+        initialURL={defaultHubURL}
+        joining={connectingExisting || !!defaultHubURL}
         onJoiningChange={setConnectingExisting}
+        startupError={desktopHub.error}
+        onRetryStartup={desktopHub.retry}
       />
     );
   return (
@@ -274,7 +274,10 @@ function App() {
         <LocalDeviceDialog
           open={localDeviceOpen}
           onOpenChange={setLocalDeviceOpen}
-          onConnect={saveConnection}
+          onConnect={async (value) => {
+            await saveConnection(value);
+            desktopHub.connected(value.baseURL);
+          }}
           onJoinNetwork={(url) => {
             if (
               connection?.baseURL.replace(/\/$/, "") === url.replace(/\/$/, "")
@@ -1194,6 +1197,12 @@ function Workspace({
           setSidebar(false);
           setActivityOpen(true);
         }}
+        onSearch={() => {
+          setSidebar(false);
+          setSwitcher(true);
+        }}
+        onSettings={() => openNetworkSettings()}
+        onLocalDevice={onLocalDevice}
         onClose={() => setSidebar(false)}
         onDevice={selectDevice}
         onSession={selectConversation}
@@ -1250,7 +1259,6 @@ function Workspace({
             identity={identity.data}
             mewdexSupported={network.capabilities.includes("mewdex-accounts")}
             onLogout={disconnectInput}
-            onSettings={() => openNetworkSettings()}
             onLogin={(id) => openNetworkSettings(id)}
           />
         }
@@ -1311,11 +1319,50 @@ function Workspace({
             <Menu size={20} />
           </button>
           <div className="breadcrumb">
-            <span>{activeDevice?.name ?? "选择设备"}</span>
-            <span className="slash">/</span>
+            <div className="workspace-context">
+              <FolderOpen size={13} />
+              <span>{target.project?.name ?? "工作台"}</span>
+              <span className="workspace-device-name">
+                <Monitor size={12} />
+                {activeDevice?.name ?? "选择设备"}
+              </span>
+            </div>
             <strong>{activeSession?.title ?? "新对话"}</strong>
           </div>
           <div className="header-actions">
+            {activeSession && (
+              <>
+                <button
+                  className="header-action-button"
+                  aria-label="项目文件"
+                  title="项目文件"
+                  aria-expanded={!!fileTarget}
+                  onClick={() =>
+                    setFileTarget(
+                      fileTarget
+                        ? null
+                        : {
+                            session: activeSession,
+                            epoch: privateEpoch.current,
+                          },
+                    )
+                  }
+                >
+                  <FolderOpen size={16} />
+                  <span>项目文件</span>
+                </button>
+                <button
+                  className="header-action-button"
+                  aria-label="查看输出"
+                  title="查看输出"
+                  aria-pressed={!!outputPanel}
+                  onClick={() => setOutputPanel(outputPanel ? null : "diff")}
+                >
+                  <PanelRight size={16} />
+                  <span>查看输出</span>
+                </button>
+              </>
+            )}
             <button
               className="icon-button"
               aria-label="搜索设备、项目与对话"
@@ -1685,6 +1732,7 @@ function Workspace({
             </div>
           )}
           <ConversationComposer
+            projectLabel={target.project?.name ?? "选择项目"}
             editor={{
               ref: composerInput,
               draftKey: drafts.key,

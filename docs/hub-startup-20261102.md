@@ -24,8 +24,11 @@ Windows 构建：
 
 ```powershell
 ./scripts/build-desktop-development.ps1 -SideBySide
+python scripts/export-windows-development.py
 node scripts/build-windows-installer.mjs .state/desktop-development-next-target/debug
 ```
+
+Windows x64 包体固定输出到 `dist/windows/MewDex-Windows-x64` 和 `dist/windows/MewDex-Windows-x64.zip`，安装包默认命名为 `MewDex-Windows-x64.exe`。重新导出便携包会替换固定目录与 ZIP，并清理该目录下带版本后缀的旧包体。
 
 Windows Go 服务资源使用 `-H=windowsgui`，安装和登录入口直接执行该程序。NSIS 工具包核对 Tauri 官方发布的哈希，WebView2 引导程序核对 Microsoft 签名；运行时缺失时由安装器安装。静默安装可用 `/S /AUTOSTART=true` 或 `/AUTOSTART=false`；省略该参数则保留已有选择，首次安装关闭。
 

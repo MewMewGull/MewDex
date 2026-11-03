@@ -81,6 +81,7 @@ function LocalDeviceContents({
       title="本机设备"
       description="管理这台电脑的后台服务、启动与数据。"
       className="local-device-dialog"
+      sizeKey="local-device"
       closeDisabled={device.working || pendingSettings}
       closeLabel="关闭本机设备设置"
       selected={section}

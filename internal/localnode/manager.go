@@ -15,6 +15,7 @@ import (
 	"mewdex/internal/protocol"
 	"mewdex/internal/startup"
 	"mewdex/internal/store"
+	"mewdex/internal/webui"
 	"mewdex/internal/workspace"
 )
 
@@ -216,6 +217,22 @@ func (m *Manager) Handle(ctx context.Context, request Request) (Result, error) {
 		err = m.updateService(ctx, request.ExpectedInstanceID)
 	case "service.port":
 		err = m.applyListener(ctx, request.Listener)
+	case "web.apply":
+		if request.ExpectedDeviceID == "" || request.WebWorkbench == nil {
+			return Result{}, errors.New("请先刷新当前 Hub，再更改网页版设置")
+		}
+		c, readErr := config.Read(m.profile())
+		if readErr != nil {
+			return Result{}, readErr
+		}
+		if !c.Hub {
+			return Result{}, errors.New("网页版由中央后端提供")
+		}
+		settingsPath := filepath.Join(m.options.Root, webui.SettingsFile)
+		err = createJSON(settingsPath, request.WebWorkbench)
+		if errors.Is(err, os.ErrExist) {
+			err = replaceJSON(settingsPath, request.WebWorkbench)
+		}
 	case "projects":
 		err = m.projects(request.Projects)
 	case "backup":
@@ -258,7 +275,11 @@ func (m *Manager) Handle(ctx context.Context, request Request) (Result, error) {
 		snapshot = Snapshot{State: "unreadable", Projects: []protocol.Project{}, Message: err.Error()}
 		err = nil
 	}
-	return Result{Snapshot: snapshot, Backup: backupInfo, Restore: restoreInfo, Startup: startupInfo, HubProxy: proxyInfo, ExistingHub: discovered, Upgrade: upgradeInfo, Cleanup: cleanupInfo}, err
+	result := Result{Snapshot: snapshot, Backup: backupInfo, Restore: restoreInfo, Startup: startupInfo, HubProxy: proxyInfo, ExistingHub: discovered, Upgrade: upgradeInfo, Cleanup: cleanupInfo}
+	if request.Operation == "web.apply" {
+		result.WebWorkbench = request.WebWorkbench
+	}
+	return result, err
 }
 
 func (m *Manager) report(phase string) {
@@ -276,7 +297,7 @@ func (m *Manager) archiveProgress(value backup.Progress) {
 func (m *Manager) status(ctx context.Context) (snapshot Snapshot, resultErr error) {
 	defer func() {
 		snapshot.StartupPreference, _ = m.StartupPreference()
-		snapshot.Operations = []string{"service.update", "service.port", "hub.discover", "proxy.status", "proxy.apply", "proxy.import", "proxy.ssh.config", "backup", "restore.prepare", "restore.apply", "restore.status", "upgrade.prepare", "upgrade.apply", "upgrade.status", "repair.executor", "startup.status", "startup.apply", "job.start", "job.status", "job.cancel", "cleanup.status", "cleanup.prepare", "cleanup.apply"}
+		snapshot.Operations = []string{"service.update", "service.port", "web.apply", "hub.discover", "proxy.status", "proxy.apply", "proxy.import", "proxy.ssh.config", "backup", "restore.prepare", "restore.apply", "restore.status", "upgrade.prepare", "upgrade.apply", "upgrade.status", "repair.executor", "startup.status", "startup.apply", "job.start", "job.status", "job.cancel", "cleanup.status", "cleanup.prepare", "cleanup.apply"}
 	}()
 	snapshot = Snapshot{State: "unconfigured", Projects: []protocol.Project{}}
 	c, err := config.Read(m.profile())

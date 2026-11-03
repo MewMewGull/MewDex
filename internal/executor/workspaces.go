@@ -3,6 +3,7 @@ package executor
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 
 	"mewdex/internal/config"
@@ -18,7 +19,26 @@ type projectBinding struct {
 }
 
 func (x *Executor) bindWorkspaces() error {
-	return x.prepareWorkspaces(true)
+	if err := x.prepareWorkspaces(true); err != nil {
+		return err
+	}
+	if len(x.config.Projects) > 0 {
+		return nil
+	}
+	if x.config.DataDir == "" {
+		return errors.New("executor data directory is required for the default workspace")
+	}
+	// Keep tasks in this installation's workspace, separate from service data.
+	root := filepath.Join(filepath.Dir(x.config.DataDir), "workspaces", "default")
+	if err := os.MkdirAll(root, 0755); err != nil {
+		return fmt.Errorf("prepare default workspace: %w", err)
+	}
+	root, err := workspace.CanonicalDir(root)
+	if err != nil {
+		return err
+	}
+	_, err = x.registerWorkspace(root, &protocol.WorkspaceRequest{Name: "默认工作区"})
+	return err
 }
 
 // ValidateWorkspaceConfiguration is shared with stopped-service configuration

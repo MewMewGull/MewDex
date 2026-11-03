@@ -14,6 +14,7 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -31,6 +32,7 @@ import (
 	"mewdex/internal/serviceport"
 	"mewdex/internal/store"
 	"mewdex/internal/transport"
+	"mewdex/internal/webui"
 )
 
 func main() {
@@ -293,6 +295,9 @@ func serveOwned(ctx context.Context, c config.Config) error {
 		}
 		h = hub.New(c, hs)
 		h.SetContext(ctx)
+		if c.ProfilePath != "" {
+			h.SetWebUI(func() bool { return webui.Enabled(filepath.Dir(c.ProfilePath)) })
+		}
 		assets, err := attachments.New(filepath.Join(c.DataDir, "attachments"))
 		if err != nil {
 			return err
@@ -410,6 +415,19 @@ func serveOwned(ctx context.Context, c config.Config) error {
 			host = "127.0.0.1"
 		}
 		localHubURL = "http://" + net.JoinHostPort(host, port)
+		h.SetBrowserOrigins(func() []string {
+			origins := []string{localHubURL}
+			if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
+				origins = append(origins, "http://"+net.JoinHostPort("localhost", port))
+			}
+			if c.ProfilePath != "" {
+				settings, _, err := hubproxy.Read(filepath.Dir(c.ProfilePath))
+				if err == nil && settings.Enabled && settings.PublicURL != "" {
+					origins = append(origins, strings.TrimRight(settings.PublicURL, "/"))
+				}
+			}
+			return origins
+		})
 		server := &http.Server{Addr: c.Listen, Handler: h.Handler(), ReadHeaderTimeout: 10 * time.Second}
 		go func() {
 			err := server.Serve(listener)

@@ -15,6 +15,10 @@ export interface Setup {
   projects: Project[];
 }
 
+export interface WebWorkbenchSettings {
+  enabled: boolean;
+}
+
 export interface BackupRequest {
   path: string;
   passphrase: string;
@@ -187,6 +191,7 @@ export interface JobInfo {
 }
 
 export interface Request {
+  webWorkbench?: WebWorkbenchSettings | null;
   projectId?: string;
   operation: string;
   setup?: Setup | null;
@@ -240,6 +245,7 @@ export interface Connection {
 }
 
 export interface Result {
+  webWorkbench?: WebWorkbenchSettings | null;
   project?: Project | null;
   snapshot: Snapshot;
   connection?: Connection | null;

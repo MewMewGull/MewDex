@@ -10,12 +10,16 @@ export function ConnectScreen({
   onLocalDevice,
   initialURL,
   joining,
+  startupError,
+  onRetryStartup,
 }: {
   onConnect: (connection: Connection) => Promise<void>;
   onLocalDevice?: () => void;
   initialURL?: string;
   joining: boolean;
   onJoiningChange: (value: boolean) => void;
+  startupError?: string;
+  onRetryStartup?: () => void;
 }) {
   const [url, setURL] = useState(initialURL ?? "");
   const [server, setServer] = useState<ServerInfo | null>(null);
@@ -163,6 +167,14 @@ export function ConnectScreen({
             void submit();
           }}
         >
+          {startupError && (
+            <div className="error" role="alert">
+              <p>{startupError}</p>
+              <button type="button" onClick={onRetryStartup}>
+                重新启动中央后端
+              </button>
+            </div>
+          )}
           {!server ? (
             <label>
               中央后端地址

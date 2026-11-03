@@ -5,6 +5,7 @@ import (
 	"mewdex/internal/hubproxy"
 	"mewdex/internal/protocol"
 	"mewdex/internal/startup"
+	"mewdex/internal/webui"
 )
 
 type StartupInfo startup.Info
@@ -12,6 +13,8 @@ type StartupInfo startup.Info
 type StartupRequest struct {
 	Enabled bool `json:"enabled"`
 }
+
+type WebWorkbenchSettings = webui.WebWorkbenchSettings
 
 type Setup struct {
 	Account       *protocol.MewDexAccountLogin `json:"account,omitempty"`
@@ -27,21 +30,22 @@ type Setup struct {
 }
 
 type Request struct {
-	ProjectID          string             `json:"projectId,omitempty"`
-	Operation          string             `json:"operation"`
-	Setup              *Setup             `json:"setup,omitempty"`
-	Projects           []protocol.Project `json:"projects,omitempty"`
-	ExpectedDeviceID   string             `json:"expectedDeviceId,omitempty"`
-	ExpectedInstanceID string             `json:"expectedInstanceId,omitempty"`
-	Backup             *BackupRequest     `json:"backup,omitempty"`
-	Restore            *RestoreRequest    `json:"restore,omitempty"`
-	Pairing            *PairingRequest    `json:"pairing,omitempty"`
-	Job                *JobRequest        `json:"job,omitempty"`
-	Startup            *StartupRequest    `json:"startup,omitempty"`
-	Listener           *ListenerRequest   `json:"listener,omitempty"`
-	HubProxy           *HubProxySettings  `json:"hubProxy,omitempty"`
-	Upgrade            *UpgradeRequest    `json:"upgrade,omitempty"`
-	Cleanup            *CleanupRequest    `json:"cleanup,omitempty"`
+	WebWorkbench       *WebWorkbenchSettings `json:"webWorkbench,omitempty"`
+	ProjectID          string                `json:"projectId,omitempty"`
+	Operation          string                `json:"operation"`
+	Setup              *Setup                `json:"setup,omitempty"`
+	Projects           []protocol.Project    `json:"projects,omitempty"`
+	ExpectedDeviceID   string                `json:"expectedDeviceId,omitempty"`
+	ExpectedInstanceID string                `json:"expectedInstanceId,omitempty"`
+	Backup             *BackupRequest        `json:"backup,omitempty"`
+	Restore            *RestoreRequest       `json:"restore,omitempty"`
+	Pairing            *PairingRequest       `json:"pairing,omitempty"`
+	Job                *JobRequest           `json:"job,omitempty"`
+	Startup            *StartupRequest       `json:"startup,omitempty"`
+	Listener           *ListenerRequest      `json:"listener,omitempty"`
+	HubProxy           *HubProxySettings     `json:"hubProxy,omitempty"`
+	Upgrade            *UpgradeRequest       `json:"upgrade,omitempty"`
+	Cleanup            *CleanupRequest       `json:"cleanup,omitempty"`
 }
 
 type CleanupRequest struct {
@@ -185,18 +189,19 @@ type Connection struct {
 }
 
 type Result struct {
-	Project     *protocol.Project       `json:"project,omitempty"`
-	Snapshot    Snapshot                `json:"snapshot"`
-	Connection  *Connection             `json:"connection,omitempty"`
-	Backup      *BackupInfo             `json:"backup,omitempty"`
-	Restore     *RestoreInfo            `json:"restore,omitempty"`
-	Upgrade     *UpgradeInfo            `json:"upgrade,omitempty"`
-	Job         *JobInfo                `json:"job,omitempty"`
-	Startup     *StartupInfo            `json:"startup,omitempty"`
-	HubProxy    *HubProxyInfo           `json:"hubProxy,omitempty"`
-	SSHConfig   *hubproxy.SSHConfigInfo `json:"sshConfig,omitempty"`
-	ExistingHub *HubDiscovery           `json:"existingHub,omitempty"`
-	Cleanup     *CleanupInfo            `json:"cleanup,omitempty"`
+	WebWorkbench *WebWorkbenchSettings   `json:"webWorkbench,omitempty"`
+	Project      *protocol.Project       `json:"project,omitempty"`
+	Snapshot     Snapshot                `json:"snapshot"`
+	Connection   *Connection             `json:"connection,omitempty"`
+	Backup       *BackupInfo             `json:"backup,omitempty"`
+	Restore      *RestoreInfo            `json:"restore,omitempty"`
+	Upgrade      *UpgradeInfo            `json:"upgrade,omitempty"`
+	Job          *JobInfo                `json:"job,omitempty"`
+	Startup      *StartupInfo            `json:"startup,omitempty"`
+	HubProxy     *HubProxyInfo           `json:"hubProxy,omitempty"`
+	SSHConfig    *hubproxy.SSHConfigInfo `json:"sshConfig,omitempty"`
+	ExistingHub  *HubDiscovery           `json:"existingHub,omitempty"`
+	Cleanup      *CleanupInfo            `json:"cleanup,omitempty"`
 }
 
 type Response struct {

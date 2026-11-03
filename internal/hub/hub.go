@@ -20,6 +20,7 @@ import (
 	"mewdex/internal/messaging"
 	"mewdex/internal/protocol"
 	"mewdex/internal/store"
+	"mewdex/internal/webui"
 )
 
 type Runner interface {
@@ -54,6 +55,8 @@ type Hub struct {
 	modelGateway    *gateway.Gateway
 	logins          map[string]loginWindow
 	messageChannels *messaging.Manager
+	browserOrigins  func() []string
+	webEnabled      func() bool
 }
 
 func New(c config.Config, s *store.Store) *Hub {
@@ -66,7 +69,9 @@ func (h *Hub) SetGatewayStatus(status func() any) {
 	h.gatewayStatus = status
 	h.mu.Unlock()
 }
-func (h *Hub) SetContext(ctx context.Context) { h.ctx = ctx }
+func (h *Hub) SetContext(ctx context.Context)            { h.ctx = ctx }
+func (h *Hub) SetBrowserOrigins(origins func() []string) { h.browserOrigins = origins }
+func (h *Hub) SetWebUI(enabled func() bool)              { h.webEnabled = enabled }
 func (h *Hub) SetGatewayRevoker(revoke func(string)) {
 	h.mu.Lock()
 	h.revokeGateway = revoke
@@ -106,6 +111,15 @@ func (h *Hub) Handler() http.Handler {
 	m.HandleFunc("POST /v1/pair", h.pair)
 	m.HandleFunc("POST /v1/login", h.login)
 	m.Handle("/v1/", h.auth(http.HandlerFunc(h.api)))
+	web := webui.Handler()
+	m.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if h.webEnabled == nil || !h.webEnabled() {
+			w.Header().Set("Cache-Control", "no-store")
+			http.Error(w, "网页版尚未启动，请在桌面 APP 中启动网页版。", http.StatusServiceUnavailable)
+			return
+		}
+		web.ServeHTTP(w, r)
+	}))
 	return h.cors(m)
 }
 func reply(w http.ResponseWriter, status int, v any) {
@@ -654,6 +668,14 @@ func (h *Hub) cors(next http.Handler) http.Handler {
 				if candidate == origin {
 					allowed = true
 					break
+				}
+			}
+			if !allowed && h.browserOrigins != nil {
+				for _, candidate := range h.browserOrigins() {
+					if candidate == origin {
+						allowed = true
+						break
+					}
 				}
 			}
 			if !allowed {

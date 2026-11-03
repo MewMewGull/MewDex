@@ -32,6 +32,33 @@ const fonts: Record<string, string> = {
   segoe: '"Segoe UI", "Microsoft YaHei", sans-serif',
   mono: '"Cascadia Code", Consolas, "Microsoft YaHei", monospace',
 };
+function luminance(channels: number[]) {
+  const [red, green, blue] = channels.map((channel) => {
+    const value = channel / 255;
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  });
+  return red * 0.2126 + green * 0.7152 + blue * 0.0722;
+}
+function readableAccent(
+  channels: number[],
+  background: number[],
+  target: number,
+) {
+  const backgroundLuminance = luminance(background);
+  // Preserve the chosen color until mixing is needed for readable UI text.
+  for (let step = 0; step <= 100; step++) {
+    const mixed = channels.map((channel) =>
+      Math.round(channel + (target - channel) * (step / 100)),
+    );
+    const foregroundLuminance = luminance(mixed);
+    const contrast =
+      (Math.max(foregroundLuminance, backgroundLuminance) + 0.05) /
+      (Math.min(foregroundLuminance, backgroundLuminance) + 0.05);
+    if (contrast >= 4.5)
+      return `#${mixed.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
+  }
+  return target === 0 ? "#000000" : "#ffffff";
+}
 function apply(current: Appearance) {
   const root = document.documentElement;
   root.dataset.theme = current.theme;
@@ -39,13 +66,28 @@ function apply(current: Appearance) {
   root.style.setProperty("--ui-scale", String(current.fontSize / 14));
   root.style.setProperty("--message-font-size", `${current.messageSize}px`);
   root.style.setProperty("--ui-font", fonts[current.font] ?? fonts.system);
-  root.style.setProperty("--accent", current.accent);
-  const red = parseInt(current.accent.slice(1, 3), 16),
-    green = parseInt(current.accent.slice(3, 5), 16),
-    blue = parseInt(current.accent.slice(5, 7), 16);
+  const accent = /^#[\da-f]{6}$/i.test(current.accent)
+    ? current.accent
+    : defaults.accent;
+  const channels = [1, 3, 5].map((offset) =>
+    parseInt(accent.slice(offset, offset + 2), 16),
+  );
+  const accentLuminance = luminance(channels);
+  const darkContrast =
+    (accentLuminance + 0.05) / (luminance([16, 19, 27]) + 0.05);
+  const lightContrast = 1.05 / (accentLuminance + 0.05);
+  root.style.setProperty("--accent", accent);
+  root.style.setProperty(
+    "--accent-text-dark",
+    readableAccent(channels, [37, 45, 60], 255),
+  );
+  root.style.setProperty(
+    "--accent-text-light",
+    readableAccent(channels, [228, 233, 241], 0),
+  );
   root.style.setProperty(
     "--accent-contrast",
-    red * 0.299 + green * 0.587 + blue * 0.114 > 155 ? "#142019" : "#ffffff",
+    darkContrast >= lightContrast ? "#10131b" : "#ffffff",
   );
 }
 export function useAppearance() {

@@ -160,6 +160,7 @@ export function PolicySettings({
       title="执行策略与提示词"
       description={`${deviceName} · ${session ? `${session.title}，保存后从下一回合生效。` : "当前新对话，应用策略后仍需发送消息才开始工作。"}`}
       className="policy-dialog"
+      sizeKey="policy"
       closeLabel="关闭执行策略"
       navigation="tabs"
       navigationLabel="策略设置内容"

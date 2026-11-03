@@ -14,7 +14,7 @@ import (
 	"mewdex/internal/store"
 )
 
-func TestEmptyExecutorRequiresExplicitFirstWorkspace(t *testing.T) {
+func TestEmptyExecutorPreparesDefaultWorkspace(t *testing.T) {
 	s, err := store.Open(filepath.Join(t.TempDir(), "executor.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -27,8 +27,14 @@ func TestEmptyExecutorRequiresExplicitFirstWorkspace(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer x.Close()
-	if len(x.Projects()) != 0 {
-		t.Fatal("invented a default workspace")
+	projects := x.Projects()
+	if len(projects) != 1 || projects[0].Name != "默认工作区" {
+		t.Fatal("default workspace is unavailable", projects)
+	}
+	defaultProject := projects[0]
+	expected, err := filepath.EvalSymlinks(filepath.Join(filepath.Dir(c.DataDir), "workspaces", "default"))
+	if err != nil || defaultProject.Path != expected {
+		t.Fatal("default workspace is not on the execution device", defaultProject, err)
 	}
 	rejected := x.Handle(context.Background(), protocol.Command{ID: "no-workspace", DeviceID: c.DeviceID, Kind: "create", SourceID: "client", ProjectID: ""})
 	if rejected.State != "failed" {
@@ -36,15 +42,18 @@ func TestEmptyExecutorRequiresExplicitFirstWorkspace(t *testing.T) {
 	}
 	root := t.TempDir()
 	created := x.Handle(context.Background(), protocol.Command{ID: "first-workspace", DeviceID: c.DeviceID, Kind: "workspace.create", SourceID: "admin", Workspace: &protocol.WorkspaceRequest{Path: root, Name: "首个项目"}})
-	if created.State != "completed" || len(x.Projects()) != 1 {
+	if created.State != "completed" || len(x.Projects()) != 2 {
 		t.Fatal("cannot add the first project from the workbench", created)
 	}
 	restored := &Executor{config: c, store: s, projectRoots: map[string]string{}}
 	if err := restored.bindWorkspaces(); err != nil {
 		t.Fatal(err)
 	}
-	if len(restored.Projects()) != 1 || restored.Projects()[0].Name != "首个项目" {
-		t.Fatal("first workspace was not persisted")
+	if len(restored.Projects()) != 2 {
+		t.Fatal("workspace catalog was not persisted", restored.Projects())
+	}
+	if restoredDefault, err := restored.project(defaultProject.ID); err != nil || restoredDefault != defaultProject {
+		t.Fatal("default workspace changed after restart", restoredDefault, err)
 	}
 	fake.mu.Lock()
 	defer fake.mu.Unlock()

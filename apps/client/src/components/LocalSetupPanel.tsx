@@ -22,8 +22,16 @@ export function LocalSetupPanel({ device }: { device: LocalDeviceController }) {
       }}
     >
       <h3>准备这台电脑</h3>
-      <p className="muted">先进入工作台，再创建项目并选择工作目录。</p>
-      {snapshot?.startupPreference !== undefined && <p className="muted">安装时的开机自启动选择：{snapshot.startupPreference ? "开启，完成配置后生效" : "关闭"}。可在“启动设置”中修改。</p>}
+      <p className="muted">
+        启用执行能力后会准备默认工作区，进入工作台即可开始，也可选择自己的项目目录。
+      </p>
+      {snapshot?.startupPreference !== undefined && (
+        <p className="muted">
+          安装时的开机自启动选择：
+          {snapshot.startupPreference ? "开启，完成配置后生效" : "关闭"}
+          。可在“启动设置”中修改。
+        </p>
+      )}
       {setup.hub && (
         <fieldset disabled={busy}>
           <legend>MewDex 账号</legend>
@@ -98,13 +106,23 @@ export function LocalSetupPanel({ device }: { device: LocalDeviceController }) {
             <small>让这台电脑执行任务</small>
           </button>
         </div>
-        {setup.hub && <label>
-          Hub 监听端口
-          <input type="number" min={1} max={65535} step={1} required
-            value={setup.listen?.split(":").at(-1) ?? "47830"}
-            onChange={(event) => updateSetup({ listen: `127.0.0.1:${event.target.value}` })} />
-          <small>默认 47830；端口被占用时请自行修改。</small>
-        </label>}
+        {setup.hub && (
+          <label>
+            Hub 监听端口
+            <input
+              type="number"
+              min={1}
+              max={65535}
+              step={1}
+              required
+              value={setup.listen?.split(":").at(-1) ?? "47830"}
+              onChange={(event) =>
+                updateSetup({ listen: `127.0.0.1:${event.target.value}` })
+              }
+            />
+            <small>默认 47830；端口被占用时请自行修改。</small>
+          </label>
+        )}
         {!setup.hub && (
           <label>
             设备网络地址

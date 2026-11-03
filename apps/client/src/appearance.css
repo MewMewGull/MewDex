@@ -3,18 +3,41 @@
   --message-font-size: 16px;
   --ui-font: Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   --accent: #9ccba6;
-  --accent-contrast: #142019;
-  --tone-b8e5bb: var(--accent);
-  --tone-183021: var(--accent-contrast);
+  --accent-contrast: #10131b;
+  --accent-text-dark: #9ccba6;
+  --accent-text-light: #4e6653;
+  --accent-text: var(--accent-text-dark);
+  --accent-surface: color-mix(in srgb, var(--accent-text) 12%, var(--panel));
+  --accent-surface-hover: color-mix(
+    in srgb,
+    var(--accent-text) 20%,
+    var(--panel)
+  );
+  --accent-border: color-mix(
+    in srgb,
+    var(--accent-text) 50%,
+    var(--panel-border)
+  );
+  --accent-focus: var(--accent-text);
+  --accent-selection: color-mix(in srgb, var(--accent-text) 30%, var(--panel));
+  --status-success-text: var(--tone-bfe3c5);
+  --status-success-surface: var(--tone-263c2e);
+  --status-success-border: var(--tone-55785c);
   color-scheme: dark;
 }
 :root[data-theme="light"] {
+  --accent-text: var(--accent-text-light);
   color-scheme: light;
 }
 @media (prefers-color-scheme: light) {
   :root[data-theme="system"] {
+    --accent-text: var(--accent-text-light);
     color-scheme: light;
   }
+}
+::selection {
+  color: var(--text-strong);
+  background: var(--accent-selection);
 }
 body {
   font-family: var(--ui-font);
@@ -24,15 +47,21 @@ input,
 select,
 textarea {
   font-family: inherit;
+  accent-color: var(--accent-text);
 }
 .message-text,
 .message.user .message-text {
   font-size: var(--message-font-size);
 }
+.primary,
 .settings-dialog .primary,
 .send-button {
   background: var(--accent);
   color: var(--accent-contrast);
+}
+.primary:hover:not(:disabled),
+.send-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--accent) 92%, var(--accent-contrast));
 }
 .appearance-settings > label {
   display: grid;
@@ -46,7 +75,7 @@ textarea {
 }
 .appearance-settings input[type="range"] {
   width: 100%;
-  accent-color: var(--accent);
+  accent-color: var(--accent-text);
   padding: 0;
 }
 .appearance-settings input[type="color"] {
@@ -70,11 +99,11 @@ textarea {
   outline-offset: 3px;
 }
 .appearance-colors button[aria-pressed="true"] {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-focus);
 }
 .appearance-preview {
   padding: 22px;
-  border: 1px solid var(--tone-354259);
+  border: 1px solid var(--accent-border);
   border-radius: 12px;
   background: var(--tone-10131b);
 }
@@ -83,5 +112,6 @@ textarea {
   line-height: 1.8;
 }
 .appearance-preview strong {
+  color: var(--accent-text);
   font-size: calc(13px * var(--ui-scale));
 }
