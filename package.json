@@ -17,7 +17,9 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "build:ui": "npm run build --workspace @mewdex/client",
     "test:sdk": "npm run test --workspace @mewdex/sdk",
-    "test:client": "npm run test --workspace @mewdex/client"
+    "test:client": "npm run test --workspace @mewdex/client",
+    "test:release": "node --test scripts/test/release.test.mjs",
+    "release:prepare": "node scripts/prepare-release.mjs"
   },
   "devDependencies": {
     "prettier": "3.5.3"

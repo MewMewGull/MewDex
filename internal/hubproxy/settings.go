@@ -7,7 +7,6 @@ import (
 	"errors"
 	"io"
 	"net"
-	"net/url"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -30,7 +29,8 @@ type Settings struct {
 	KnownHostsFile string `json:"knownHostsFile"`
 	RemoteBind     string `json:"remoteBind"`
 	RemotePort     int    `json:"remotePort"`
-	PublicURL      string `json:"publicUrl"`
+	// PublicURL is retained only to read settings written by older clients.
+	PublicURL string `json:"publicUrl,omitempty"`
 }
 
 func Defaults() Settings { return Settings{Port: 22, RemoteBind: "127.0.0.1", RemotePort: 47834} }
@@ -104,24 +104,28 @@ func atomicJSON(dir, name string, value any) error {
 	return r.Rename(tmp, name)
 }
 
-func (s Settings) Validate() error {
+func (s Settings) validateSSH() error {
 	if s.Host == "" || strings.ContainsAny(s.Host, "\r\n\x00 /\\@") || s.User == "" || strings.ContainsAny(s.User, "\r\n\x00") {
 		return errors.New("请填写 SSH 主机和用户")
 	}
-	for _, port := range []int{s.Port, s.RemotePort} {
-		if port < 1 || port > 65535 {
-			return errors.New("端口必须在 1–65535 之间")
-		}
+	if s.Port < 1 || s.Port > 65535 {
+		return errors.New("SSH 端口必须在 1–65535 之间")
+	}
+	return nil
+}
+
+func (s Settings) Validate() error {
+	if err := s.validateSSH(); err != nil {
+		return err
+	}
+	if s.RemotePort < 1 || s.RemotePort > 65535 {
+		return errors.New("监听端口必须在 1–65535 之间")
 	}
 	ip := net.ParseIP(s.RemoteBind)
 	if ip == nil || (!ip.IsLoopback() && !ip.IsPrivate()) {
 		return errors.New("远端监听地址必须是明确的回环或私网 IP")
 	}
-	u, err := url.Parse(s.PublicURL)
-	if err != nil || u.Scheme != "https" || u.Hostname() == "" || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Path != "" && u.Path != "/") {
-		return errors.New("公网 Hub 地址需要是无路径、凭据、查询参数的 HTTPS 地址")
-	}
-	_, err = s.authentication()
+	_, err := s.authentication()
 	return err
 }
 

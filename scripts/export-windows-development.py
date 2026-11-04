@@ -56,6 +56,10 @@ def package_payload(source, stage, report):
     for name in [
         "LICENSE",
         "NOTICE",
+        "README.md",
+        "README.zh-CN.md",
+        "mewdex.product.json",
+        "docs/releases.md",
         "THIRD_PARTY_NOTICES.md",
         "docs/messaging.md",
         "docs/hub-startup-20261102.md",

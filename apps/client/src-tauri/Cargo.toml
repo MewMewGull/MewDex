@@ -3,7 +3,7 @@ name = "mewdex-client"
 version = "0.1.0"
 license = "Apache-2.0"
 repository = "https://github.com/MewMewGull/MewDex"
-description = "MewDex cross-platform input client"
+description = "MewDex app with composable terminals and Hub Controller"
 edition = "2021"
 default-run = "mewdex-client"
 

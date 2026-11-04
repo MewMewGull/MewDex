@@ -97,7 +97,7 @@ func ReadSSHConfig(home string) (SSHConfigInfo, error) {
 	if len(info.Profiles) == 0 {
 		info.Message = "配置中没有可选择的具体 Host 别名；通配符默认项仍可用于具体 Host。"
 	} else {
-		info.Message = "选择 SSH 主机并预览连接信息，再填入下方表单；原 SSH 文件保持不变。"
+		info.Message = "选择 Host 别名后自动填入 SSH 连接参数。"
 	}
 	return info, nil
 }

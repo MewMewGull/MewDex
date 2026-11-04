@@ -27,10 +27,12 @@ type Engine struct {
 }
 
 type Gateway struct {
-	Listen       string   `json:"listen"`
-	AllowedHosts []string `json:"allowedHosts"`
-	TLSCertFile  string   `json:"tlsCertFile,omitempty"`
-	TLSKeyFile   string   `json:"tlsKeyFile,omitempty"`
+	Listen           string   `json:"listen"`
+	AllowedHosts     []string `json:"allowedHosts"`
+	TLSCertFile      string   `json:"tlsCertFile,omitempty"`
+	TLSKeyFile       string   `json:"tlsKeyFile,omitempty"`
+	UpstreamProxyURL string   `json:"upstreamProxyUrl,omitempty"`
+	ForwardDeviceID  string   `json:"forwardDeviceId,omitempty"`
 }
 
 type Config struct {
@@ -122,6 +124,9 @@ func load(path string, validateProjects bool) (Config, error) {
 		seen[p.ID] = true
 	}
 	if c.Gateway != nil {
+		if c.Gateway.ForwardDeviceID != "" && (!c.Hub || c.Gateway.ForwardDeviceID == c.DeviceID) {
+			return c, errors.New("gateway.forwardDeviceId requires a different device on a Hub")
+		}
 		if (c.Gateway.TLSCertFile == "") != (c.Gateway.TLSKeyFile == "") {
 			return c, errors.New("gateway TLS requires both a certificate and a key")
 		}

@@ -31,6 +31,11 @@ async function copy(name) {
   await copyFile(sourceFile, path.join(payload, name)); files.push(name);
 }
 for (const name of ['mewdex-client.exe', 'mewdex-node.exe', 'engine']) await copy(name);
+for (const name of ['README.md', 'README.zh-CN.md', 'mewdex.product.json', 'docs/releases.md']) {
+  await mkdir(path.dirname(path.join(payload, name)), { recursive: true });
+  await copyFile(path.join(root, name), path.join(payload, name));
+  files.push(name);
+}
 const helper = await readFile(path.join(payload, 'mewdex-node.exe'));
 if (helper.readUInt16LE(helper.readUInt32LE(0x3c) + 92) !== 2) throw new Error('The Windows Hub must use the GUI subsystem to prevent a login console');
 for (const name of await readdir(source)) if (/\.dll$/i.test(name)) await copy(name);

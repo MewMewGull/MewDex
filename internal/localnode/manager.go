@@ -76,6 +76,24 @@ func (m *Manager) Handle(ctx context.Context, request Request) (Result, error) {
 		snapshot, err := m.status(ctx)
 		return Result{Snapshot: snapshot, SSHConfig: &sshConfig}, err
 	}
+	if request.Operation == "proxy.test" {
+		c, err := config.Read(m.profile())
+		if err != nil {
+			return Result{}, err
+		}
+		if !c.Hub || request.ExpectedDeviceID == "" || request.ExpectedDeviceID != c.DeviceID {
+			return Result{}, errors.New("请先刷新当前 Hub，再测试 SSH 连接")
+		}
+		if request.HubProxy == nil {
+			return Result{}, errors.New("请填写 SSH 连接参数")
+		}
+		test, err := hubproxy.TestConnection(ctx, hubproxy.Settings(*request.HubProxy))
+		if err != nil {
+			return Result{}, err
+		}
+		snapshot, err := m.status(ctx)
+		return Result{Snapshot: snapshot, SSHTest: &test}, err
+	}
 	if request.Operation == "hub.discover" {
 		c, err := config.Read(m.profile())
 		if err != nil {
@@ -297,7 +315,7 @@ func (m *Manager) archiveProgress(value backup.Progress) {
 func (m *Manager) status(ctx context.Context) (snapshot Snapshot, resultErr error) {
 	defer func() {
 		snapshot.StartupPreference, _ = m.StartupPreference()
-		snapshot.Operations = []string{"service.update", "service.port", "web.apply", "hub.discover", "proxy.status", "proxy.apply", "proxy.import", "proxy.ssh.config", "backup", "restore.prepare", "restore.apply", "restore.status", "upgrade.prepare", "upgrade.apply", "upgrade.status", "repair.executor", "startup.status", "startup.apply", "job.start", "job.status", "job.cancel", "cleanup.status", "cleanup.prepare", "cleanup.apply"}
+		snapshot.Operations = []string{"service.update", "service.port", "web.apply", "hub.discover", "proxy.status", "proxy.apply", "proxy.import", "proxy.ssh.config", "proxy.test", "backup", "restore.prepare", "restore.apply", "restore.status", "upgrade.prepare", "upgrade.apply", "upgrade.status", "repair.executor", "startup.status", "startup.apply", "job.start", "job.status", "job.cancel", "cleanup.status", "cleanup.prepare", "cleanup.apply"}
 	}()
 	snapshot = Snapshot{State: "unconfigured", Projects: []protocol.Project{}}
 	c, err := config.Read(m.profile())

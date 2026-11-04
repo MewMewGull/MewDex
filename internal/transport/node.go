@@ -16,6 +16,7 @@ import (
 	"github.com/coder/websocket"
 	"mewdex/internal/attachments"
 	"mewdex/internal/config"
+	"mewdex/internal/gateway"
 	"mewdex/internal/protocol"
 	"mewdex/internal/store"
 )
@@ -93,6 +94,7 @@ type Node struct {
 	Store    *store.Store
 	Device   protocol.Device
 	Executor Handler
+	Gateway  *gateway.Gateway
 }
 
 // Run reconnects the transport only. Commands with unknown outcomes are not resubmitted.
@@ -123,6 +125,7 @@ func (n *Node) connect(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	token := strings.TrimSpace(string(b))
 	u, err := url.Parse(n.Config.HubURL)
 	if err != nil {
 		return err
@@ -133,7 +136,7 @@ func (n *Node) connect(ctx context.Context) error {
 		u.Scheme = "ws"
 	}
 	u.Path = strings.TrimRight(u.Path, "/") + "/v1/node/ws"
-	conn, _, err := websocket.Dial(ctx, u.String(), &websocket.DialOptions{HTTPClient: hubHTTP, HTTPHeader: http.Header{"Authorization": []string{"Bearer " + strings.TrimSpace(string(b))}}})
+	conn, _, err := websocket.Dial(ctx, u.String(), &websocket.DialOptions{HTTPClient: hubHTTP, HTTPHeader: http.Header{"Authorization": []string{"Bearer " + token}}})
 	if err != nil {
 		return err
 	}
@@ -207,11 +210,20 @@ func (n *Node) connect(ctx context.Context) error {
 			return errors.New("invalid Hub frame")
 		}
 		switch f.Type {
+		case "gateway.open":
+			var request protocol.GatewayTunnelRequest
+			if json.Unmarshal(f.Payload, &request) != nil || request.ID == "" || request.ID != f.ID {
+				return errors.New("invalid gateway request")
+			}
+			go n.relayGateway(connectionCtx, request, token, send)
 		case "event.ack":
 			if err = n.Store.Ack(f.ID); err != nil {
 				return err
 			}
 		case "command":
+			if n.Executor == nil {
+				return errors.New("this node does not provide task execution")
+			}
 			var c protocol.Command
 			if json.Unmarshal(f.Payload, &c) != nil {
 				return errors.New("invalid command")

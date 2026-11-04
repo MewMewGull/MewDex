@@ -3,14 +3,11 @@ package hubproxy
 import (
 	"context"
 	"crypto/ed25519"
-	"encoding/json"
 	"errors"
 	"io"
 	"net"
-	"net/http"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 
@@ -92,7 +89,7 @@ func supervise(ctx context.Context, s Settings, target string, publish func(stri
 	defer publish("stopped", "")
 	backoff := time.Second
 	for ctx.Err() == nil {
-		publish("connecting", "正在连接公网服务器…")
+		publish("connecting", "正在连接 SSH 服务器…")
 		started := time.Now()
 		err := tunnel(ctx, s, target, publish)
 		if ctx.Err() != nil {
@@ -121,26 +118,13 @@ func tunnel(ctx context.Context, s Settings, target string, publish func(string,
 	if err := s.Validate(); err != nil {
 		return err
 	}
-	auth, err := s.authentication()
+	client, raw, err := connectSSH(ctx, s)
 	if err != nil {
 		return err
 	}
-	address := net.JoinHostPort(s.Host, strconv.Itoa(s.Port))
-	raw, err := (&net.Dialer{Timeout: 10 * time.Second}).DialContext(ctx, "tcp", address)
-	if err != nil {
-		return errors.New("无法连接 SSH 服务器，将自动重试。")
-	}
-	defer raw.Close()
-	preferKnownHostKeys(auth, address, raw.RemoteAddr())
+	defer client.Close()
 	closeOnCancel := context.AfterFunc(ctx, func() { _ = raw.Close() })
 	defer closeOnCancel()
-	_ = raw.SetDeadline(time.Now().Add(15 * time.Second))
-	conn, channels, requests, err := ssh.NewClientConn(raw, address, auth)
-	if err != nil {
-		return errors.New("SSH 认证或主机密钥校验失败，请核对用户、私钥和 known_hosts。")
-	}
-	client := ssh.NewClient(conn, channels, requests)
-	defer client.Close()
 	listener, err := client.Listen("tcp", net.JoinHostPort(s.RemoteBind, strconv.Itoa(s.RemotePort)))
 	if err != nil {
 		return errors.New("服务器拒绝反向监听，请检查端口占用和 SSH 转发权限。")
@@ -174,14 +158,7 @@ func tunnel(ctx context.Context, s Settings, target string, publish func(string,
 	check := time.NewTicker(5 * time.Second)
 	defer check.Stop()
 	for {
-		probeCtx, probeCancel := context.WithTimeout(session, 4*time.Second)
-		err := health(probeCtx, s.PublicURL)
-		probeCancel()
-		if err == nil {
-			publish("connected", "公网入口已连接。")
-		} else {
-			publish("verifying", "SSH 已连接，公网 HTTPS 入口尚未通过检查。")
-		}
+		publish("connected", "")
 		select {
 		case <-ctx.Done():
 			return nil
@@ -244,27 +221,4 @@ func forward(ctx context.Context, listener net.Listener, target string) error {
 			<-copied
 		})
 	}
-}
-
-func health(ctx context.Context, base string) error {
-	r, err := http.NewRequestWithContext(ctx, "GET", strings.TrimRight(base, "/")+"/health", nil)
-	if err != nil {
-		return err
-	}
-	t := &http.Transport{Proxy: nil}
-	defer t.CloseIdleConnections()
-	c := &http.Client{Transport: t, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	response, err := c.Do(r)
-	if err != nil {
-		return err
-	}
-	defer response.Body.Close()
-	var value struct {
-		Name    string `json:"name"`
-		Version int    `json:"protocolVersion"`
-	}
-	if response.StatusCode != 200 || json.NewDecoder(io.LimitReader(response.Body, 4096)).Decode(&value) != nil || value.Name != "MewDex" || value.Version != protocol.Version {
-		return errors.New("入口尚未通过健康检查")
-	}
-	return nil
 }

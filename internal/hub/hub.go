@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -27,6 +28,7 @@ type Runner interface {
 	Handle(context.Context, protocol.Command) protocol.CommandResult
 }
 type peer struct {
+	ctx        context.Context
 	identityID string
 	conn       *websocket.Conn
 	device     protocol.Device
@@ -57,10 +59,11 @@ type Hub struct {
 	messageChannels *messaging.Manager
 	browserOrigins  func() []string
 	webEnabled      func() bool
+	gatewayRelays   map[string]*gatewayRelay
 }
 
 func New(c config.Config, s *store.Store) *Hub {
-	return &Hub{config: c, store: s, peers: map[string]*peer{}, wake: make(chan struct{}), ctx: context.Background(), subscribers: map[string]map[*websocket.Conn]bool{}}
+	return &Hub{config: c, store: s, peers: map[string]*peer{}, wake: make(chan struct{}), ctx: context.Background(), subscribers: map[string]map[*websocket.Conn]bool{}, gatewayRelays: map[string]*gatewayRelay{}}
 }
 
 func (h *Hub) SetAttachments(s *attachments.Store) { h.attachments = s }
@@ -83,6 +86,9 @@ func (h *Hub) SetModelGateway(g *gateway.Gateway) {
 	h.gatewayStatus = g.Snapshot
 	h.revokeGateway = g.Revoke
 	h.mu.Unlock()
+	if h.config.Gateway != nil && h.config.Gateway.ForwardDeviceID != "" {
+		g.SetForwarder(h.OpenGateway)
+	}
 }
 func (h *Hub) SetLocal(r Runner) { h.local = r }
 func (h *Hub) Device(d protocol.Device) error {
@@ -209,6 +215,10 @@ func (h *Hub) api(w http.ResponseWriter, r *http.Request) {
 	id := identity(r)
 	if r.Method == "GET" && r.URL.Path == "/v1/me" {
 		reply(w, 200, id)
+		return
+	}
+	if r.Method == "GET" && r.URL.Path == "/v1/gateway/relay/ws" {
+		h.acceptGatewayRelay(w, r, id)
 		return
 	}
 	if r.Method == "POST" && r.URL.Path == "/v1/gateway/authorize" {
@@ -635,6 +645,13 @@ func (h *Hub) command(w http.ResponseWriter, r *http.Request, id protocol.Identi
 	h.mu.Lock()
 	remote := h.peers[c.DeviceID]
 	h.mu.Unlock()
+	if remote != nil && slices.Contains(remote.device.Roles, "gateway") && !slices.Contains(remote.device.Roles, "executor") {
+		result.State = "failed"
+		result.Error = "target device does not provide task execution"
+		_ = h.store.Finish(result)
+		h.replyResult(w, 202, result)
+		return
+	}
 	if c.DeviceID == h.config.DeviceID && h.local != nil {
 		go func() {
 			ctx, cancel := context.WithTimeout(h.ctx, 45*time.Second)
@@ -801,7 +818,7 @@ func (h *Hub) node(w http.ResponseWriter, r *http.Request, id protocol.Identity)
 	}
 	d.Online = true
 	d.LastSeen = protocol.Now()
-	p := &peer{conn: conn, device: d, cancel: cancel, identityID: id.ID}
+	p := &peer{ctx: ctx, conn: conn, device: d, cancel: cancel, identityID: id.ID}
 	h.mu.Lock()
 	prior := h.peers[d.ID]
 	h.peers[d.ID] = p
@@ -836,6 +853,8 @@ func (h *Hub) node(w http.ResponseWriter, r *http.Request, id protocol.Identity)
 			return
 		}
 		switch f.Type {
+		case "gateway.error":
+			h.failGatewayRelay(p, f.ID)
 		case "event":
 			var e protocol.Event
 			if json.Unmarshal(f.Payload, &e) != nil || e.DeviceID != d.ID {

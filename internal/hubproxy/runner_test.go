@@ -183,6 +183,47 @@ func waitForward(t *testing.T, f sshFixture) net.Listener {
 	}
 }
 
+func TestTunnelConnectsWithoutDomainConfiguration(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		legacyURL string
+	}{{"no domain", ""}, {"legacy domain field", "old-domain-setting"}} {
+		t.Run(test.name, func(t *testing.T) {
+			f := fixture(t)
+			f.settings.PublicURL = test.legacyURL
+			root := t.TempDir()
+			if err := Save(root, f.settings); err != nil {
+				t.Fatal(err)
+			}
+			saved, _, err := Read(root)
+			if err != nil || saved.PublicURL != test.legacyURL {
+				t.Fatalf("cannot read saved SSH settings: %+v %v", saved, err)
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			states := make(chan string, 1)
+			result := make(chan error, 1)
+			go func() {
+				result <- tunnel(ctx, saved, "127.0.0.1:1", func(state, _ string) { states <- state })
+			}()
+			select {
+			case state := <-states:
+				if state != "connected" {
+					t.Fatalf("SSH listener was established but state is %q", state)
+				}
+			case err := <-result:
+				t.Fatalf("SSH tunnel ended before connecting: %v", err)
+			case <-ctx.Done():
+				t.Fatal("SSH tunnel did not connect without a public endpoint")
+			}
+			cancel()
+			if err := <-result; err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
 func TestInProcessTunnelReconnectsDisablesAndClosesOpenStreams(t *testing.T) {
 	f := fixture(t)
 	root := t.TempDir()

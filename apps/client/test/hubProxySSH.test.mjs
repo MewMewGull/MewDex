@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { fillSSHProfile } from "../src/hubProxySSH.ts";
+import { fillSSHProfile } from "../src/hub-controller/hubProxySSH.ts";
 
-test("SSH import retains the user's public endpoint, tunnel ports and enable switch", () => {
+test("SSH selection retains the listener, enable switch and legacy metadata", () => {
   const current = {
     enabled: false,
     host: "old-host",

@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -18,16 +19,19 @@ import (
 )
 
 type Gateway struct {
-	hosts       map[string]bool
-	authorize   Authorizer
-	mu          sync.Mutex
-	connections map[net.Conn]Grant
-	opened      atomic.Int64
-	devices     map[string]int64
-	closed      bool
-	lookup      func(context.Context, string) ([]net.IPAddr, error)
-	dial        func(context.Context, string, string) (net.Conn, error)
-	checkEvery  time.Duration
+	hosts         map[string]bool
+	authorize     Authorizer
+	mu            sync.Mutex
+	connections   map[net.Conn]Grant
+	opened        atomic.Int64
+	devices       map[string]int64
+	closed        bool
+	lookup        func(context.Context, string) ([]net.IPAddr, error)
+	dial          func(context.Context, string, string) (net.Conn, error)
+	checkEvery    time.Duration
+	upstreamProxy *url.URL
+	forwardDevice string
+	forward       func(context.Context, string) (net.Conn, error)
 }
 
 type Grant struct {
@@ -44,22 +48,44 @@ func (g *Gateway) Snapshot() any {
 		devices[id] = count
 	}
 	g.mu.Unlock()
-	return map[string]any{"openedTunnels": g.opened.Load(), "activeTunnels": active, "devices": devices}
+	return map[string]any{"openedTunnels": g.opened.Load(), "activeTunnels": active, "devices": devices, "forwardDeviceId": g.forwardDevice}
 }
 
 func New(c config.Gateway, authorize Authorizer) (*Gateway, error) {
 	if authorize == nil || len(c.AllowedHosts) == 0 {
 		return nil, errors.New("gateway requires an identity authorizer and explicit allowedHosts")
 	}
+	if c.ForwardDeviceID != "" && c.UpstreamProxyURL != "" {
+		return nil, errors.New("select either a gateway device or an upstream proxy")
+	}
 	g := &Gateway{hosts: map[string]bool{}, authorize: authorize, connections: map[net.Conn]Grant{}, devices: map[string]int64{},
 		lookup: net.DefaultResolver.LookupIPAddr, dial: (&net.Dialer{Timeout: 15 * time.Second}).DialContext, checkEvery: 5 * time.Second}
+	g.forwardDevice = c.ForwardDeviceID
 	for _, host := range c.AllowedHosts {
 		if host == "" || strings.ContainsAny(host, "/:* ?@#\\[]\r\n\t") {
 			return nil, errors.New("allowedHosts must contain exact hostnames")
 		}
 		g.hosts[strings.ToLower(host)] = true
 	}
+	if c.UpstreamProxyURL != "" {
+		proxy, err := url.Parse(c.UpstreamProxyURL)
+		if err != nil || config.ValidateURL(c.UpstreamProxyURL, false) != nil ||
+			(proxy.Scheme != "http" && proxy.Scheme != "https") || (proxy.Path != "" && proxy.Path != "/") {
+			return nil, errors.New("gateway upstream proxy requires an HTTPS or loopback HTTP origin without credentials")
+		}
+		g.upstreamProxy = proxy
+	}
 	return g, nil
+}
+
+func (g *Gateway) SetForwarder(forward func(context.Context, string) (net.Conn, error)) {
+	g.mu.Lock()
+	g.forward = forward
+	g.mu.Unlock()
+}
+
+func (g *Gateway) Open(ctx context.Context, authority string) (net.Conn, error) {
+	return g.open(ctx, authority)
 }
 
 func (g *Gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -133,6 +159,18 @@ func (g *Gateway) open(ctx context.Context, authority string) (net.Conn, error) 
 	host, port, err := net.SplitHostPort(authority)
 	if err != nil || port != "443" || !g.hosts[strings.ToLower(host)] {
 		return nil, errTargetDenied
+	}
+	if g.forwardDevice != "" {
+		g.mu.Lock()
+		forward := g.forward
+		g.mu.Unlock()
+		if forward == nil {
+			return nil, errors.New("gateway device forwarding is unavailable")
+		}
+		return forward(ctx, authority)
+	}
+	if g.upstreamProxy != nil {
+		return g.openProxy(ctx, authority)
 	}
 	addresses, err := g.lookup(ctx, host)
 	if err != nil || len(addresses) == 0 {

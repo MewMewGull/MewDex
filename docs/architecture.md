@@ -2,7 +2,22 @@
 
 ## 角色
 
-执行节点具有独立设备身份。MewDex 账号作为中央登录身份，可在多个输入终端使用；节点的 ChatGPT 账号提供该节点使用的模型订阅，不作为 MewDex 用户身份。Client、Hub、Executor、Gateway 为可组合角色，手机只启用 Client。角色不与操作系统硬绑定。
+MewDex 分为四个组件，平台 App 负责组合它们，运行角色由用户配置。
+
+| 组件 | 代码归属 | 职责 |
+| --- | --- | --- |
+| Input Terminal（输入终端） | `apps/client/src/input-terminal/` | 用户输入、对话、结果与交互 |
+| Execute Terminal（执行终端） | `internal/executor/`、`internal/engine/` | 本机执行与引擎会话 |
+| Hub（管理终端） | `internal/hub/`、`internal/transport/` | 网络身份、设备注册、请求路由与事件 |
+| Hub Controller（管理终端的管理器） | `apps/client/src/hub-controller/`、`internal/localnode/` | 本机管理与经过 Hub 授权的远程管理 |
+
+Windows、macOS、桌面 Linux App 包含四个组件。Android、iOS / iPadOS App 包含 Input Terminal 和 Hub Controller。组件与平台组成以 `mewdex.product.json` 为准，平台外壳的能力声明嵌入这份清单。`apps/client/src/main.tsx` 组合界面与控制入口，Tauri 外壳按平台提供能力。桌面打开 App 时按配置启动本机 Hub 或 Execute Terminal，输入连接可指向本机或远程 Hub。
+
+Hub Controller 通过本机原生接口管理服务配置、启停、自启动、数据与升级，通过 Hub API 管理远程设备、项目、授权和模型账号。移动端使用同一远程管理界面。各操作沿用当前身份与目标设备的权限。
+
+组件名与协议身份分别建模。现有协议中的 `client` / `admin` 表示输入和管理身份，`executor` 表示节点身份，Hub Controller 使用已有的登录和授权接口。Gateway 属于 Hub 的可选模型网络出口能力。
+
+执行节点具有独立设备身份。MewDex 账号作为中央登录身份，可在多个 Input Terminal 和 Hub Controller 使用。节点的 ChatGPT 账号提供该节点使用的模型订阅。
 
 MewDex 账号、密码哈希及项目展示元数据保存在 Hub。输入终端没有已保存连接时，先匿名检查中央地址与协议，再读取服务器公开的认证方式及默认方式，最后才向已确认的服务器提交用户名密码或密钥。新建 Hub 时设置首个账号，账号密码为默认登录方式，同时可选密钥；已保存连接继续通过系统凭据库中的令牌恢复。已有数据尚无账号时，兼容管理员密钥或原配对码，登录后可设置用户名密码。没有匿名注册入口。无图形界面的 Hub 可用 `mewdex account -config <profile>` 从标准输入读取 `{username,password}` 完成首个账号配置，密码不放在命令参数中。
 
@@ -12,9 +27,11 @@ MewDex 账号、密码哈希及项目展示元数据保存在 Hub。输入终端
 
 本机服务设置只管理该电脑的配置、启停、监听端口、自启动与数据维护，不提供项目清单或项目编辑入口。项目管理统一位于登录后的 Hub 工作台，目录选择与名称、分类修改复用 Hub 的授权与路由；已有节点目录绑定继续保留。
 
-Client → Hub → Executor → Codex App Server（本机 stdio）。Executor 可独立选择 Gateway 作为模型网络出口。
+Input Terminal → Hub → Execute Terminal → Codex App Server（本机 stdio）。Execute Terminal 可独立选择 Hub 的 Gateway 能力作为模型网络出口。
 
 远端执行器可以用 `engine.useHubGateway` 在回环地址启动临时 CONNECT 代理，再经配对 Hub 的 WebSocket 转发。公网使用 WSS，官方模型 TLS 保留在通道内。模型子进程只取得每次启动生成的本地代理密码，设备令牌留在 Go 服务中；Gateway 校验设备身份、出口授权和精确域名，撤销时关闭存量通道。独立 HTTPS CONNECT 出口仍可用于单独部署的 Gateway。
+
+Hub 的 `gateway.forwardDeviceId` 可指定已配对的远端 Gateway 节点作为模型出口。该节点通过现有控制连接接收转发请求，再主动建立一次性 WSS 数据连接，所有连接共用 Hub 的 HTTPS 入口。Gateway 可以单独运行，配置 `hub: false`、`executor: false`、`hubUrl`、`nodeTokenFile` 和 `gateway.allowedHosts` 即可。出口机器已有本地 HTTP 代理时，可通过 `gateway.upstreamProxyUrl` 接入。Hub 检查调用节点的出口权限，数据连接绑定指定出口节点的身份和控制连接，指定节点离线时返回失败。各执行器继续使用自己的模型账号及项目目录。
 
 首版为一个活动 Hub、多输入端、多执行端。Hub 为可达的自托管地址；局域网/私有网络及 TLS 反向代理均可接入。不构建多主选举或 NAT 穿透服务。
 
@@ -23,7 +40,7 @@ Client → Hub → Executor → Codex App Server（本机 stdio）。Executor �
 - `internal/protocol`：版本化的设备、项目、会话、命令和事件协议。
 - `internal/store`：SQLite 状态与迁移，业务通过接口访问。
 - `internal/engine`：引擎接口与 Codex JSON-RPC 适配，不依赖界面和 Hub。
-- `internal/executionscope`：由本机可信路径生成命名执行权限、绑定范围指纹并核对引擎响应；执行器源码已接入完整会话生命周期；Windows 开发服务已更新，Mac/Linux 在线节点仍保留此前开发程序。
+- `internal/executionscope`：由本机可信路径生成命名执行权限、绑定范围指纹并核对引擎响应，覆盖完整会话生命周期。
 - `internal/attachments`：附件的不可变归属、完整性校验与按会话隔离的只读视图，独立于输入界面。
 - `internal/projectfiles`：在本机项目根目录内读取目录和普通文件，复用执行范围的私有路径边界，不跟随符号链接或 Windows 重解析链接；不依赖模型、Hub 或界面。
 - `internal/childprocess`：引擎进程的启动、等待、平台进程范围与输出限制，不依赖模型 RPC。
@@ -42,7 +59,7 @@ Client → Hub → Executor → Codex App Server（本机 stdio）。Executor �
 - `internal/workspace`：目录规范化、符号链接解析及工作区重叠判断。
 - `internal/backup`：流式加密归档、路径与清单校验、向新目录解包及校验复制；业务选择与配置采用留在本机管理层。
 - `packages/sdk`：独立 TypeScript SDK，不引用 React、Tauri 或浏览器存储。
-- `apps/client`：共享界面；平台存储与通知通过适配器注入。
+- `apps/client`：平台 App 组合层，分别装配 `src/input-terminal` 和 `src/hub-controller`。平台存储与通知通过适配器注入。
 
 当前优先完善 Windows 桌面工作台，交互组件仍可由其他输入形态复用。设备选择、对话导航、快速切换、消息阅读和设置框架按职责拆分；草稿按执行设备与对话归属，发送回执只清除对应的已发送内容。Markdown 渲染使用 `react-markdown` 与 GFM 插件，代码块与消息复用复制组件；网络 SDK 不承担呈现或本机存储职责。Windows 窗口几何状态交给固定的 Tauri window-state 插件，不保存隐藏状态。界面层级与快捷键见 [桌面体验](desktop-experience.md)。
 
@@ -168,7 +185,7 @@ Go 服务、Codex 及其配套资源随桌面软件准备；运行前校验清�
 
 模型凭据留在官方支持的本地认证路径；不转发到输入端。项目仅在配置允许的根目录内执行。执行范围与网络身份授权相互独立。
 
-项目目录绑定与重叠锁负责调度，操作系统沙箱负责读写和网络边界。新建、恢复和基础指令分叉选择并核对命名配置；每回合复查本机范围指纹，并沿用已核对的活动配置。不能在 `turn/start` 重新选择只存在于该对话覆盖层中的配置名称，因为引擎可能从进程配置重载并丢失其定义。缺失配置回执不创建可用对话。原始账号/数据路径、命令环境限制和 Windows 沙箱实现进入范围指纹；变化后不能沿用旧编号。Windows 开发 Hub 与本机执行器已接入当前开发程序；Mac/Linux 在线节点仍保留此前开发程序，其他设备没有随源码变化自动升级。
+项目目录绑定与重叠锁负责调度，操作系统沙箱负责读写和网络边界。新建、恢复和基础指令分叉选择并核对命名配置；每回合复查本机范围指纹，并沿用已核对的活动配置。不能在 `turn/start` 重新选择只存在于该对话覆盖层中的配置名称，因为引擎可能从进程配置重载并丢失其定义。缺失配置回执不创建可用对话。原始账号/数据路径、命令环境限制和 Windows 沙箱实现进入范围指纹；变化后不能沿用旧编号。
 
 Windows 源码选择固定引擎 0.162.1 的 MXC，并显式禁止静默回退到旧沙箱。已授权的 0.154.0 elevated 准备已完成，但实际工具只能证明私有路径禁止读取，未守住完整的目录读取白名单；因此不以该准备成功替代隔离实现。独立 MXC 命令已证明工作目录可读、目录外标记不可读，正式执行器的新版适配仍在继续。MXC 不支持的设备须显示不可用原因，不能隐式放宽权限。
 
@@ -180,7 +197,7 @@ Windows 源码选择固定引擎 0.162.1 的 MXC，并显式禁止静默回退�
 
 文件审批使用原生文件变更事件，按对话、回合和内部工具编号保存有界预览，因此也能处理新版工具编排产生的内部调用。确认前再次核对相同变更，缺少预览或要求持续开放目录时不能接受；回合结束、停止或服务重启使旧预览失效。Hub 只允许管理员输入端接受额外权限，普通输入端仍可处理当前范围内的单次命令、文件确认和问题。手机可持有管理员输入身份，仍不承担本机执行角色。
 
-Windows 正式执行器已完成目录外读取拒绝、本回合授权及失效、原对话恢复和基础指令分叉，以及文件确认后私有写入失败的开发检查；命令确认没有放开未授权网络。Mac 和 Linux 已用新固定版完成临时读取与网络授权失效、恢复与分叉、文件确认仍保留私有禁止，以及环境隔离检查。请求由确定性的回环响应提供器产生，没有官方推理或账号授权；Windows 已接入当前开发程序和固定引擎，Mac/Linux 在线节点仍保留此前开发程序。
+Windows 正式执行器已完成目录外读取拒绝、本回合授权及失效、原对话恢复和基础指令分叉，以及文件确认后私有写入失败的开发检查；命令确认没有放开未授权网络。Mac 和 Linux 已用新固定版完成临时读取与网络授权失效、恢复与分叉、文件确认仍保留私有禁止，以及环境隔离检查。请求由确定性的回环响应提供器产生，没有官方推理或账号授权。
 
 Hub 保存索引与事件，Executor 保存本机运行状态，Codex 保存引擎历史。附件、终端日志和数据库分别存储。项目文档留在项目；内部 `.state` 为忽略的开发运行状态。
 

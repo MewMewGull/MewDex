@@ -333,6 +333,9 @@ func serveOwned(ctx context.Context, c config.Config) error {
 	if c.Executor {
 		d.Capabilities = []string{"project-files", "model-catalog", "reasoning-policy", "collaboration-modes", "workspace-management", "account-limits", "access-modes"}
 	}
+	if g != nil && !c.Hub {
+		d.Capabilities = append(d.Capabilities, "model-gateway-relay")
+	}
 	if c.Executor {
 		s, err := store.Open(filepath.Join(c.DataDir, "executor.db"))
 		if err != nil {
@@ -399,13 +402,26 @@ func serveOwned(ctx context.Context, c config.Config) error {
 		} else {
 			x.SetAttachmentFetcher(transport.AttachmentFetcher(c))
 			x.SetFilePublisher(transport.FilePublisher(c))
-			n := &transport.Node{Config: c, Store: s, Device: d, Executor: x}
+			n := &transport.Node{Config: c, Store: s, Device: d, Executor: x, Gateway: g}
 			go func() {
 				if err := n.Run(ctx); err != nil && ctx.Err() == nil {
 					fmt.Fprintln(os.Stderr, "node connection:", err)
 				}
 			}()
 		}
+	}
+	if !c.Hub && !c.Executor && g != nil {
+		s, err := store.Open(filepath.Join(c.DataDir, "gateway.db"))
+		if err != nil {
+			return err
+		}
+		defer s.Close()
+		n := &transport.Node{Config: c, Store: s, Device: d, Gateway: g}
+		go func() {
+			if err := n.Run(ctx); err != nil && ctx.Err() == nil {
+				fmt.Fprintln(os.Stderr, "gateway connection:", err)
+			}
+		}()
 	}
 	localHubURL := ""
 	if h != nil {

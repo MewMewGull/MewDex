@@ -51,3 +51,30 @@ func TestSSHReadIsBoundToCurrentHubAndDoesNotSaveOrEnableProxy(t *testing.T) {
 		t.Fatal("reading config enabled the reverse tunnel")
 	}
 }
+
+func TestSSHConnectionTestRequiresCurrentDeviceAndPreservesSettings(t *testing.T) {
+	m := testManager(t)
+	ctx := context.Background()
+	setup, err := m.Handle(ctx, Request{Operation: "setup", Setup: &Setup{Hub: true}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := hubproxy.Save(m.options.Root, hubproxy.Defaults()); err != nil {
+		t.Fatal(err)
+	}
+	path := filepath.Join(m.options.Root, "hub-proxy.json")
+	before, _ := os.ReadFile(path)
+	for _, request := range []Request{
+		{Operation: "proxy.test", ExpectedDeviceID: "another-device", HubProxy: &HubProxySettings{Host: "127.0.0.1"}},
+		{Operation: "proxy.test", ExpectedDeviceID: setup.Snapshot.DeviceID},
+		{Operation: "proxy.test", ExpectedDeviceID: setup.Snapshot.DeviceID, HubProxy: &HubProxySettings{Port: -1}},
+	} {
+		if _, err := m.Handle(ctx, request); err == nil {
+			t.Fatal("connection test accepted an unbound or incomplete request")
+		}
+	}
+	after, _ := os.ReadFile(path)
+	if string(before) != string(after) {
+		t.Fatal("connection test changed saved proxy settings")
+	}
+}

@@ -1,5 +1,5 @@
 import { Bell } from "lucide-react";
-import type { InputAlerts } from "../useInputAlerts";
+import type { InputAlerts } from "../input-terminal/useInputAlerts";
 
 export function InputAlertSettings({ alerts }: { alerts: InputAlerts }) {
   return (

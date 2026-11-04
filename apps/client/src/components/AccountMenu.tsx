@@ -9,7 +9,7 @@ import type {
   Identity,
 } from "@mewdex/sdk";
 import { deviceRequest } from "../localDevice";
-import { useModelAccount } from "../useModelAccount";
+import { useModelAccount } from "../hub-controller/useModelAccount";
 
 function LimitWindow({
   value,

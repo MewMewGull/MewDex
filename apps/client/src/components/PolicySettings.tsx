@@ -7,7 +7,7 @@ import {
   type PromptInspection,
   type Session,
 } from "@mewdex/sdk";
-import { ModelSettings } from "./ModelSettings";
+import { ModelSettings } from "../hub-controller/ModelSettings";
 import { reasoningLabel } from "../modelSelection";
 import { SettingsFrame } from "./SettingsFrame";
 import { PromptText } from "./PromptText";

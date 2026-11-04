@@ -1,21 +1,53 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { prepareDesktopHub } from "../src/desktopHubStartup.ts";
+import { prepareDesktopTerminals } from "../src/hub-controller/desktopTerminals.ts";
 
-test("desktop startup reuses ready Hubs and leaves initial setup and remote executors to their existing flows", async () => {
+test("desktop startup reuses ready terminals and accepts input-only installations", async () => {
   for (const snapshot of [
     { configured: false, hub: false, state: "unconfigured" },
     { configured: true, hub: false, state: "stopped" },
     { configured: true, hub: true, ready: true, state: "running" },
+    {
+      configured: true,
+      hub: false,
+      executor: true,
+      ready: true,
+      state: "running",
+    },
   ]) {
     const operations = [];
-    const result = await prepareDesktopHub(async (request) => {
+    const result = await prepareDesktopTerminals(async (request) => {
       operations.push(request.operation);
       return { snapshot };
     });
     assert.deepEqual(operations, ["status"]);
     assert.equal(result.snapshot, snapshot);
   }
+});
+
+test("desktop startup launches an Execute Terminal configured to use a remote Hub", async () => {
+  const requests = [];
+  const result = await prepareDesktopTerminals(async (request) => {
+    requests.push(request);
+    return {
+      snapshot: {
+        configured: true,
+        hub: false,
+        executor: true,
+        deviceId: "executor-only",
+        ready: request.operation === "start",
+        state: request.operation === "start" ? "running" : "stopped",
+        hubUrl: "https://hub.example.com",
+      },
+    };
+  });
+  assert.deepEqual(requests, [
+    { operation: "status" },
+    { operation: "start", expectedDeviceId: "executor-only" },
+  ]);
+  assert.equal(result.started, true);
+  assert.equal(result.snapshot.hub, false);
+  assert.equal(result.snapshot.executor, true);
 });
 
 test("opening a desktop starts only its configured Hub and retains existing Hub discovery", async () => {
@@ -25,7 +57,7 @@ test("opening a desktop starts only its configured Hub and retains existing Hub 
       baseUrl: "http://127.0.0.1:47830",
       protocolVersion: 1,
     };
-    const result = await prepareDesktopHub(async (request) => {
+    const result = await prepareDesktopTerminals(async (request) => {
       requests.push(request);
       return request.operation === "status"
         ? {
@@ -55,7 +87,7 @@ test("unconfirmed service states and failed starts never cause an automatic seco
   for (const state of ["unknown", "stopping"]) {
     let reads = 0;
     await assert.rejects(
-      prepareDesktopHub(async () => {
+      prepareDesktopTerminals(async () => {
         reads++;
         return {
           snapshot: { configured: true, hub: true, ready: false, state },
@@ -66,7 +98,7 @@ test("unconfirmed service states and failed starts never cause an automatic seco
   }
   const operations = [];
   await assert.rejects(
-    prepareDesktopHub(async (request) => {
+    prepareDesktopTerminals(async (request) => {
       operations.push(request.operation);
       if (request.operation === "start")
         throw new Error("startup remains unconfirmed");

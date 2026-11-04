@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "components": {
+    "input-terminal": {
+      "name": "Input Terminal",
+      "label": "输入终端",
+      "sources": ["apps/client/src/input-terminal"],
+      "purpose": "输入任务、继续对话、阅读结果和响应交互"
+    },
+    "execute-terminal": {
+      "name": "Execute Terminal",
+      "label": "执行终端",
+      "sources": ["internal/executor", "internal/engine"],
+      "purpose": "在本机项目中运行模型、文件操作和命令"
+    },
+    "hub": {
+      "name": "Hub",
+      "label": "管理终端",
+      "sources": ["internal/hub", "internal/transport"],
+      "purpose": "管理网络身份、设备注册、请求路由和事件同步"
+    },
+    "hub-controller": {
+      "name": "Hub Controller",
+      "label": "管理终端的管理器",
+      "sources": ["apps/client/src/hub-controller", "internal/localnode"],
+      "purpose": "管理本机终端与通过 Hub 授权访问的远程终端"
+    }
+  },
+  "platforms": {
+    "windows": {
+      "name": "Windows",
+      "family": "desktop",
+      "architectures": ["x64", "arm64"],
+      "components": [
+        "input-terminal",
+        "execute-terminal",
+        "hub",
+        "hub-controller"
+      ],
+      "installerExtensions": [".exe", ".msi"],
+      "installation": "运行与系统架构匹配的安装程序，按配置启用本机 Hub 和 Execute Terminal。"
+    },
+    "macos": {
+      "name": "macOS",
+      "family": "desktop",
+      "architectures": ["x64", "arm64"],
+      "components": [
+        "input-terminal",
+        "execute-terminal",
+        "hub",
+        "hub-controller"
+      ],
+      "installerExtensions": [".dmg", ".pkg"],
+      "installation": "打开磁盘映像安装应用，或运行对应架构的安装程序。"
+    },
+    "linux": {
+      "name": "Linux Desktop",
+      "family": "desktop",
+      "architectures": ["x64", "arm64"],
+      "components": [
+        "input-terminal",
+        "execute-terminal",
+        "hub",
+        "hub-controller"
+      ],
+      "installerExtensions": [".AppImage", ".deb", ".rpm"],
+      "installation": "选择与发行版和架构匹配的安装包。AppImage 需授予执行权限后运行。"
+    },
+    "android": {
+      "name": "Android",
+      "family": "mobile",
+      "architectures": ["arm64"],
+      "components": ["input-terminal", "hub-controller"],
+      "installerExtensions": [".apk"],
+      "installation": "安装 APK 后连接已有 Hub，通过 Input Terminal 和 Hub Controller 使用远程终端。"
+    },
+    "ios": {
+      "name": "iOS / iPadOS",
+      "family": "mobile",
+      "architectures": ["arm64"],
+      "components": ["input-terminal", "hub-controller"],
+      "installerExtensions": [".ipa"],
+      "installation": "按发布说明中签名对应的分发方式安装。"
+    }
+  }
+}

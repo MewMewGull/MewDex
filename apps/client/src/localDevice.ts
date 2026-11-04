@@ -1,8 +1,9 @@
 // Native device management is separate from the network SDK used by every input.
 import { invoke, isTauri } from "@tauri-apps/api/core";
-import type { Request, Result, Snapshot } from "./localProtocol";
+import type { Request, Result, Snapshot } from "./hub-controller/localProtocol";
 
 export interface InputCapabilities {
+  components?: string[];
   localService: boolean;
   helperPresent: boolean;
   enginePresent: boolean;
@@ -14,7 +15,8 @@ export interface InputCapabilities {
   projectDirectory?: boolean;
 }
 
-const inputOnly: InputCapabilities = {
+const remoteCapabilities: InputCapabilities = {
+  components: ["input-terminal", "hub-controller"],
   localService: false,
   helperPresent: false,
   enginePresent: false,
@@ -35,7 +37,7 @@ let capabilities: Promise<InputCapabilities> | undefined;
 export function inputCapabilities(): Promise<InputCapabilities> {
   return (capabilities ??= isTauri()
     ? invoke<InputCapabilities>("input_capabilities")
-    : Promise.resolve(inputOnly));
+    : Promise.resolve(remoteCapabilities));
 }
 
 export async function deviceRequest(request: Request): Promise<Result> {

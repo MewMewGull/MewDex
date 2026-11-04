@@ -42,6 +42,9 @@ fn input_capabilities(app: tauri::AppHandle) -> serde_json::Value {
     value["desktopPreferences"] = serde_json::json!(cfg!(target_os = "windows"));
     value["attachmentSave"] = serde_json::json!(cfg!(desktop));
     value["projectDirectory"] = serde_json::json!(cfg!(desktop));
+    let product: serde_json::Value = serde_json::from_str(include_str!("../../../../mewdex.product.json"))
+        .expect("valid bundled MewDex component manifest");
+    value["components"] = product["platforms"][std::env::consts::OS]["components"].clone();
     #[cfg(debug_assertions)]
     diagnostics::emit("input-capabilities", value.clone());
     value

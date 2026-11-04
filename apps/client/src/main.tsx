@@ -38,7 +38,7 @@ import {
 } from "@mewdex/sdk";
 import type { Connection } from "./platform";
 import { hostedHubURL } from "./platform";
-import { useDesktopHub } from "./useDesktopHub";
+import { useDesktopTerminals } from "./hub-controller/useDesktopTerminals";
 import { attachInputViewport } from "./inputViewport";
 import {
   sameSelection,
@@ -52,29 +52,29 @@ import { isSettingsShortcut } from "./inputKeys";
 import { composerSubmission } from "./composerSubmission";
 import { messagesFrom } from "./messages";
 import { commandOutputsFrom, latestDiffFrom } from "./outputs";
-import { NetworkSettings } from "./components/NetworkSettings";
-import { useInputAlerts } from "./useInputAlerts";
-import { LocalDeviceDialog } from "./components/LocalDeviceDialog";
+import { HubController } from "./hub-controller/HubController";
+import { useInputAlerts } from "./input-terminal/useInputAlerts";
+import { LocalDeviceDialog } from "./hub-controller/LocalDeviceDialog";
 import { ConnectScreen } from "./components/ConnectScreen";
 import { Brand } from "./components/Brand";
 import { InteractionPanel } from "./components/InteractionPanel";
 import { PolicySettings } from "./components/PolicySettings";
-import { QueueHistoryDialog, QueuePanel } from "./components/QueuePanel";
-import { WorkspaceSidebar } from "./components/WorkspaceSidebar";
-import { ConversationActions } from "./components/ConversationActions";
-import { ConversationWelcome } from "./components/ConversationWelcome";
-import { ConversationComposer } from "./components/ConversationComposer";
-import { AssistantActivity } from "./components/AssistantActivity";
+import { QueueHistoryDialog, QueuePanel } from "./input-terminal/QueuePanel";
+import { WorkspaceSidebar } from "./input-terminal/WorkspaceSidebar";
+import { ConversationActions } from "./input-terminal/ConversationActions";
+import { ConversationWelcome } from "./input-terminal/ConversationWelcome";
+import { ConversationComposer } from "./input-terminal/ConversationComposer";
+import { AssistantActivity } from "./input-terminal/AssistantActivity";
 import { executionTarget } from "./executionTarget";
 import {
   ArchivedSessionsDialog,
   RenameSessionDialog,
 } from "./components/SessionManagement";
-import { MessageList } from "./components/MessageList";
+import { MessageList } from "./input-terminal/MessageList";
 import { AttachmentList } from "./components/AttachmentList";
 import { AttachmentUploadList } from "./components/AttachmentUploadList";
 import { useAttachmentUploads } from "./useAttachmentUploads";
-import { QuickSwitcher } from "./components/QuickSwitcher";
+import { QuickSwitcher } from "./input-terminal/QuickSwitcher";
 import { useComposerDrafts } from "./useComposerDrafts";
 import { useComposerActivity } from "./useComposerActivity";
 import { composerKey, draftDestination, draftEntries } from "./composerDrafts";
@@ -85,13 +85,13 @@ import { useComposerPosition } from "./useComposerPosition";
 import { OutputResizeHandle } from "./components/OutputResizeHandle";
 import { useNetwork } from "./useNetwork";
 import { useNetworkActivity } from "./useNetworkActivity";
-import { useModelAccount } from "./useModelAccount";
+import { useModelAccount } from "./hub-controller/useModelAccount";
 import { ModelConnectionNotice } from "./components/ModelConnectionNotice";
 import { ActivityDialog } from "./components/ActivityDialog";
 import { ProjectFilesDialog } from "./components/ProjectFilesDialog";
-import { WorkspaceManagerDialog } from "./components/WorkspaceManagerDialog";
+import { WorkspaceManagerDialog } from "./hub-controller/WorkspaceManagerDialog";
 import { AccountMenu } from "./components/AccountMenu";
-import { ComposerControls } from "./components/ComposerControls";
+import { ComposerControls } from "./input-terminal/ComposerControls";
 import { currentActivity } from "./activityPresentation";
 import {
   defaultProjectOpener,
@@ -100,7 +100,7 @@ import {
   openReceivedFile,
 } from "./projectFileActions";
 import { projectFileLocation, relativeProjectPath } from "./projectFileLinks";
-import { ConversationSearchDialog } from "./components/ConversationSearchDialog";
+import { ConversationSearchDialog } from "./input-terminal/ConversationSearchDialog";
 import { useConversationHistory } from "./useConversationHistory";
 import { useOutputReading } from "./useOutputReading";
 import { useAppearance } from "./useAppearance";
@@ -114,8 +114,8 @@ import {
 import {
   LocalServiceReconnect,
   NetworkConnectionNotice,
-} from "./components/ConnectionRecovery";
-import { useInputConnection } from "./useInputConnection";
+} from "./hub-controller/ConnectionRecovery";
+import { useInputConnection } from "./input-terminal/useInputConnection";
 import { useCommandRecovery } from "./useCommandRecovery";
 import { useSessionInteractions } from "./useSessionInteractions";
 import { useInteractionResponses } from "./useInteractionResponses";
@@ -161,16 +161,21 @@ function App() {
     queries.clear();
   });
   const { connection, loading } = input;
-  const desktopHub = useDesktopHub(input.retry);
+  const desktopTerminals = useDesktopTerminals(input.retry);
   const [localDeviceOpen, setLocalDeviceOpen] = useState(false);
-  const localDeviceAvailable = desktopHub.available;
+  const localDeviceAvailable = desktopTerminals.available;
   const [localStartAvailable, setLocalStartAvailable] = useState(false);
   const [connectionTarget, setConnectionTarget] = useState<string>();
   const [connectingExisting, setConnectingExisting] = useState(false);
   useEffect(() => {
-    if (desktopHub.setupRequired && !loading && !connection && !input.address)
+    if (
+      desktopTerminals.setupRequired &&
+      !loading &&
+      !connection &&
+      !input.address
+    )
       setLocalDeviceOpen(true);
-  }, [desktopHub.setupRequired, loading, connection, input.address]);
+  }, [desktopTerminals.setupRequired, loading, connection, input.address]);
   async function saveConnection(value: Connection) {
     await input.save(value);
     setConnectionTarget(undefined);
@@ -181,8 +186,8 @@ function App() {
     : undefined;
   let screen: React.ReactNode;
   const defaultHubURL =
-    connectionTarget ?? desktopHub.baseURL ?? hostedHubURL();
-  if (loading || desktopHub.pending)
+    connectionTarget ?? desktopTerminals.baseURL ?? hostedHubURL();
+  if (loading || desktopTerminals.pending)
     screen = <div className="loading">正在打开工作台…</div>;
   else if (input.issue)
     screen = (
@@ -263,8 +268,8 @@ function App() {
         initialURL={defaultHubURL}
         joining={connectingExisting || !!defaultHubURL}
         onJoiningChange={setConnectingExisting}
-        startupError={desktopHub.error}
-        onRetryStartup={desktopHub.retry}
+        startupError={desktopTerminals.error}
+        onRetryStartup={desktopTerminals.retry}
       />
     );
   return (
@@ -276,7 +281,7 @@ function App() {
           onOpenChange={setLocalDeviceOpen}
           onConnect={async (value) => {
             await saveConnection(value);
-            desktopHub.connected(value.baseURL);
+            desktopTerminals.connected(value.baseURL);
           }}
           onJoinNetwork={(url) => {
             if (
@@ -360,7 +365,7 @@ function Workspace({
   const navigationVisible = view.navigationVisible;
   const [switcher, setSwitcher] = useState(false);
   const [settings, setSettings] = useState(false);
-  const [networkSettings, setNetworkSettings] = useState(false);
+  const [hubControllerOpen, setHubControllerOpen] = useState(false);
   const [modelSettingsDevice, setModelSettingsDevice] = useState<string>();
   const [executorSetup, setExecutorSetup] = useState(false);
   const [conversationOptions, setConversationOptions] = useState(false);
@@ -673,7 +678,7 @@ function Workspace({
     setPendingCommands([]);
     setDismissedCommands(new Set());
     setSettings(false);
-    setNetworkSettings(false);
+    setHubControllerOpen(false);
     setModelSettingsDevice(undefined);
     setConversationOptions(false);
     setConversationSearch(false);
@@ -1001,10 +1006,10 @@ function Workspace({
   function focusComposer() {
     requestAnimationFrame(composerPosition.focus);
   }
-  function openNetworkSettings(modelDeviceId?: string, setupExecutor = false) {
+  function openHubController(modelDeviceId?: string, setupExecutor = false) {
     setModelSettingsDevice(modelDeviceId);
     setExecutorSetup(setupExecutor);
-    setNetworkSettings(true);
+    setHubControllerOpen(true);
   }
   function openReceiptHistory() {
     setReceiptHistory(true);
@@ -1090,7 +1095,7 @@ function Workspace({
       return target.notice || "原目标暂不可用，草稿仍保留。";
     if (target.session) selectConversation(target.session);
     else selectProject(target.device, target.projectId);
-    setNetworkSettings(false);
+    setHubControllerOpen(false);
   }
   function openActivityConversation(session: Session, focusRequests: boolean) {
     const current = cache.getQueryData<Session[]>(["sessions"]);
@@ -1131,7 +1136,7 @@ function Workspace({
         newConversation();
       } else if (isSettingsShortcut(event)) {
         event.preventDefault();
-        openNetworkSettings();
+        openHubController();
       } else if (key === "l") {
         event.preventDefault();
         focusComposer();
@@ -1201,7 +1206,7 @@ function Workspace({
           setSidebar(false);
           setSwitcher(true);
         }}
-        onSettings={() => openNetworkSettings()}
+        onSettings={() => openHubController()}
         onLocalDevice={onLocalDevice}
         onClose={() => setSidebar(false)}
         onDevice={selectDevice}
@@ -1259,7 +1264,7 @@ function Workspace({
             identity={identity.data}
             mewdexSupported={network.capabilities.includes("mewdex-accounts")}
             onLogout={disconnectInput}
-            onLogin={(id) => openNetworkSettings(id)}
+            onLogin={(id) => openHubController(id)}
           />
         }
         canManageSessions={network.ready && !sessionSaving}
@@ -1442,7 +1447,7 @@ function Workspace({
               }
               canPair={identity.data.role === "admin"}
               onChoose={() => setSwitcher(true)}
-              onPair={() => openNetworkSettings(undefined, true)}
+              onPair={() => openHubController(undefined, true)}
               onLocalDevice={onLocalDevice}
               onCreateProject={
                 identity.data.role === "admin" &&
@@ -1625,7 +1630,7 @@ function Workspace({
           {drafts.persistenceError && (
             <div className="error" role="alert">
               {drafts.persistenceError}
-              <button onClick={() => openNetworkSettings()}>管理草稿</button>
+              <button onClick={() => openHubController()}>管理草稿</button>
             </div>
           )}
           {activeSession?.archived && (
@@ -1656,7 +1661,7 @@ function Workspace({
               pending={!!pendingModelLogin}
               error={modelAccount.isError}
               refreshing={modelAccount.isFetching}
-              onManage={() => openNetworkSettings(state.deviceId)}
+              onManage={() => openHubController(state.deviceId)}
               onRefresh={() => {
                 void modelAccount.refetch();
               }}
@@ -1995,12 +2000,12 @@ function Workspace({
           }}
         />
       )}
-      <NetworkSettings
+      <HubController
         client={client}
         devices={devices.data ?? []}
         identity={identity.data}
-        open={networkSettings}
-        onOpenChange={setNetworkSettings}
+        open={hubControllerOpen}
+        onOpenChange={setHubControllerOpen}
         initialModelDeviceId={modelSettingsDevice}
         initialExecutorSetup={executorSetup}
         alerts={alerts}
