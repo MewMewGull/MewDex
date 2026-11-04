@@ -57,6 +57,7 @@ import { useInputAlerts } from "./input-terminal/useInputAlerts";
 import { LocalDeviceDialog } from "./hub-controller/LocalDeviceDialog";
 import { ConnectScreen } from "./components/ConnectScreen";
 import { Brand } from "./components/Brand";
+import { DesktopTitlebar } from "./components/DesktopTitlebar";
 import { InteractionPanel } from "./components/InteractionPanel";
 import { PolicySettings } from "./components/PolicySettings";
 import { QueueHistoryDialog, QueuePanel } from "./input-terminal/QueuePanel";
@@ -64,6 +65,7 @@ import { WorkspaceSidebar } from "./input-terminal/WorkspaceSidebar";
 import { ConversationActions } from "./input-terminal/ConversationActions";
 import { ConversationWelcome } from "./input-terminal/ConversationWelcome";
 import { ConversationComposer } from "./input-terminal/ConversationComposer";
+import { DevicePicker } from "./components/DevicePicker";
 import { AssistantActivity } from "./input-terminal/AssistantActivity";
 import { executionTarget } from "./executionTarget";
 import {
@@ -103,7 +105,7 @@ import { projectFileLocation, relativeProjectPath } from "./projectFileLinks";
 import { ConversationSearchDialog } from "./input-terminal/ConversationSearchDialog";
 import { useConversationHistory } from "./useConversationHistory";
 import { useOutputReading } from "./useOutputReading";
-import { useAppearance } from "./useAppearance";
+import { initializeAppearance, useAppearance } from "./useAppearance";
 import { attachMobileSystemBars } from "./mobileSystemBars";
 import { useTaskPlan } from "./useTaskPlan";
 import { TaskPlanCard } from "./components/TaskPlanCard";
@@ -133,6 +135,11 @@ import "./style.css";
 import "./theme-palette.css";
 import "./appearance.css";
 import "./desktop-workspace.css";
+import "./desktop-titlebar.css";
+import { AppUpdates } from "./components/AppUpdates";
+import { useAppUpdates } from "./appUpdates";
+
+initializeAppearance();
 
 const queries = new QueryClient({ defaultOptions: { queries: { retry: 1 } } });
 const OutputPanel = lazy(() =>
@@ -274,7 +281,17 @@ function App() {
     );
   return (
     <>
+      <DesktopTitlebar />
       {screen}
+      <AppUpdates />
+      {!connection && (
+        <button
+          className="app-update-entry"
+          onClick={() => useAppUpdates.getState().show()}
+        >
+          应用更新
+        </button>
+      )}
       {localDeviceAvailable && (
         <LocalDeviceDialog
           open={localDeviceOpen}
@@ -1738,6 +1755,14 @@ function Workspace({
           )}
           <ConversationComposer
             projectLabel={target.project?.name ?? "选择项目"}
+            deviceControl={
+              <DevicePicker
+                devices={devices.data ?? []}
+                selectedId={state.deviceId}
+                connected={network.connected}
+                onSelect={selectDevice}
+              />
+            }
             editor={{
               ref: composerInput,
               draftKey: drafts.key,

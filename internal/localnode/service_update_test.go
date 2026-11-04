@@ -1,6 +1,9 @@
 package localnode
 
 import (
+	"bytes"
+	"context"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -8,6 +11,52 @@ import (
 	"mewdex/internal/protocol"
 	"mewdex/internal/store"
 )
+
+func TestApplicationUpdatePreflightChecksStoppedTasksWithoutChangingConfiguration(t *testing.T) {
+	m := testManager(t)
+	ctx := context.Background()
+	if err := m.CheckApplicationUpdate(ctx); err != nil {
+		t.Fatal("fresh installation preflight failed", err)
+	}
+	if _, err := m.Handle(ctx, Request{Operation: "setup", Setup: &Setup{Hub: true}}); err != nil {
+		t.Fatal(err)
+	}
+	before, err := os.ReadFile(m.profile())
+	if err != nil {
+		t.Fatal(err)
+	}
+	c, err := config.Read(m.profile())
+	if err != nil {
+		t.Fatal(err)
+	}
+	database, err := store.Open(filepath.Join(c.DataDir, "hub.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer database.Close()
+	session := protocol.Session{ID: "update-preflight", Title: "当前任务", State: "running"}
+	if err := database.Put("sessions", session.ID, session); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.CheckApplicationUpdate(ctx); err == nil {
+		t.Fatal("installer preflight accepted an active task")
+	}
+	session.State = "idle"
+	if err := database.Put("sessions", session.ID, session); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.CheckApplicationUpdate(ctx); err != nil {
+		t.Fatal("idle installation preflight failed", err)
+	}
+	after, _ := os.ReadFile(m.profile())
+	if !bytes.Equal(before, after) {
+		t.Fatal("installer preflight changed the device configuration")
+	}
+	status, err := m.Handle(ctx, Request{Operation: "status"})
+	if err != nil || status.Snapshot.State != "stopped" {
+		t.Fatal("installer preflight started a service", status.Snapshot.State, err)
+	}
+}
 
 func TestServiceUpdateWaitsForAffectedExecutions(t *testing.T) {
 	for _, item := range []struct {

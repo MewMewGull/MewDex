@@ -28,6 +28,16 @@ const directions: ResizeDirection[] = [
   "se",
 ];
 
+function dialogViewport() {
+  const top =
+    parseFloat(
+      getComputedStyle(document.documentElement).getPropertyValue(
+        "--desktop-titlebar-height",
+      ),
+    ) || 0;
+  return { width: window.innerWidth, height: window.innerHeight - top, top };
+}
+
 export function ResizableDialogContent({
   sizeKey,
   children,
@@ -46,10 +56,7 @@ export function ResizableDialogContent({
       return {};
     }
   });
-  const [viewport, setViewport] = useState(() => ({
-    width: window.innerWidth,
-    height: window.innerHeight,
-  }));
+  const [viewport, setViewport] = useState(dialogViewport);
   const [position, setPosition] = useState<DialogRect>();
   const [resizing, setResizing] = useState<ResizeDirection>();
   const drag = useRef<{
@@ -62,10 +69,17 @@ export function ResizableDialogContent({
   const rect = fitDialog(layout, viewport, position);
 
   useLayoutEffect(() => {
-    const update = () =>
-      setViewport({ width: window.innerWidth, height: window.innerHeight });
+    const update = () => setViewport(dialogViewport());
+    const observer = new MutationObserver(update);
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-custom-titlebar"],
+    });
     window.addEventListener("resize", update);
-    return () => window.removeEventListener("resize", update);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", update);
+    };
   }, []);
 
   function remember(next: DialogLayout) {
@@ -117,7 +131,12 @@ export function ResizableDialogContent({
       {...props}
       className={`${className} resizable-dialog`}
       data-resizing={resizing}
-      style={{ ...style, ...rect, transform: "none" }}
+      style={{
+        ...style,
+        ...rect,
+        top: rect.top + viewport.top,
+        transform: "none",
+      }}
     >
       {children(sizeControls)}
       {!layout.maximized &&

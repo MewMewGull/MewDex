@@ -1,0 +1,119 @@
+:root {
+  --desktop-titlebar-height: 0px;
+}
+
+:root[data-custom-titlebar="true"] {
+  --desktop-titlebar-height: 36px;
+}
+
+:root[data-custom-titlebar="true"] body {
+  padding-top: var(--desktop-titlebar-height);
+}
+
+:root[data-custom-titlebar="true"] .workspace,
+:root[data-custom-titlebar="true"] .loading {
+  height: calc(100dvh - var(--desktop-titlebar-height));
+}
+
+:root[data-custom-titlebar="true"] .connect-screen {
+  min-height: calc(100dvh - var(--desktop-titlebar-height));
+}
+
+:root[data-custom-titlebar="true"] .dialog-overlay {
+  top: var(--desktop-titlebar-height);
+}
+
+:root[data-custom-titlebar="true"]
+  .settings-dialog:not(.resizable-dialog):not(.project-files-panel) {
+  top: calc(50% + var(--desktop-titlebar-height) / 2);
+  max-height: calc(100dvh - var(--desktop-titlebar-height) - 32px);
+}
+
+:root[data-custom-titlebar="true"] .project-files-panel.settings-dialog {
+  top: calc(74px + var(--desktop-titlebar-height));
+  height: calc(100dvh - 74px - var(--desktop-titlebar-height));
+}
+
+.desktop-titlebar {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 100;
+  height: var(--desktop-titlebar-height);
+  display: flex;
+  align-items: stretch;
+  color: var(--mewdex-titleBar-activeForeground);
+  background: var(--mewdex-titleBar-activeBackground);
+  border-bottom: 1px solid
+    color-mix(in srgb, var(--panel-border) 35%, transparent);
+  user-select: none;
+  pointer-events: auto;
+}
+
+.desktop-titlebar-drag {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  gap: 8px;
+  padding-left: 14px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.desktop-titlebar-drag > * {
+  pointer-events: none;
+}
+
+.desktop-titlebar[data-focused="false"] .desktop-titlebar-drag {
+  opacity: 0.6;
+}
+
+.desktop-titlebar-error {
+  align-self: center;
+  margin-right: 16px;
+  color: var(--status-error-text);
+  font-size: 12px;
+}
+
+.desktop-window-controls {
+  display: flex;
+  flex-shrink: 0;
+}
+
+.desktop-window-controls > button {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: inherit;
+  background: transparent;
+  cursor: default;
+}
+
+.desktop-window-controls > button > svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1;
+  pointer-events: none;
+}
+
+.desktop-window-controls > button:hover {
+  color: var(--text-strong);
+  background: color-mix(in srgb, var(--text-muted) 16%, transparent);
+}
+
+.desktop-window-controls > .desktop-window-close:hover {
+  color: #fff;
+  background: #c42b1c;
+}
+
+.desktop-window-controls > button:focus-visible {
+  outline-offset: -4px;
+}
+
+.desktop-window-controls > button:active {
+  transform: none;
+}

@@ -1,6 +1,6 @@
 {
   "name": "mewdex",
-  "version": "0.1.0-dev",
+  "version": "0.1.1-preview.20261104",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -19,7 +19,8 @@
     "test:sdk": "npm run test --workspace @mewdex/sdk",
     "test:client": "npm run test --workspace @mewdex/client",
     "test:release": "node --test scripts/test/release.test.mjs",
-    "release:prepare": "node scripts/prepare-release.mjs"
+    "release:prepare": "node scripts/prepare-release.mjs",
+    "version:app": "node scripts/set-app-version.mjs"
   },
   "devDependencies": {
     "prettier": "3.5.3"

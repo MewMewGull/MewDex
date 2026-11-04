@@ -20,6 +20,9 @@ RequestExecutionLevel user
 !ifndef MANIFEST
   !error "Pass /DMANIFEST=<uninstall-files.nsh>"
 !endif
+!ifndef APPVERSION
+  !error "Pass /DAPPVERSION=<app SemVer>"
+!endif
 Name "MewDex"
 OutFile "${OUTPUT}"
 InstallDir "$LOCALAPPDATA\Programs\MewDex"
@@ -32,9 +35,13 @@ Var StartupCheckbox
 Var Dialog
 Var Parameters
 Var ExplicitStartup
+Var UpdatePID
 
 !define MUI_ABORTWARNING
+!define MUI_CUSTOMFUNCTION_ABORT ReopenWorkbench
+!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipUpdatePage
 !insertmacro MUI_PAGE_WELCOME
+!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipUpdatePage
 !insertmacro MUI_PAGE_DIRECTORY
 Page custom StartupPage StartupLeave
 !insertmacro MUI_PAGE_INSTFILES
@@ -48,6 +55,20 @@ Page custom StartupPage StartupLeave
 
 Function .onInit
   SetShellVarContext current
+  ${GetParameters} $Parameters
+  ${GetOptions} $Parameters "/UPDATEPID=" $UpdatePID
+  ${If} $UpdatePID != ""
+    ; Wait for the invoking workbench to release its executable and WebView.
+    System::Call 'kernel32::OpenProcess(i 0x00100000, i 0, i $UpdatePID) p .r0'
+    ${If} $0 != 0
+      System::Call 'kernel32::WaitForSingleObject(p r0, i 30000) i .r1'
+      System::Call 'kernel32::CloseHandle(p r0)'
+      ${If} $1 != 0
+        MessageBox MB_OK|MB_ICONSTOP "工作台尚未退出，请关闭后重新运行更新包。" /SD IDOK
+        Abort
+      ${EndIf}
+    ${EndIf}
+  ${EndIf}
   StrCpy $AutoStart "false"
   InitPluginsDir
   SetOutPath "$PLUGINSDIR"
@@ -56,27 +77,66 @@ Function .onInit
   ExecWait '"$PLUGINSDIR\mewdex-node.exe" install -root "$LOCALAPPDATA\app.mewdex.client" -app-config "$APPDATA\app.mewdex.client" -inspect-output "$PLUGINSDIR\startup.ini"' $0
   ${If} ${Errors}
     MessageBox MB_OK|MB_ICONSTOP "无法读取已有的 Hub 自动启动设置，安装已停止。" /SD IDOK
+    Call ReopenWorkbench
     Abort
   ${EndIf}
   ${If} $0 != 0
     MessageBox MB_OK|MB_ICONSTOP "已有的 Hub 设置需要核对，请在工作台中处理后再安装。" /SD IDOK
+    Call ReopenWorkbench
     Abort
   ${EndIf}
   ReadINIStr $AutoStart "$PLUGINSDIR\startup.ini" "MewDex" "AutoStart"
-  ${GetParameters} $Parameters
   ClearErrors
   ${GetOptions} $Parameters "/AUTOSTART=" $ExplicitStartup
   ${IfNot} ${Errors}
     ${If} $ExplicitStartup != "true"
     ${AndIf} $ExplicitStartup != "false"
       MessageBox MB_OK|MB_ICONSTOP "/AUTOSTART 只能使用 true 或 false。" /SD IDOK
+      Call ReopenWorkbench
       Abort
     ${EndIf}
     StrCpy $AutoStart $ExplicitStartup
   ${EndIf}
+  ; Check before copying application files, including manual installer upgrades.
+  ClearErrors
+  ExecWait '"$PLUGINSDIR\mewdex-node.exe" install -root "$LOCALAPPDATA\app.mewdex.client" -app-config "$APPDATA\app.mewdex.client" -prepare-update' $0
+  ${If} ${Errors}
+    MessageBox MB_OK|MB_ICONSTOP "无法检查本机任务，更新已停止。请重新打开工作台后重试。" /SD IDOK
+    Call ReopenWorkbench
+    Abort
+  ${EndIf}
+  ${If} $0 != 0
+    MessageBox MB_OK|MB_ICONSTOP "本机存在执行中或待确认任务，或服务状态需要核对。请在工作台处理后重新安装。" /SD IDOK
+    Call ReopenWorkbench
+    Abort
+  ${EndIf}
+FunctionEnd
+
+Function SkipUpdatePage
+  ${If} $UpdatePID != ""
+    Abort
+  ${EndIf}
+FunctionEnd
+
+Function ReopenWorkbench
+  ${If} $UpdatePID != ""
+    Exec '"$INSTDIR\mewdex-client.exe"'
+  ${EndIf}
+FunctionEnd
+
+Function .onInstSuccess
+  ${If} $UpdatePID != ""
+    Call ReopenWorkbench
+    Quit
+  ${EndIf}
+FunctionEnd
+
+Function .onInstFailed
+  Call ReopenWorkbench
 FunctionEnd
 
 Function StartupPage
+  Call SkipUpdatePage
   !insertmacro MUI_HEADER_TEXT "Hub 启动设置" "选择是否在登录 Windows 后自动启动 MewDex Hub。"
   nsDialogs::Create 1018
   Pop $Dialog
@@ -152,7 +212,7 @@ Section "MewDex" Main
   CreateShortcut "$DESKTOP\MewDex.lnk" "$INSTDIR\mewdex-client.exe"
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MewDex" "DisplayName" "MewDex"
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MewDex" "DisplayVersion" "0.1.0"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MewDex" "DisplayVersion" "${APPVERSION}"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MewDex" "UninstallString" '$\"$INSTDIR\Uninstall.exe$\"'
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MewDex" "InstallLocation" "$INSTDIR"
   WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MewDex" "NoModify" 1

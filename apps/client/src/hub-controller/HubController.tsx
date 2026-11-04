@@ -13,6 +13,7 @@ import {
   Unplug,
   Palette,
   MessageCircle,
+  Download,
 } from "lucide-react";
 import {
   MewDexClient,
@@ -36,6 +37,7 @@ import { CopyButton } from "../components/CopyButton";
 import { MewDexAccountSettings } from "./MewDexAccountSettings";
 import { MessagingSettings } from "./MessagingSettings";
 import { WebWorkbenchButton } from "./WebWorkbenchButton";
+import { AppUpdateSettings } from "../components/AppUpdates";
 
 type Section =
   | "account"
@@ -43,6 +45,7 @@ type Section =
   | "connection"
   | "appearance"
   | "drafts"
+  | "updates"
   | "pairing"
   | "models"
   | "messaging"
@@ -279,6 +282,12 @@ export function HubController({
           group: "工作台",
         },
         {
+          id: "updates",
+          label: "应用更新",
+          icon: <Download size={16} />,
+          group: "工作台",
+        },
+        {
           id: "connection",
           label: "连接与服务",
           icon: <Monitor size={16} />,
@@ -323,6 +332,7 @@ export function HubController({
       {section === "messaging" && identity.role === "admin" && (
         <MessagingSettings client={client} devices={devices} />
       )}
+      {section === "updates" && <AppUpdateSettings />}
       {section === "account" && (
         <MewDexAccountSettings
           client={client}

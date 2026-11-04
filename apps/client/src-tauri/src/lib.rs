@@ -3,6 +3,7 @@ use tauri::Emitter;
 use tauri::Manager;
 
 mod credential_store;
+mod app_updates;
 mod notification_actions;
 #[cfg(target_os = "windows")]
 mod notification_registration_windows;
@@ -69,6 +70,7 @@ pub fn run() {
             .build(),
     );
     let builder = builder
+        .manage(app_updates::Updater::default())
         .manage(notification_actions::Inbox::default())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init());
@@ -82,6 +84,11 @@ pub fn run() {
                 vault::vault_clear,
                 notification_actions::notification_take_action,
                 input_capabilities,
+                app_updates::app_update_info,
+                app_updates::app_update_check,
+                app_updates::app_update_download,
+                app_updates::app_update_cancel,
+                app_updates::app_update_install,
                 desktop::device_request,
                 desktop::choose_project,
                 desktop::open_project_directory,
@@ -105,7 +112,9 @@ pub fn run() {
         vault::vault_save,
         vault::vault_clear,
         notification_actions::notification_take_action,
-        input_capabilities
+        input_capabilities,
+        app_updates::app_update_info,
+        app_updates::app_update_check
     ]);
     builder
         .setup(|app| {

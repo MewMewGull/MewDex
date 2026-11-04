@@ -3,9 +3,12 @@ import { createHash } from 'node:crypto';
 import { readFile, writeFile, mkdir, readdir, copyFile, lstat } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
+import { appVersionPattern } from './set-app-version.mjs';
 
 if (process.platform !== 'win32') throw new Error('Build the Windows installer on Windows');
 const root = path.resolve(import.meta.dirname, '..');
+const appVersion = JSON.parse(await readFile(path.join(root, 'apps/client/src-tauri/tauri.conf.json'), 'utf8')).version;
+if (!appVersionPattern.test(appVersion)) throw new Error('Set a valid app version before building the installer');
 const input = process.argv[2];
 if (!input || ![3,4].includes(process.argv.length)) throw new Error('Usage: node scripts/build-windows-installer.mjs <prepared desktop build folder> [installer-name.exe]');
 const installerName = process.argv[3] ?? 'MewDex-Windows-x64.exe';
@@ -76,7 +79,7 @@ for (const file of files) { let dir = path.dirname(file); while (dir !== '.') { 
 await writeFile(manifest, files.map(file => `Delete "$INSTDIR\\${escape(file)}"`).join('\n') + '\n' + [...directories].sort((a,b) => b.length-a.length).map(dir => `RMDir "$INSTDIR\\${escape(dir)}"`).join('\n') + '\n');
 const output = path.join(root, 'dist/windows', installerName);
 await mkdir(path.dirname(output), { recursive: true });
-run(nsis, ['/INPUTCHARSET', 'UTF8', '/V2', `/DPAYLOAD=${payload}`, `/DMANIFEST=${manifest}`, `/DBOOTSTRAPPER=${bootstrap}`, `/DOUTPUT=${output}`, path.join(root, 'scripts/windows/installer.nsi')]);
+run(nsis, ['/INPUTCHARSET', 'UTF8', '/V2', '/DAPPVERSION=' + appVersion, `/DPAYLOAD=${payload}`, `/DMANIFEST=${manifest}`, `/DBOOTSTRAPPER=${bootstrap}`, `/DOUTPUT=${output}`, path.join(root, 'scripts/windows/installer.nsi')]);
 const result = { output, files: files.length, sha256: createHash('sha256').update(await readFile(output)).digest('hex'), installed: false };
 await writeFile(path.join(stage, 'build.json'), JSON.stringify(result, null, 2)+'\n');
 console.log(JSON.stringify(result));

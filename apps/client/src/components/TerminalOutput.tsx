@@ -13,10 +13,30 @@ function terminalColors(host: HTMLElement) {
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = 1;
   const context = canvas.getContext("2d")!;
+  const backgrounds: string[] = [];
+  for (
+    let element: HTMLElement | null = host;
+    element;
+    element = element.parentElement
+  )
+    backgrounds.unshift(getComputedStyle(element).backgroundColor);
+  const canvasBackground =
+    getComputedStyle(document.documentElement).colorScheme === "light"
+      ? "#ffffff"
+      : "#10131b";
   // The search addon requires hex colors, including for CSS color-mix tokens.
   function color(property: string) {
-    context.fillStyle = styles.getPropertyValue(property).trim();
+    // Composite alpha colors over the same surfaces as the visible terminal.
+    context.fillStyle = canvasBackground;
     context.fillRect(0, 0, 1, 1);
+    for (const background of backgrounds) {
+      context.fillStyle = background;
+      context.fillRect(0, 0, 1, 1);
+    }
+    if (property !== "background-color") {
+      context.fillStyle = styles.getPropertyValue(property).trim();
+      context.fillRect(0, 0, 1, 1);
+    }
     const channels = context.getImageData(0, 0, 1, 1).data;
     return `#${Array.from(channels.slice(0, 3), (channel) => channel.toString(16).padStart(2, "0")).join("")}`;
   }
@@ -27,6 +47,16 @@ function terminalColors(host: HTMLElement) {
     theme: {
       background: color("background-color"),
       foreground: color("color"),
+      red: color("--status-error-text"),
+      green: color("--status-success-text"),
+      yellow: color("--status-warning-text"),
+      blue: color("--status-info-text"),
+      cyan: accent,
+      brightRed: color("--status-error-text"),
+      brightGreen: color("--status-success-text"),
+      brightYellow: color("--status-warning-text"),
+      brightBlue: color("--status-info-text"),
+      brightCyan: accent,
       selectionBackground: selection,
       selectionInactiveBackground: selection,
     },

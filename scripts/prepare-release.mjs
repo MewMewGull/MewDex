@@ -3,6 +3,7 @@ import { createReadStream } from "node:fs";
 import { lstat, mkdir, readFile, realpath, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { appVersionPattern } from "./set-app-version.mjs";
 
 const repositoryRoot = path.resolve(import.meta.dirname, "..");
 export const product = JSON.parse(
@@ -13,7 +14,10 @@ export async function prepareRelease(
   definition,
   { root = repositoryRoot, checkOnly = false } = {},
 ) {
-  if (!/^v\d+\.\d+\.\d+(?:[-.][A-Za-z0-9.-]+)?$/.test(definition.tag ?? ""))
+  if (
+    !definition.tag?.startsWith("v") ||
+    !appVersionPattern.test(definition.tag.slice(1))
+  )
     throw new Error(
       "Provide a version tag such as v0.1.0 or v0.1.0-preview.20261104",
     );
@@ -122,6 +126,10 @@ export async function prepareRelease(
       kind: artifact.kind,
       configuration: artifact.configuration,
       signed: artifact.signed,
+      updateMode:
+        artifact.os === "windows" && name.toLowerCase().endsWith(".exe")
+          ? "windows-nsis"
+          : "system",
       components: [...profile.components],
       file: path.relative(root, file).split(path.sep).join("/"),
       name,
@@ -180,6 +188,8 @@ export async function prepareRelease(
     schemaVersion: 1,
     tag: definition.tag,
     prerelease: definition.prerelease,
+    version: definition.tag.slice(1),
+    summary: definition.summary.trim(),
     platforms,
     assets,
   };
@@ -210,6 +220,16 @@ async function main() {
   const definition = JSON.parse(
     await readFile(path.resolve(definitionPath), "utf8"),
   );
+  const app = JSON.parse(
+    await readFile(
+      path.join(repositoryRoot, "apps/client/src-tauri/tauri.conf.json"),
+      "utf8",
+    ),
+  );
+  if (definition.tag !== "v" + app.version)
+    throw new Error(
+      "Release tag must match the built app version. Run npm run version:app before building.",
+    );
   const result = await prepareRelease(definition, {
     checkOnly: option === "--check",
   });

@@ -1,119 +1,160 @@
-import { useEffect, useSyncExternalStore } from "react";
+import { useSyncExternalStore } from "react";
+import {
+  accentColors,
+  activeColorTheme,
+  appearanceFonts,
+  defaultAppearance,
+  normalizeThemeColor,
+  parseAppearance,
+  parseThemeFile,
+  resolveThemeColors,
+  type Appearance,
+  type ThemeColorId,
+} from "./appearance";
 
-export interface Appearance {
-  theme: "system" | "dark" | "light";
-  font: string;
-  fontSize: number;
-  messageSize: number;
-  accent: string;
-  motion: boolean;
-}
-const defaults: Appearance = {
-  theme: "system",
-  font: "system",
-  fontSize: 14,
-  messageSize: 16,
-  accent: "#9ccba6",
-  motion: true,
-};
-const key = "mewdex.appearance.v1";
-let value: Appearance = defaults;
-try {
-  value = { ...defaults, ...JSON.parse(localStorage.getItem(key) || "{}") };
-} catch {
-  /* Defaults remain available when local storage is unavailable. */
-}
+const key = "mewdex.appearance.v2";
+const legacyKey = "mewdex.appearance.v1";
+const system = window.matchMedia("(prefers-color-scheme: dark)");
+let value = defaultAppearance;
 let error = "";
+try {
+  value = parseAppearance(
+    localStorage.getItem(key) ?? localStorage.getItem(legacyKey),
+  );
+} catch {
+  // Settings remain usable when the WebView denies local storage access.
+}
 const listeners = new Set<() => void>();
-let snapshot = { value, error };
-const fonts: Record<string, string> = {
-  system: 'Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
-  yahei: '"Microsoft YaHei", "PingFang SC", sans-serif',
-  segoe: '"Segoe UI", "Microsoft YaHei", sans-serif',
-  mono: '"Cascadia Code", Consolas, "Microsoft YaHei", monospace',
+let snapshot = {
+  value,
+  error,
+  activeTheme: activeColorTheme(value, system.matches),
 };
-function luminance(channels: number[]) {
-  const [red, green, blue] = channels.map((channel) => {
-    const value = channel / 255;
-    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
-  });
-  return red * 0.2126 + green * 0.7152 + blue * 0.0722;
-}
-function readableAccent(
-  channels: number[],
-  background: number[],
-  target: number,
-) {
-  const backgroundLuminance = luminance(background);
-  // Preserve the chosen color until mixing is needed for readable UI text.
-  for (let step = 0; step <= 100; step++) {
-    const mixed = channels.map((channel) =>
-      Math.round(channel + (target - channel) * (step / 100)),
-    );
-    const foregroundLuminance = luminance(mixed);
-    const contrast =
-      (Math.max(foregroundLuminance, backgroundLuminance) + 0.05) /
-      (Math.min(foregroundLuminance, backgroundLuminance) + 0.05);
-    if (contrast >= 4.5)
-      return `#${mixed.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
-  }
-  return target === 0 ? "#000000" : "#ffffff";
-}
-function apply(current: Appearance) {
+
+function apply() {
+  const theme = activeColorTheme(value, system.matches);
+  const colors = resolveThemeColors(theme, value.colorCustomizations[theme.id]);
+  const accent = accentColors(colors);
   const root = document.documentElement;
-  root.dataset.theme = current.theme;
-  root.dataset.motion = current.motion ? "full" : "reduced";
-  root.style.setProperty("--ui-scale", String(current.fontSize / 14));
-  root.style.setProperty("--message-font-size", `${current.messageSize}px`);
-  root.style.setProperty("--ui-font", fonts[current.font] ?? fonts.system);
-  const accent = /^#[\da-f]{6}$/i.test(current.accent)
-    ? current.accent
-    : defaults.accent;
-  const channels = [1, 3, 5].map((offset) =>
-    parseInt(accent.slice(offset, offset + 2), 16),
-  );
-  const accentLuminance = luminance(channels);
-  const darkContrast =
-    (accentLuminance + 0.05) / (luminance([16, 19, 27]) + 0.05);
-  const lightContrast = 1.05 / (accentLuminance + 0.05);
-  root.style.setProperty("--accent", accent);
-  root.style.setProperty(
-    "--accent-text-dark",
-    readableAccent(channels, [37, 45, 60], 255),
-  );
-  root.style.setProperty(
-    "--accent-text-light",
-    readableAccent(channels, [228, 233, 241], 0),
-  );
-  root.style.setProperty(
-    "--accent-contrast",
-    darkContrast >= lightContrast ? "#10131b" : "#ffffff",
-  );
+  for (const [id, color] of Object.entries(colors))
+    root.style.setProperty(`--mewdex-${id.replaceAll(".", "-")}`, color);
+  root.style.setProperty("--accent-text", accent.text);
+  root.style.setProperty("--accent-contrast", accent.contrast);
+  root.style.setProperty("--ui-scale", String(value.fontSize / 14));
+  root.style.setProperty("--message-font-size", `${value.messageSize}px`);
+  root.style.setProperty("--ui-font", appearanceFonts[value.font]);
+  root.dataset.theme = theme.type;
+  root.dataset.colorTheme = theme.id;
+  root.dataset.motion = value.motion ? "full" : "reduced";
+  snapshot = { value, error, activeTheme: theme };
 }
+
+export function initializeAppearance() {
+  apply();
+}
+
+function publish() {
+  apply();
+  for (const listener of listeners) listener();
+}
+
+function save(next: Appearance) {
+  value = next;
+  try {
+    localStorage.setItem(key, JSON.stringify(value));
+    error = "";
+  } catch {
+    error = "外观设置未保存，关闭工作台后可能恢复原设置。";
+  }
+  publish();
+}
+
+function onStorage(event: StorageEvent) {
+  if (
+    event.storageArea !== localStorage ||
+    (event.key !== key && event.key !== null)
+  )
+    return;
+  value = parseAppearance(event.newValue);
+  error = "";
+  publish();
+}
+
+function subscribe(listener: () => void) {
+  if (listeners.size === 0) {
+    system.addEventListener("change", publish);
+    window.addEventListener("storage", onStorage);
+    apply();
+  }
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size === 0) {
+      system.removeEventListener("change", publish);
+      window.removeEventListener("storage", onStorage);
+    }
+  };
+}
+
 export function useAppearance() {
-  const state = useSyncExternalStore(
-    (listener) => {
-      listeners.add(listener);
-      return () => {
-        listeners.delete(listener);
-      };
-    },
-    () => snapshot,
-  );
-  useEffect(() => apply(state.value), [state.value]);
+  const state = useSyncExternalStore(subscribe, () => snapshot);
   return {
     ...state,
     update(patch: Partial<Appearance>) {
-      value = { ...value, ...patch };
-      try {
-        localStorage.setItem(key, JSON.stringify(value));
-        error = "";
-      } catch {
-        error = "外观设置未保存，关闭工作台后可能恢复原设置。";
-      }
-      snapshot = { value, error };
-      apply(value);
-      for (const listener of listeners) listener();
+      save(parseAppearance(JSON.stringify({ ...value, ...patch })));
+    },
+    setColor(id: ThemeColorId, input?: string) {
+      const color =
+        input === undefined ? undefined : normalizeThemeColor(input);
+      if (input !== undefined && !color) return;
+      const theme = activeColorTheme(value, system.matches);
+      const colors = { ...value.colorCustomizations[theme.id] };
+      if (color) colors[id] = color;
+      else delete colors[id];
+      save({
+        ...value,
+        colorCustomizations: {
+          ...value.colorCustomizations,
+          [theme.id]: colors,
+        },
+      });
+    },
+    resetColors() {
+      const theme = activeColorTheme(value, system.matches);
+      const colorCustomizations = { ...value.colorCustomizations };
+      delete colorCustomizations[theme.id];
+      save({ ...value, colorCustomizations });
+    },
+    importTheme(text: string) {
+      const file = parseThemeFile(text);
+      const theme = {
+        id: `user-${crypto.randomUUID()}`,
+        name: file.name,
+        type: file.type,
+        colors: file.colors,
+      };
+      save({
+        ...value,
+        theme: theme.id,
+        customThemes: [...value.customThemes, theme],
+      });
+      return theme;
+    },
+    removeTheme(id: string) {
+      const removed = value.customThemes.find((theme) => theme.id === id);
+      if (!removed) return;
+      const colorCustomizations = { ...value.colorCustomizations };
+      delete colorCustomizations[id];
+      save(
+        parseAppearance(
+          JSON.stringify({
+            ...value,
+            customThemes: value.customThemes.filter((theme) => theme.id !== id),
+            theme: value.theme === id ? `mewdex-${removed.type}` : value.theme,
+            colorCustomizations,
+          }),
+        ),
+      );
     },
   };
 }

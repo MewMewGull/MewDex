@@ -30,15 +30,15 @@
 .messaging-login > button,
 .messaging-discovery > button {
   padding: 8px 12px;
-  border: 1px solid var(--tone-344054);
+  border: 1px solid var(--panel-border);
   border-radius: 8px;
-  color: var(--tone-cfdae9);
+  color: var(--text-strong);
   font-size: calc(12px * var(--ui-scale, 1));
 }
 .messaging-platforms button:hover,
 .messaging-login > button:hover,
 .messaging-discovery > button:hover {
-  background: var(--tone-17202c);
+  background: var(--surface);
 }
 .messaging-platforms,
 .messaging-targets {
@@ -81,19 +81,19 @@
 .messaging-status {
   flex-shrink: 0;
   font-size: 12px;
-  color: var(--tone-9bb6d9);
+  color: var(--status-info-text);
 }
 .messaging-status-connected {
   color: var(--status-success-text);
 }
 .messaging-status-delivery_error,
 .messaging-status-storage_error {
-  color: var(--tone-f1b7bc);
+  color: var(--status-error-text);
 }
 .messaging-login,
 .messaging-discovery {
   padding: 12px;
-  border: 1px solid var(--tone-344054);
+  border: 1px solid var(--panel-border);
   border-radius: 10px;
 }
 .messaging-discovery p,

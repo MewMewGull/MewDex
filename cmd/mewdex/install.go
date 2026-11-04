@@ -25,6 +25,7 @@ func install(args []string) error {
 	autostart := f.Bool("autostart", false, "explicit installer login startup choice")
 	uninstall := f.Bool("uninstall", false, "remove startup entry and stop the owned service")
 	inspect := f.String("inspect-output", "", "write existing startup choice as an installer INI file")
+	prepareUpdate := f.Bool("prepare-update", false, "check running work before replacing application files")
 	if err := f.Parse(args); err != nil {
 		return err
 	}
@@ -86,6 +87,9 @@ func install(args []string) error {
 	}
 	if *uninstall {
 		*autostart = false
+	}
+	if *prepareUpdate {
+		return m.CheckApplicationUpdate(ctx)
 	}
 	if !*uninstall {
 		status, err := m.Handle(ctx, localnode.Request{Operation: "status"})

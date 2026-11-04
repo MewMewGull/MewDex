@@ -19,6 +19,7 @@ export function ConversationComposer({
   context,
   status,
   planMode,
+  deviceControl,
   projectControl,
   projectLabel = "选择项目",
   children,
@@ -51,6 +52,7 @@ export function ConversationComposer({
   context: string;
   status: string;
   planMode: boolean;
+  deviceControl?: ReactNode;
   projectControl?: ReactNode;
   projectLabel?: string;
   children?: ReactNode;
@@ -68,6 +70,14 @@ export function ConversationComposer({
   );
   return (
     <>
+      <div className="composer-context" role="group" aria-label="项目与执行设备">
+        <div className="composer-project-control" title={context}>
+          <FolderOpen size={16} />
+          <span className="composer-project-label">{projectLabel}</span>
+          {projectControl}
+        </div>
+        {deviceControl}
+      </div>
       <div className="composer" aria-busy={actions.busy}>
         {children}
         <textarea

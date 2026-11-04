@@ -47,6 +47,7 @@ export function DevicePicker({
     >
       <Dialog.Trigger
         className="device-picker-trigger"
+        aria-label={`选择执行设备${selected ? `，当前为 ${selected.name}` : ""}`}
         title={selected ? deviceDescription(selected, connected) : "选择设备"}
       >
         <span className="device-picker-icon">

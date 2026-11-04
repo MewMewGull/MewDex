@@ -1,0 +1,59 @@
+.app-update-notice {
+  position: fixed;
+  left: 20px;
+  bottom: 20px;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100vw - 40px);
+  padding: 12px 14px;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: var(--surface);
+  box-shadow: 0 8px 30px #0003;
+}
+.app-update-notice > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.app-update-notice > button {
+  flex-shrink: 0;
+}
+.app-update-settings > p {
+  margin-bottom: 14px;
+}
+.app-update-release {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid var(--panel-border);
+}
+.app-update-release > * + * {
+  margin-top: 12px;
+}
+.app-update-notes {
+  max-height: 320px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  padding: 12px 16px;
+  border-radius: 8px;
+  background: var(--surface);
+}
+.app-update-notes ul,
+.app-update-notes ol {
+  padding-left: 20px;
+}
+.app-update-hash {
+  display: block;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.app-update-release progress {
+  width: 100%;
+}
+.app-update-entry {
+  position: fixed;
+  right: 18px;
+  top: 12px;
+  z-index: 20;
+}

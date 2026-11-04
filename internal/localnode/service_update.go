@@ -8,10 +8,36 @@ import (
 	"path/filepath"
 
 	"mewdex/internal/config"
+	"mewdex/internal/lifecycle"
 	"mewdex/internal/protocol"
 	"mewdex/internal/runtimefiles"
 	"mewdex/internal/store"
 )
+
+// CheckApplicationUpdate is the installer's read-only preflight. It also
+// inspects stopped installations so pending recovery cannot be overwritten.
+func (m *Manager) CheckApplicationUpdate(ctx context.Context) error {
+	lock, err := lifecycle.Acquire(filepath.Join(m.options.Root, "management"))
+	if err != nil {
+		return errors.New("another local service operation is in progress")
+	}
+	defer lock.Close()
+	state, err := m.status(ctx)
+	if err != nil {
+		return err
+	}
+	if state.State == "unconfigured" {
+		return nil
+	}
+	if state.State != "running" && state.State != "stopped" {
+		return errors.New("请先在工作台中核对本机服务状态，再更新应用")
+	}
+	c, err := config.Load(m.profile())
+	if err != nil {
+		return err
+	}
+	return updateIdle(c)
+}
 
 // Apply the helper supplied by this desktop installation. Existing credentials,
 // engine selection, workspaces and data stay in their original locations.
