@@ -1,3 +1,4 @@
+import { getLanguage, t } from "../localization.ts";
 import { useEffect, useState } from "react";
 import { isTauri } from "@tauri-apps/api/core";
 import { Download, ExternalLink, RefreshCw, X } from "lucide-react";
@@ -29,14 +30,15 @@ export function AppUpdateSettings() {
   if (!isTauri()) {
     return (
       <section className="network-section">
-        <h3>应用更新</h3>
-        <p className="muted">网页版随提供此工作台的服务更新。</p>
+        <h3>{t("应用更新")}</h3>
+        <p className="muted">{t("网页版随提供此工作台的服务更新。")}</p>
         <button
           onClick={() =>
             void open("https://github.com/MewMewGull/MewDex/releases")
           }
         >
-          <ExternalLink size={15} /> 查看 GitHub Release
+          <ExternalLink size={15} />
+          {t(" 查看 GitHub Release")}
         </button>
         {linkError && (
           <p className="error" role="alert">
@@ -52,14 +54,18 @@ export function AppUpdateSettings() {
   return (
     <section
       className="network-section app-update-settings"
-      aria-label="应用更新"
+      aria-label={t("应用更新")}
     >
       <h3>
-        <Download size={15} /> 应用更新
+        <Download size={15} />
+        {t(" 应用更新")}
       </h3>
       <p>
-        当前版本 {info?.currentVersion ?? "读取中…"}
-        {info ? " · " + info.platform + " " + info.arch : ""}
+        {t(
+          "当前版本 {0}{1}",
+          info?.currentVersion ?? t("读取中…"),
+          info ? " · " + info.platform + " " + info.arch : "",
+        )}
       </p>
       <label className="checkbox">
         <input
@@ -70,14 +76,15 @@ export function AppUpdateSettings() {
             updates.configure({ automatic: event.target.checked })
           }
         />
-        自动检查更新
+        {t("自动检查更新")}
       </label>
       <p className="muted">
-        开启后，启动和恢复使用时自动检查 GitHub
-        Release，每天至多一次。发现新版后提醒，确认后下载和安装。
+        {t(
+          "开启后，启动和恢复使用时自动检查 GitHub Release，每天至多一次。发现新版后提醒，确认后下载和安装。",
+        )}
       </p>
       <label>
-        更新通道
+        {t("更新通道")}
         <select
           value={preferences.channel}
           disabled={busy}
@@ -85,8 +92,8 @@ export function AppUpdateSettings() {
             updates.configure({ channel: event.target.value as UpdateChannel })
           }
         >
-          <option value="stable">稳定版</option>
-          <option value="preview">预览版与稳定版</option>
+          <option value="stable">{t("稳定版")}</option>
+          <option value="preview">{t("预览版与稳定版")}</option>
         </select>
       </label>
       <div className="local-device-actions">
@@ -95,33 +102,42 @@ export function AppUpdateSettings() {
           onClick={() => void updates.check(true)}
         >
           <RefreshCw size={15} />{" "}
-          {phase === "checking" ? "正在检查…" : "检查更新"}
+          {phase === "checking" ? t("正在检查…") : t("检查更新")}
         </button>
         <button
           onClick={() =>
             void open("https://github.com/MewMewGull/MewDex/releases")
           }
         >
-          <ExternalLink size={15} /> 所有版本
+          <ExternalLink size={15} />
+          {t(" 所有版本")}
         </button>
       </div>
-      {phase === "current" && <p role="status">当前已是此通道的最新版本。</p>}
+      {phase === "current" && (
+        <p role="status">{t("当前已是此通道的最新版本。")}</p>
+      )}
       {release && (
         <article className="app-update-release">
           <h4>
-            发现 {release.tag}
-            {release.prerelease ? " · 预览版" : ""}
+            {t(
+              "发现 {0}{1}",
+              release.tag,
+              release.prerelease ? t(" · 预览版") : "",
+            )}
           </h4>
           {release.publishedAt && (
             <p className="muted">
-              发布于 {new Date(release.publishedAt).toLocaleString()}
+              {t(
+                "发布于 {0}",
+                new Date(release.publishedAt).toLocaleString(getLanguage()),
+              )}
             </p>
           )}
           <button
             className="settings-link"
             onClick={() => void open(release.url)}
           >
-            在 GitHub 查看发布说明
+            {t("在 GitHub 查看发布说明")}
           </button>
           {release.notes && (
             <div className="app-update-notes">
@@ -156,13 +172,14 @@ export function AppUpdateSettings() {
                       className="primary"
                       onClick={() => void updates.download()}
                     >
-                      <Download size={15} /> 下载更新
+                      <Download size={15} />
+                      {t(" 下载更新")}
                     </button>
                   )}
                   {phase === "downloading" && (
                     <div role="status">
                       <progress
-                        aria-label="更新包下载进度"
+                        aria-label={t("更新包下载进度")}
                         value={updates.progress?.downloaded ?? 0}
                         max={release.package.bytes}
                       />
@@ -171,28 +188,32 @@ export function AppUpdateSettings() {
                         {formatBytes(release.package.bytes)}
                       </p>
                       <button onClick={() => void updates.cancel()}>
-                        取消下载
+                        {t("取消下载")}
                       </button>
                     </div>
                   )}
                   {phase === "ready" && (
                     <>
-                      <p role="status">下载完成，SHA-256 校验通过。</p>
+                      <p role="status">{t("下载完成，SHA-256 校验通过。")}</p>
                       {windowsInstaller && (
                         <p className="muted">
-                          安装时关闭并重新打开工作台。本机有执行中或待确认任务时，安装器会提示处理后重试。
+                          {t(
+                            "安装时关闭并重新打开工作台。本机有执行中或待确认任务时，安装器会提示处理后重试。",
+                          )}
                         </p>
                       )}
                       <button
                         className="primary"
                         onClick={() => void updates.install()}
                       >
-                        {windowsInstaller ? "退出并安装更新" : "打开更新包"}
+                        {windowsInstaller
+                          ? t("退出并安装更新")
+                          : t("打开更新包")}
                       </button>
                     </>
                   )}
                   {phase === "installing" && (
-                    <p role="status">正在启动安装程序…</p>
+                    <p role="status">{t("正在启动安装程序…")}</p>
                   )}
                 </>
               ) : (
@@ -211,8 +232,8 @@ export function AppUpdateSettings() {
                 >
                   <ExternalLink size={15} />{" "}
                   {info?.platform === "ios"
-                    ? "查看签名安装方式"
-                    : "下载并安装新版"}
+                    ? t("查看签名安装方式")
+                    : t("下载并安装新版")}
                 </button>
               )}
               <details>
@@ -224,8 +245,9 @@ export function AppUpdateSettings() {
             </>
           ) : (
             <p className="muted">
-              此版本尚未提供适合本机架构的更新包或发布清单，可在 GitHub
-              查看安装方式。
+              {t(
+                "此版本尚未提供适合本机架构的更新包或发布清单，可在 GitHub 查看安装方式。",
+              )}
             </p>
           )}
           <button
@@ -239,8 +261,8 @@ export function AppUpdateSettings() {
             }
           >
             {preferences.ignoredTag === release.tag
-              ? "恢复此版本的更新提醒"
-              : "忽略此版本的提醒"}
+              ? t("恢复此版本的更新提醒")
+              : t("忽略此版本的提醒")}
           </button>
         </article>
       )}
@@ -266,15 +288,15 @@ export function AppUpdates() {
       {showNotice && (
         <aside
           className="app-update-notice"
-          aria-label="发现应用更新"
+          aria-label={t("发现应用更新")}
           role="status"
         >
           <Download size={18} />
-          <span>有新版本可下载 · {updates.release!.tag}</span>
-          <button onClick={updates.show}>查看并下载</button>
+          <span>{t("有新版本可下载 · {0}", updates.release!.tag)}</span>
+          <button onClick={updates.show}>{t("查看并下载")}</button>
           <button
             className="icon-button"
-            aria-label="稍后提醒"
+            aria-label={t("稍后提醒")}
             onClick={updates.dismiss}
           >
             <X size={15} />
@@ -284,10 +306,10 @@ export function AppUpdates() {
       <SettingsFrame
         open={updates.open}
         onOpenChange={(open) => useAppUpdates.setState({ open })}
-        title="应用更新"
-        description="从 MewDex 的 GitHub Release 检查和安装更新。"
+        title={t("应用更新")}
+        description={t("从 MewDex 的 GitHub Release 检查和安装更新。")}
         sections={[
-          { id: "updates", label: "应用更新", icon: <Download size={16} /> },
+          { id: "updates", label: t("应用更新"), icon: <Download size={16} /> },
         ]}
         selected="updates"
         onSelect={() => {}}

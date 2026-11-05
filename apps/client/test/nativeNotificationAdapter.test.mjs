@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createNativeNotificationAdapter } from "../src/nativeNotificationAdapter.ts";
+import { getLanguage, selectLanguage } from "../src/localization.ts";
 
 function fakeRuntime() {
   const state = {
@@ -148,4 +149,54 @@ test("unsupported native hosts do not call a new command or request permission",
   await assert.rejects(send(adapter), /系统提醒权限尚未开启/);
   assert.equal(runtime.state.requests, 0);
   assert.equal(runtime.state.actions.length, 0);
+});
+
+test("notification actions use the current language after an input stays open", async () => {
+  const previous = getLanguage();
+  const runtime = fakeRuntime();
+  const adapter = createNativeNotificationAdapter(runtime);
+  let off;
+  try {
+    selectLanguage("en");
+    off = await adapter.listen("scope", () => {});
+    assert.equal(
+      runtime.state.actions.at(-1)[0].actions[0].title,
+      "Open conversation",
+    );
+    selectLanguage("ja");
+    await send(adapter);
+    assert.equal(
+      runtime.state.actions.at(-1)[0].actions[0].title,
+      "会話を開く",
+    );
+    assert.equal(runtime.state.notices.length, 1);
+    assert.equal(runtime.state.requests, 0);
+  } finally {
+    off?.();
+    selectLanguage(previous);
+  }
+});
+
+test("logout during localized action registration cancels dispatch", async () => {
+  const runtime = fakeRuntime();
+  let release;
+  let started;
+  const registering = new Promise((resolve) => {
+    started = resolve;
+  });
+  runtime.registerActions = () =>
+    new Promise((resolve) => {
+      release = resolve;
+      started();
+    });
+  const controller = new AbortController();
+  const delivery = send(
+    createNativeNotificationAdapter(runtime),
+    controller.signal,
+  );
+  await registering;
+  controller.abort();
+  release();
+  await delivery;
+  assert.equal(runtime.state.notices.length, 0);
 });

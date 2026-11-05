@@ -1,3 +1,4 @@
+import { t } from "./localization.ts";
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import { create } from "zustand";
 import { subscribeResume } from "./platform";
@@ -115,7 +116,7 @@ export const useAppUpdates = create<Updates>((set, get) => ({
       });
       if (preferences.automatic && (changed || enabled)) void get().check();
     } catch {
-      set({ error: "无法保存更新设置，请检查本机存储。" });
+      set({ error: t("无法保存更新设置，请检查本机存储。") });
     }
   },
   async check(manual = false) {

@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { useRef, useState, type ReactElement } from "react";
 import * as ContextMenu from "@radix-ui/react-context-menu";
 import { Check, Folder, Globe, Plus, Settings2 } from "lucide-react";
@@ -40,25 +41,30 @@ export function WorkspaceProjectMenu({
               </strong>
               <small>
                 <Globe size={13} />
-                {device.name} · {conversationCount} 次对话 ·{" "}
-                {device.online ? "已连接" : "未连接"}
+                {t(
+                  "{0} · {1} 次对话 · {2}",
+                  device.name,
+                  conversationCount,
+                  device.online ? t("已连接") : t("未连接"),
+                )}
               </small>
               <small title={project.path}>{project.path}</small>
             </ContextMenu.Label>
             <ContextMenu.Item className="session-context-item" onSelect={onNew}>
               <Plus size={15} />
-              新建对话
+              {t("新建对话")}
             </ContextMenu.Item>
             <ContextMenu.Item
               className="session-context-item"
               onSelect={() => onEdit()}
             >
               <Settings2 size={15} />
-              名称与分类…
+              {t("项目与目录组…")}
             </ContextMenu.Item>
             <ContextMenu.Sub>
               <ContextMenu.SubTrigger className="session-context-item">
-                移到分类<span>›</span>
+                {t("移到分类")}
+                <span>›</span>
               </ContextMenu.SubTrigger>
               <ContextMenu.Portal>
                 <ContextMenu.SubContent
@@ -73,7 +79,11 @@ export function WorkspaceProjectMenu({
                       onSelect={() => {
                         if (changing.current) return;
                         if (
-                          !device.capabilities?.includes("workspace-management")
+                          !device.capabilities?.some((capability) =>
+                            ["workspace-management", "hub-projects"].includes(
+                              capability,
+                            ),
+                          )
                         ) {
                           onEdit(category);
                           return;
@@ -87,7 +97,7 @@ export function WorkspaceProjectMenu({
                           });
                       }}
                     >
-                      <span>{category || "项目"}</span>
+                      <span>{category || t("项目")}</span>
                       {(project.category ?? "") === category && (
                         <Check size={14} />
                       )}
@@ -97,7 +107,7 @@ export function WorkspaceProjectMenu({
                     className="session-context-item"
                     onSelect={() => onEdit("")}
                   >
-                    新建分类…
+                    {t("新建分类…")}
                   </ContextMenu.Item>
                 </ContextMenu.SubContent>
               </ContextMenu.Portal>

@@ -1,3 +1,4 @@
+import { t } from "./localization.ts";
 import { useRef, useState, type SetStateAction } from "react";
 import type { Attachment } from "@mewdex/sdk";
 import {
@@ -17,8 +18,9 @@ function loadDrafts(key: string): { drafts: Drafts; error: string } {
   } catch {
     return {
       drafts: {},
-      error:
+      error: t(
         "无法恢复本机草稿。原记录已保留，本次输入暂存在当前窗口；可在设置中清空草稿后重新保存。",
+      ),
     };
   }
 }
@@ -45,7 +47,7 @@ export function useComposerDrafts(
       else localStorage.removeItem(storageKey);
       setPersistenceError("");
     } catch {
-      setPersistenceError("草稿尚未保存到本机，关闭应用前请保留输入内容。");
+      setPersistenceError(t("草稿尚未保存到本机，关闭应用前请保留输入内容。"));
     }
   }
   function commit(next: Drafts) {

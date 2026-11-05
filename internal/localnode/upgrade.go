@@ -119,7 +119,7 @@ func (m *Manager) prepareUpgrade(ctx context.Context, request *UpgradeRequest) (
 	}
 	sourceVersion := ""
 	manifestHash := ""
-	if c.Executor {
+	if c.Executor || c.Hub {
 		if _, err = m.ownedRelative(c.Engine.Executable); err != nil {
 			return nil, err
 		}
@@ -210,7 +210,7 @@ func (m *Manager) prepareUpgrade(ctx context.Context, request *UpgradeRequest) (
 	if err != nil {
 		return nil, err
 	}
-	for _, name := range []string{"hub.db", "executor.db"} {
+	for _, name := range []string{"hub.db", "executor.db", "coordinator/coordinator.db"} {
 		path := filepath.Join(c.DataDir, name)
 		if _, err = os.Stat(path); errors.Is(err, os.ErrNotExist) {
 			continue
@@ -228,6 +228,12 @@ func (m *Manager) prepareUpgrade(ctx context.Context, request *UpgradeRequest) (
 			err = executor.ValidateWorkspaceConfiguration(loaded, s)
 			if err == nil {
 				err = s.PrepareUpgrade(ctx, c.DeviceID)
+			}
+		}
+		if name == "coordinator/coordinator.db" {
+			err = s.ResetCoordinatorWorkspaces()
+			if err == nil {
+				err = s.PrepareUpgrade(ctx, c.DeviceID+".hub")
 			}
 		}
 		closeErr := s.Close()
@@ -253,8 +259,8 @@ func (m *Manager) prepareUpgrade(ctx context.Context, request *UpgradeRequest) (
 	if err != nil {
 		return nil, err
 	}
-	info := UpgradeInfo{ID: request.ID, DeviceID: c.DeviceID, Name: c.Name, CreatedAt: protocol.Now(), Hub: c.Hub, Executor: c.Executor, Gateway: c.Gateway != nil, Projects: c.Projects, SourceEngineVersion: sourceVersion, TargetEngineVersion: engine.CompatibleVersion}
-	record := upgradeRecord{Format: 1, Info: info, State: restoreRecord{Format: 1, Info: RestoreInfo{ID: request.ID, Executor: c.Executor}, BeforeProfile: before, BeforeData: beforeData, PreparedProfile: hashBytes(prepared), Files: files, EngineVersion: engine.CompatibleVersion}, ProgramSHA256: programHash, EngineManifestSHA256: manifestHash, CredentialFiles: credentials}
+	info := UpgradeInfo{ID: request.ID, DeviceID: c.DeviceID, Name: c.Name, CreatedAt: protocol.Now(), Hub: c.Hub, Executor: c.Executor, Projects: c.Projects, SourceEngineVersion: sourceVersion, TargetEngineVersion: engine.CompatibleVersion}
+	record := upgradeRecord{Format: 1, Info: info, State: restoreRecord{Format: 1, Info: RestoreInfo{ID: request.ID, Hub: c.Hub, Executor: c.Executor}, BeforeProfile: before, BeforeData: beforeData, PreparedProfile: hashBytes(prepared), Files: files, EngineVersion: engine.CompatibleVersion}, ProgramSHA256: programHash, EngineManifestSHA256: manifestHash, CredentialFiles: credentials}
 	if err = m.ensureRestoreArea("upgrade-plans"); err != nil {
 		return nil, err
 	}
@@ -273,7 +279,7 @@ func (m *Manager) verifyUpgradeRuntime(ctx context.Context, record upgradeRecord
 	if record.State.EngineVersion != engine.CompatibleVersion || programHash != record.ProgramSHA256 {
 		return errors.New("application changed after upgrade preparation; prepare a new upgrade ID")
 	}
-	if record.Info.Executor {
+	if record.Info.Executor || record.Info.Hub {
 		var c config.Config
 		raw, err := os.ReadFile(filepath.Join(m.upgradeDirectory(record.Info.ID), "device.json"))
 		if err != nil {

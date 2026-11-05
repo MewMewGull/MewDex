@@ -52,6 +52,13 @@ export async function prepareRelease(
   const names = new Set();
   for (const artifact of definition.artifacts) {
     const profile = product.platforms[artifact.os];
+    const distribution = artifact.distribution ?? "app";
+    const distributionProfile = product.distributions[distribution];
+    if (
+      !distributionProfile ||
+      (distribution !== "app" && profile?.family !== "desktop")
+    )
+      throw new Error("Unsupported distribution for this platform");
     if (
       !profile ||
       !platforms.includes(artifact.os) ||
@@ -73,12 +80,20 @@ export async function prepareRelease(
         "Stable release installers must use Release configuration",
       );
     const components = artifact.components;
+    const expectedComponents =
+      distribution === "app"
+        ? profile.components
+        : distributionProfile.components;
     if (
       !Array.isArray(components) ||
       [...components].sort().join(",") !==
-        [...profile.components].sort().join(",")
+        [...expectedComponents].sort().join(",")
     )
       throw new Error(`Incorrect components for ${profile.name}`);
+    if (distribution !== "app" && artifact.kind !== "portable")
+      throw new Error(
+        "Hub, web and executor distributions use independent portable packages",
+      );
     if (typeof artifact.file !== "string")
       throw new Error("Provide each artifact file path");
     const name = path.basename(artifact.file);
@@ -122,24 +137,42 @@ export async function prepareRelease(
     for await (const chunk of createReadStream(file)) digest.update(chunk);
     assets.push({
       os: artifact.os,
+      distribution,
       arch: artifact.arch,
       kind: artifact.kind,
       configuration: artifact.configuration,
       signed: artifact.signed,
       updateMode:
-        artifact.os === "windows" && name.toLowerCase().endsWith(".exe")
-          ? "windows-nsis"
-          : "system",
-      components: [...profile.components],
+        distribution !== "app"
+          ? "none"
+          : artifact.os === "windows" && name.toLowerCase().endsWith(".exe")
+            ? "windows-nsis"
+            : "system",
+      components: [...expectedComponents],
       file: path.relative(root, file).split(path.sep).join("/"),
       name,
       bytes: info.size,
       sha256: digest.digest("hex"),
-      installation: artifact.installation ?? profile.installation,
+      installation:
+        artifact.installation ??
+        (distribution === "app"
+          ? profile.installation
+          : `Deploy the independent ${distributionProfile.name} package using START-HERE.txt.`),
     });
   }
   for (const os of platforms) {
-    if (!assets.some((asset) => asset.os === os && asset.kind === "installer"))
+    const appRequired =
+      !definition.prerelease ||
+      assets.some((asset) => asset.os === os && asset.distribution === "app");
+    if (
+      appRequired &&
+      !assets.some(
+        (asset) =>
+          asset.os === os &&
+          asset.distribution === "app" &&
+          asset.kind === "installer",
+      )
+    )
       throw new Error(
         `An installer is required for ${product.platforms[os].name}`,
       );
@@ -149,8 +182,8 @@ export async function prepareRelease(
     "",
     definition.summary.trim(),
     "",
-    "桌面 App 包含 Input Terminal、Execute Terminal、Hub 和 Hub Controller。本机执行与 Hub 角色由用户配置。",
-    "移动 App 包含 Input Terminal 和 Hub Controller，通过已授权的 Hub 使用并管理远程终端。",
+    "APP、网页输入端、Hub 和执行端分别发布。APP 与网页端共用输入与网络管理功能。",
+    "桌面 APP 连接消息渠道，Hub 管理模型与会话，执行端通过 WebSocket 连接 Hub 并提供独立网页控制面板。",
     "",
     "| 组件 | 职责 |",
     "| --- | --- |",
@@ -164,10 +197,8 @@ export async function prepareRelease(
     "| 系统 | 本次提供的安装包 |",
     "| --- | --- |",
     ...Object.entries(product.platforms).map(([os, profile]) => {
-      const installers = assets.filter(
-        (asset) => asset.os === os && asset.kind === "installer",
-      );
-      return `| ${profile.name} | ${installers.length ? installers.map((asset) => `[${asset.name}](https://github.com/${repository}/releases/download/${encodeURIComponent(definition.tag)}/${encodeURIComponent(asset.name)})`).join(" · ") : "待构建"} |`;
+      const packages = assets.filter((asset) => asset.os === os);
+      return `| ${profile.name} | ${packages.length ? packages.map((asset) => `${product.distributions[asset.distribution].name} [${asset.name}](https://github.com/${repository}/releases/download/${encodeURIComponent(definition.tag)}/${encodeURIComponent(asset.name)})`).join(" · ") : "待构建"} |`;
     }),
     "",
     "## 安装与构建信息",

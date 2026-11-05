@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { MewDexClient, MewDexError, PROTOCOL_VERSION } from "@mewdex/sdk";
+import { MewDexClient, MewDexError } from "@mewdex/sdk";
 import { credentialStore, subscribeResume, type Connection } from "../platform";
 import {
   connectionRetryDelay,
@@ -24,6 +24,12 @@ export function useInputConnection(onChanged: () => void) {
   const epoch = useRef(0);
   const failures = useRef(0);
   const current = useRef<AbortController | null>(null);
+  const writes = useRef<Promise<void>>(Promise.resolve());
+  const persist = useCallback((operation: () => Promise<void>) => {
+    const next = writes.current.then(operation);
+    writes.current = next.catch(() => {});
+    return next;
+  }, []);
   const scheduled = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined,
   );
@@ -57,20 +63,30 @@ export function useInputConnection(onChanged: () => void) {
       const client = new MewDexClient({
         baseURL: saved.baseURL,
         token: saved.credentials.token,
+        expectedHubDeviceId: saved.credentials.hubDeviceId,
+        expectedIdentityId: saved.credentials.identityId,
+        expectedInputProxyHostId: saved.credentials.inputProxy?.hostId,
       });
       stage = "network";
-      const identity = await readConnection(
-        (signal) => client.identity(signal),
+      const credentials = await readConnection(
+        (signal) => client.loginWithKey(signal),
         controller.signal,
       );
-      return {
+      const restored = {
         baseURL: saved.baseURL,
-        credentials: {
-          token: saved.credentials.token,
-          identity,
-          protocolVersion: PROTOCOL_VERSION,
-        },
+        credentials,
       } satisfies Connection;
+      if (
+        !saved.credentials.hubDeviceId ||
+        !saved.credentials.identityId ||
+        credentials.inputProxy?.hostId !== saved.credentials.inputProxy?.hostId
+      ) {
+        stage = "storage";
+        await persist(async () => {
+          if (active()) await credentialStore.save(restored);
+        });
+      }
+      return restored;
     })()
       .then((value) => {
         if (!active()) return;
@@ -101,7 +117,7 @@ export function useInputConnection(onChanged: () => void) {
       controller.abort();
       cancelRead();
     };
-  }, [attempt, cancelRead, retry]);
+  }, [attempt, cancelRead, persist, retry]);
 
   const problem = useRef(issue);
   problem.current = issue;
@@ -114,9 +130,10 @@ export function useInputConnection(onChanged: () => void) {
   );
 
   async function save(value: Connection) {
-    await credentialStore.save(value);
-    epoch.current++;
+    const requestEpoch = ++epoch.current;
     cancelRead();
+    await persist(() => credentialStore.save(value));
+    if (epoch.current !== requestEpoch) return;
     changed.current();
     failures.current = 0;
     setAddress(value.baseURL);
@@ -125,10 +142,11 @@ export function useInputConnection(onChanged: () => void) {
     setChecking(false);
   }
   async function disconnect() {
+    const requestEpoch = ++epoch.current;
+    cancelRead();
     try {
-      await credentialStore.clear();
-      epoch.current++;
-      cancelRead();
+      await persist(() => credentialStore.clear());
+      if (epoch.current !== requestEpoch) return;
       changed.current();
       failures.current = 0;
       setAddress(undefined);
@@ -149,7 +167,6 @@ export function useInputConnection(onChanged: () => void) {
     setConnection(null);
     setIssue(null);
     setChecking(false);
-    setAddress(undefined);
   }
   return {
     connection,

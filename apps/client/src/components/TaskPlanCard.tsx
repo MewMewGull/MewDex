@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import {
   CheckCircle2,
   ChevronDown,
@@ -33,9 +34,9 @@ export function TaskPlanCard({
   if (!plan?.steps.length) {
     return unavailable && connected ? (
       <details className="task-plan-unavailable">
-        <summary>任务计划暂时无法读取</summary>
+        <summary>{t("任务计划暂时无法读取")}</summary>
         <button disabled={refreshing} onClick={onRetry}>
-          重新读取
+          {t("重新读取")}
         </button>
       </details>
     ) : null;
@@ -52,10 +53,8 @@ export function TaskPlanCard({
         <ListTodo size={17} className="task-plan-symbol" aria-hidden="true" />
         <span className="task-plan-heading">
           <span className="task-plan-title">
-            {historical ? "当时的任务计划" : "任务计划"}
-            <small>
-              已完成 {view.completed}/{view.total}
-            </small>
+            {historical ? t("当时的任务计划") : t("任务计划")}
+            <small>{t("已完成 {0}/{1}", view.completed, view.total)}</small>
           </span>
           <span className="task-plan-current" title={view.currentStep}>
             {view.currentStep}
@@ -74,7 +73,7 @@ export function TaskPlanCard({
         {plan.explanation && (
           <p className="task-plan-explanation">{plan.explanation}</p>
         )}
-        <ol aria-label="任务步骤">
+        <ol aria-label={t("任务步骤")}>
           {plan.steps.map((step, index) => {
             const Icon =
               step.status === "completed"
@@ -89,8 +88,8 @@ export function TaskPlanCard({
                 <small>
                   {step.status === "inProgress" && !view.active
                     ? historical
-                      ? "当时进行中"
-                      : "上次进行中"
+                      ? t("当时进行中")
+                      : t("上次进行中")
                     : taskPlanStepLabel(step.status)}
                 </small>
               </li>
@@ -100,9 +99,9 @@ export function TaskPlanCard({
         {view.note && <p className="task-plan-note">{view.note}</p>}
         {unavailable && (
           <p className="task-plan-note">
-            暂时无法更新计划，已保留最后记录。
+            {t("暂时无法更新计划，已保留最后记录。")}
             <button disabled={!connected || refreshing} onClick={onRetry}>
-              重新读取
+              {t("重新读取")}
             </button>
           </p>
         )}

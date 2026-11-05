@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { useEffect, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { deviceRequest } from "../localDevice";
@@ -107,13 +108,13 @@ export function CleanupPanel({
   }
 
   return (
-    <section className="device-data" aria-label="本机服务状态恢复">
+    <section className="device-data" aria-label={t("本机服务状态恢复")}>
       <div className="device-operation-title">
-        <h3>恢复本机状态</h3>
+        <h3>{t("恢复本机状态")}</h3>
         <button
           type="button"
           disabled={locked}
-          aria-label="重新检查本机恢复状态"
+          aria-label={t("重新检查本机恢复状态")}
           onClick={() =>
             void onWork(async () => {
               await refresh();
@@ -123,33 +124,43 @@ export function CleanupPanel({
           <RefreshCw size={14} />
         </button>
       </div>
-      {reading && <p role="status">正在核对上次服务的退出状态…</p>}
+      {reading && <p role="status">{t("正在核对上次服务的退出状态…")}</p>}
       {error && (
         <div className="error" role="alert">
           {error}
         </div>
       )}
       {info?.pending && info.state !== "in-use" && (
-        <p>上次服务的后台任务尚未确认全部退出，当前设备保留了启动限制。</p>
+        <p>
+          {t("上次服务的后台任务尚未确认全部退出，当前设备保留了启动限制。")}
+        </p>
       )}
       {!!info?.unconfirmedExecutions && !info.pending && !info.applied && (
         <p>
-          有 {info.unconfirmedExecutions}{" "}
-          个旧执行的结果仍未核实。保存检查记录并重新启动电脑后，可继续处理原对话的项目占用。
+          {t(
+            "有 {0} 个旧执行的结果仍未核实。保存检查记录并重新启动电脑后，可继续处理原对话的项目占用。",
+            info.unconfirmedExecutions,
+          )}
         </p>
       )}
       {info?.message && <p role="status">{info.message}</p>}
       {info?.canPrepare && !info.id && (
-        <p>先保存本次检查记录。需要重新启动电脑时，可在重启后回到这里继续。</p>
+        <p>
+          {t(
+            "先保存本次检查记录。需要重新启动电脑时，可在重启后回到这里继续。",
+          )}
+        </p>
       )}
       {info?.id && (
         <p className="muted">
-          检查记录已保存在这台电脑上，关闭窗口后仍可继续查看。
+          {t("检查记录已保存在这台电脑上，关闭窗口后仍可继续查看。")}
         </p>
       )}
       {info?.canApply && (
         <p>
-          确认后可重新启动本机服务。原任务结果和队列仍需核对，此操作不会启动模型或重新发送输入。
+          {t(
+            "确认后可重新启动本机服务。原任务结果和队列仍需核对，此操作不会启动模型或重新发送输入。",
+          )}
         </p>
       )}
       <div className="local-device-actions">
@@ -159,7 +170,7 @@ export function CleanupPanel({
             disabled={locked || !sameDevice}
             onClick={() => void mutate("cleanup.prepare")}
           >
-            保存检查记录
+            {t("保存检查记录")}
           </button>
         )}
         {info?.id && !info.applied && (
@@ -168,7 +179,7 @@ export function CleanupPanel({
             disabled={locked || !sameDevice || !info.canApply}
             onClick={() => void mutate("cleanup.apply")}
           >
-            确认恢复
+            {t("确认恢复")}
           </button>
         )}
         {info?.state === "changed" && (
@@ -181,7 +192,7 @@ export function CleanupPanel({
               })
             }
           >
-            核对当前状态
+            {t("核对当前状态")}
           </button>
         )}
       </div>

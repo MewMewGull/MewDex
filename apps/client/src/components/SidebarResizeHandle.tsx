@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { useRef, type RefObject } from "react";
 
 export function SidebarResizeHandle({
@@ -25,12 +26,12 @@ export function SidebarResizeHandle({
       className="sidebar-resize-handle"
       role="separator"
       tabIndex={0}
-      aria-label="调整侧栏宽度"
+      aria-label={t("调整侧栏宽度")}
       aria-orientation="vertical"
       aria-valuemin={220}
       aria-valuemax={440}
       aria-valuenow={width}
-      title="拖动调整侧栏 · 双击还原"
+      title={t("拖动调整侧栏 · 双击还原")}
       onPointerDown={(event) => {
         if (event.button !== 0) return;
         event.preventDefault();

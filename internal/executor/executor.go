@@ -19,6 +19,7 @@ import (
 )
 
 type Executor struct {
+	terminal           *terminalState
 	config             config.Config
 	store              *store.Store
 	engine             engine.Engine
@@ -263,8 +264,14 @@ func (x *Executor) Handle(ctx context.Context, c protocol.Command) protocol.Comm
 
 func (x *Executor) execute(ctx context.Context, c protocol.Command) protocol.CommandResult {
 	fail := commandFailure
+	if strings.HasPrefix(c.Kind, "terminal.") {
+		return x.terminalCommand(ctx, c)
+	}
 	if strings.HasPrefix(c.Kind, "workspace.") {
 		return x.workspaceCommand(c)
+	}
+	if x.terminal != nil {
+		return fail(errors.New("对话和模型账号由 Hub 管理，请从 Hub 项目发起任务"))
 	}
 	if c.Kind == "model.list" {
 		return x.modelList(ctx, c)
@@ -760,6 +767,20 @@ func (x *Executor) Close() error {
 		cancels = append(cancels, cancel)
 	}
 	x.mu.Unlock()
+	if x.terminal != nil {
+		x.terminal.cancel()
+		x.active.Wait()
+		x.terminal.mu.Lock()
+		runs := make([]*terminalRun, 0, len(x.terminal.runs))
+		for _, run := range x.terminal.runs {
+			runs = append(runs, run)
+		}
+		x.terminal.mu.Unlock()
+		for _, run := range runs {
+			<-run.done
+		}
+		return nil
+	}
 	for _, cancel := range cancels {
 		cancel()
 	}

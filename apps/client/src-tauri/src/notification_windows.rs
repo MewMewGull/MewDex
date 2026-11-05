@@ -104,7 +104,13 @@ fn xml(value: &str) -> String {
         .replace('\'', "&apos;")
 }
 
-fn content(scheme: &str, uri: &str, title: &str, body: &str) -> Result<String, String> {
+fn content(
+    scheme: &str,
+    uri: &str,
+    title: &str,
+    body: &str,
+    open_label: &str,
+) -> Result<String, String> {
     if !text_valid(title, 512)
         || !text_valid(body, 2048)
         || tickets::parse_activation(scheme, uri).is_none()
@@ -112,7 +118,7 @@ fn content(scheme: &str, uri: &str, title: &str, body: &str) -> Result<String, S
         return Err("提醒内容或对话入口无效".into());
     }
     let uri = xml(uri);
-    Ok(format!("<toast activationType=\"protocol\" launch=\"{uri}\"><visual><binding template=\"ToastGeneric\"><text>{}</text><text>{}</text></binding></visual><actions><action content=\"打开对话\" activationType=\"protocol\" arguments=\"{uri}\"/></actions></toast>", xml(title), xml(body)))
+    Ok(format!("<toast activationType=\"protocol\" launch=\"{uri}\"><visual><binding template=\"ToastGeneric\"><text>{}</text><text>{}</text></binding></visual><actions><action content=\"{}\" activationType=\"protocol\" arguments=\"{uri}\"/></actions></toast>", xml(title), xml(body), xml(open_label)))
 }
 
 pub(crate) async fn desktop_notification_send(
@@ -139,6 +145,7 @@ pub(crate) async fn desktop_notification_send(
                     &tickets::activation_url(&registration.scheme, &ticket.token)?,
                     &options.title,
                     &options.body,
+                    crate::desktop_window_windows::notification_open_label(&app),
                 )?))
                 .map_err(|_| "无法准备系统提醒")?;
             let toast = ToastNotification::CreateToastNotification(&document)
@@ -224,17 +231,33 @@ mod tests {
     #[test]
     fn native_content_escapes_text_and_carries_only_an_opaque_uri() {
         let uri = tickets::activation_url(tickets::SCHEME, &"b".repeat(64)).unwrap();
-        let body = content(tickets::SCHEME, &uri, "MewDex <&>", "一轮对话已完成。").unwrap();
+        let body = content(
+            tickets::SCHEME,
+            &uri,
+            "MewDex <&>",
+            "一轮对话已完成。",
+            "Open conversation <&>",
+        )
+        .unwrap();
         assert!(body.contains("MewDex &lt;&amp;&gt;"));
         assert!(body.contains("activationType=\"protocol\""));
         assert!(!body.contains("deviceId") && !body.contains("scope"));
+        assert!(body.contains("content=\"Open conversation &lt;&amp;&gt;\""));
         assert!(content(
             tickets::SCHEME,
             "https://external.invalid",
             "MewDex",
-            "summary"
+            "summary",
+            "Open conversation"
         )
         .is_err());
-        assert!(content(tickets::SCHEME, &uri, "MewDex", "bad\0text").is_err());
+        assert!(content(
+            tickets::SCHEME,
+            &uri,
+            "MewDex",
+            "bad\0text",
+            "Open conversation"
+        )
+        .is_err());
     }
 }

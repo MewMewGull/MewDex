@@ -37,9 +37,11 @@ type Gateway struct {
 
 type Config struct {
 	// InstallationRoot is supplied by the trusted native host, never by a profile.
-	InstallationRoot string `json:"-"`
+	InstallationRoot string   `json:"-"`
+	PrivatePaths     []string `json:"-"`
 	// ProfilePath is set by the local loader, never accepted from a profile.
 	ProfilePath      string             `json:"-"`
+	HostID           string             `json:"-"`
 	DeviceID         string             `json:"deviceId"`
 	Name             string             `json:"name"`
 	DataDir          string             `json:"dataDir"`
@@ -94,6 +96,9 @@ func load(path string, validateProjects bool) (Config, error) {
 	}
 	if !c.Hub && c.HubURL == "" {
 		return c, errors.New("a non-Hub device requires hubUrl")
+	}
+	if validateProjects && !c.Hub && !c.Executor {
+		return c, errors.New("select a Hub or execution-node role for this service")
 	}
 	if c.HubURL != "" {
 		if err := ValidateURL(c.HubURL, c.AllowPrivateHTTP); err != nil {

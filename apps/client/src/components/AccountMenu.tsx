@@ -1,3 +1,4 @@
+import { getLanguage, t } from "../localization.ts";
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Gauge, LogIn, LogOut, ChevronUp, RefreshCw } from "lucide-react";
@@ -8,7 +9,6 @@ import type {
   RateLimitWindow,
   Identity,
 } from "@mewdex/sdk";
-import { deviceRequest } from "../localDevice";
 import { useModelAccount } from "../hub-controller/useModelAccount";
 
 function LimitWindow({
@@ -22,31 +22,33 @@ function LimitWindow({
   const minutes = value.windowDurationMins;
   const label = minutes
     ? minutes >= 1440
-      ? `${Math.round(minutes / 1440)} 天`
+      ? t("{0} 天", Math.round(minutes / 1440))
       : minutes >= 60
-        ? `${Math.round(minutes / 60)} 小时`
-        : `${minutes} 分钟`
+        ? t("{0} 小时", Math.round(minutes / 60))
+        : t("{0} 分钟", minutes)
     : fallback;
   return (
     <div className="quota-window">
       <div>
-        <span>{label}额度</span>
-        <strong>剩余 {remaining}%</strong>
+        <span>{t("{0}额度", label)}</span>
+        <strong>{t("剩余 {0}%", remaining)}</strong>
       </div>
       <progress
         max={100}
         value={remaining}
-        aria-label={`${label}额度剩余 ${remaining}%`}
+        aria-label={t("{0}额度剩余 {1}%", label, remaining)}
       />
       {value.resetsAt && (
         <small>
-          {new Date(value.resetsAt * 1000).toLocaleString(undefined, {
-            month: "numeric",
-            day: "numeric",
-            hour: "2-digit",
-            minute: "2-digit",
-          })}{" "}
-          重置
+          {t(
+            "{0} 重置",
+            new Date(value.resetsAt * 1000).toLocaleString(getLanguage(), {
+              month: "numeric",
+              day: "numeric",
+              hour: "2-digit",
+              minute: "2-digit",
+            }),
+          )}
         </small>
       )}
     </div>
@@ -55,8 +57,6 @@ function LimitWindow({
 export function AccountMenu({
   client,
   devices,
-  selectedDeviceId,
-  localAvailable,
   connected,
   admin,
   onLogin,
@@ -87,19 +87,7 @@ export function AccountMenu({
     enabled: mewdexSupported,
     retry: false,
   });
-  const local = useQuery({
-    queryKey: ["account-local-device"],
-    queryFn: async () =>
-      (await deviceRequest({ operation: "status" })).snapshot,
-    enabled: localAvailable,
-    staleTime: Infinity,
-    retry: false,
-    refetchOnWindowFocus: false,
-  });
-  const localId = local.data?.deviceId;
-  const device =
-    devices.find((item) => item.id === selectedDeviceId) ??
-    devices.find((item) => item.id === localId);
+  const device = devices.find((item) => item.roles.includes("coordinator"));
   const enabled = admin && connected && !!device?.online;
   const { account } = useModelAccount(client, device?.id ?? "", enabled);
   const value = account.data;
@@ -144,7 +132,7 @@ export function AccountMenu({
       await cache.invalidateQueries({ queryKey: ["account", device.id] });
       cache.removeQueries({ queryKey: ["account-limits", device.id] });
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "退出登录失败");
+      setError(cause instanceof Error ? cause.message : t("退出登录失败"));
     } finally {
       setBusy(false);
     }
@@ -154,17 +142,17 @@ export function AccountMenu({
       ? "ChatGPT"
       : value?.type === "apiKey"
         ? "API"
-        : "模型服务";
+        : t("模型服务");
   const modelTitle =
     value?.email ||
     (value?.signedIn
       ? `${provider}${value.planType ? ` ${value.planType}` : ""}`
-      : "连接模型账号");
+      : t("连接模型账号"));
   const title =
     mewdex.data?.name ||
     mewdex.data?.username ||
     identity.name ||
-    "MewDex 账号";
+    t("MewDex 账号");
   const snapshots: RateLimitSnapshot[] = Object.values(
     limits.data?.rateLimitsByLimitId ?? {},
   );
@@ -178,7 +166,7 @@ export function AccountMenu({
     >
       <summary
         className="workspace-settings-entry"
-        aria-label="MewDex 账号与节点订阅"
+        aria-label={t("MewDex 账号与 Hub 订阅")}
       >
         <span className="avatar account-avatar">
           {title.slice(0, 1).toUpperCase()}
@@ -187,7 +175,7 @@ export function AccountMenu({
           <strong>{title}</strong>
           <small>
             <i className={connected ? "online" : "offline"} />
-            {!connected ? "网络已断开" : "MewDex · 已登录"}
+            {!connected ? t("网络已断开") : t("MewDex · 已登录")}
           </small>
         </span>
         <ChevronUp size={14} />
@@ -199,18 +187,18 @@ export function AccountMenu({
           </span>
           <span>
             <strong>{title}</strong>
-            <small>MewDex · {mewdex.data?.username || "中央后端连接"}</small>
+            <small>MewDex · {mewdex.data?.username || t("中央后端连接")}</small>
           </span>
         </div>
         <div className="account-profile">
           <span>
             <strong>
-              {device?.name || "当前节点"} · {provider}
+              {device?.name || "Hub"} · {provider}
             </strong>
             <small>
               {value?.signedIn
                 ? `${modelTitle}${value.planType ? ` · ${value.planType}` : ""}`
-                : "此节点未登录模型服务"}
+                : t("Hub 尚未登录模型服务")}
             </small>
           </span>
         </div>
@@ -221,22 +209,23 @@ export function AccountMenu({
               aria-expanded={showUsage}
             >
               <Gauge size={16} />
-              使用情况<small>{showUsage ? "收起" : "查看额度"}</small>
+              {t("使用情况")}
+              <small>{showUsage ? t("收起") : t("查看额度")}</small>
             </button>
             {showUsage && (
               <div className="account-usage">
                 {limits.isPending &&
                 !limits.isFetching &&
                 !device?.capabilities?.includes("account-limits") ? (
-                  <p>更新此设备的执行端后可读取额度。</p>
+                  <p>{t("更新 Hub 后可读取额度。")}</p>
                 ) : limits.isFetching ? (
-                  <p role="status">正在读取额度…</p>
+                  <p role="status">{t("正在读取额度…")}</p>
                 ) : limits.error ? (
                   <p>
-                    额度暂时无法读取。
+                    {t("额度暂时无法读取。")}
                     <button onClick={() => void limits.refetch()}>
                       <RefreshCw size={13} />
-                      重试
+                      {t("重试")}
                     </button>
                   </p>
                 ) : snapshots.length ? (
@@ -248,18 +237,21 @@ export function AccountMenu({
                         </strong>
                       )}
                       {snapshot.primary && (
-                        <LimitWindow value={snapshot.primary} fallback="主要" />
+                        <LimitWindow
+                          value={snapshot.primary}
+                          fallback={t("主要")}
+                        />
                       )}
                       {snapshot.secondary && (
                         <LimitWindow
                           value={snapshot.secondary}
-                          fallback="次要"
+                          fallback={t("次要")}
                         />
                       )}
                     </div>
                   ))
                 ) : (
-                  <p>此模型服务暂未提供额度数据。</p>
+                  <p>{t("此模型服务暂未提供额度数据。")}</p>
                 )}
               </div>
             )}
@@ -270,11 +262,11 @@ export function AccountMenu({
             disabled={!enabled}
             onClick={() => {
               if (menu.current) menu.current.open = false;
-              onLogin(device?.id ?? selectedDeviceId);
+              if (device) onLogin(device.id);
             }}
           >
             <LogIn size={16} />
-            登录此节点的 ChatGPT
+            {t("登录 Hub 的 ChatGPT")}
           </button>
         )}
         {value?.signedIn && admin && (
@@ -283,12 +275,12 @@ export function AccountMenu({
             onClick={() => void logout()}
           >
             <LogOut size={16} />
-            {busy ? "正在退出…" : "退出此节点的 ChatGPT"}
+            {busy ? t("正在退出…") : t("退出 Hub 的 ChatGPT")}
           </button>
         )}
         {(error || account.error) && (
           <p className="error" role="alert">
-            {error || "无法读取模型账号状态"}
+            {error || t("无法读取模型账号状态")}
           </p>
         )}
         <button
@@ -298,7 +290,7 @@ export function AccountMenu({
           }}
         >
           <LogOut size={16} />
-          退出 MewDex
+          {t("退出 MewDex")}
         </button>
       </div>
     </details>

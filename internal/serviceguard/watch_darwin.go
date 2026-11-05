@@ -119,16 +119,13 @@ func (t *tracker) scan() (map[uint64]processidentity.Identity, bool, error) {
 			return nil, false, err
 		}
 	}
-	// Baseline processes precede the execution scope. Later outside processes
-	// require an observed outside birth edge. A NEW orphan with a missing
-	// intermediate cannot be assumed unrelated just because launchd adopted it.
-	// It is not killed: an uncertain service scope retains its refusal markers.
+	// Missing ancestry elsewhere on the host is diagnostic information, not
+	// evidence of a fork by this service. A short-lived unrelated parent can
+	// disappear between snapshots while its child remains. Only unresolved fork
+	// events from the tracked service lifetimes can make our own scope uncertain.
 	t.unknown, err = t.frontier.observe(t.known, snapshot)
 	if err != nil {
 		return nil, false, err
-	}
-	if t.unknown > 0 && t.issue == nil {
-		t.issue = errors.Join(lifecycle.ErrUnconfirmed, errors.New("a new process has an unobserved immutable intermediate ancestor"))
 	}
 	live := make(map[uint64]processidentity.Identity)
 	ownerAlive := false

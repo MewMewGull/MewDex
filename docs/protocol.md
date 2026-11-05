@@ -4,7 +4,7 @@
 
 ## 中央账号与认证协商
 
-`MewDexAccount` 是中央后端的用户账号，与执行节点的 `ModelAccount`（ChatGPT / API 订阅及额度）分开。MewDex 账号登录后返回 `admin` 管理身份及全设备访问权限，`Identity.accountId` 指向稳定账号；切换输入终端不需要逐台授予项目权限。节点的模型账号认证信息仍只保存在节点，登录或退出 MewDex 不调用模型账号登录/退出。
+`MewDexAccount` 是中央后端的用户账号，与 Hub 的 `ModelAccount`（ChatGPT / API 订阅及额度）分开。MewDex 账号登录后返回 `admin` 管理身份及全设备访问权限，`Identity.accountId` 指向稳定账号；切换输入终端不需要逐台授予项目权限。模型账号认证信息由 Hub 的专用引擎目录管理。
 
 - 匿名 `GET /health` 返回 `ServerInfo={name,protocolVersion,capabilities,authentication}`。`authentication={methods,defaultMethod,accountConfigured}` 决定下一步表单；终端先核对服务与协议，只展示支持的已公告方式。已配置账号的 Hub 默认 `methods=["password","key"]`、`defaultMethod="password"`；尚无账号的既有 Hub 以 `key/pair` 兼容初始化。旧 Hub 缺少此字段时继续支持原密钥及配对方式，不假定支持密码登录。
 - 匿名 `POST /v1/login` 接收 `{username,password}`，返回与配对相同的 `{token,identity,protocolVersion}`。账号在中央持久化 bcrypt 哈希，明文密码不进入执行指令账本、模型参数或输入端持久存储。失败不保存连接；登录尝试按来源有界限制。每次登录签发随机令牌，账号编号不变。
@@ -42,7 +42,7 @@ Hub 的 `mewdex-accounts` 能力声明账号接口，`central-projects` 声明�
 
 ## 模型目录与推理强度
 
-执行设备以 `model-catalog` 声明目录读取能力。`model.list` 指令指定 `deviceId` 及项目或已有会话，`models` 可携带分页 `cursor` 和 `limit`；默认每页 30 项，最多 100 项。普通已授权输入端可读取目标项目的目录，账号管理仍只向管理员开放。执行器核对项目与会话归属后调用引擎 `model/list`，不创建或恢复对话。
+Hub 协调器以 `model-catalog` 声明模型目录读取能力。`model.list` 指令指定协调器 `deviceId` 及 Hub 项目或已有会话，`models` 可携带分页 `cursor` 和 `limit`，默认每页 30 项，最多 100 项。普通已授权输入端可读取目标项目的模型目录，账号管理向管理员开放。协调器核对项目与会话归属后调用引擎 `model/list`。
 
 完成回执的 `ModelPage` 包含 `models` 及可选 `nextCursor`。模型提供 `id`、实际请求使用的 `model`、显示名称与说明、推荐标记 `isDefault`、建议强度和所支持的强度列表。每个强度保留执行端给出的字符串与说明，不由输入协议固定为某几个枚举值。隐藏项不投影，其他引擎私有字段不进入回执。目录只读回执不显示为需要处理的未确认操作。
 
@@ -199,13 +199,21 @@ Hub 的 `mewdex-accounts` 能力声明账号接口，`central-projects` 声明�
 
 触控输入界面的回车用于换行，Ctrl/Command + Enter 可显式发送；普通桌面保留 Enter 发送、Shift + Enter 换行。键盘可见区域和消息区尺寸由共享输入 UI 处理，不进入网络协议或执行器。界面会保留原指令编号；关闭输入应用或恢复前台不会重新提交模型消息。
 
-执行端模型通道使用 `GET /v1/gateway/ws?target=host:443`，以执行器 Bearer 凭据鉴权，必须具有自己的 `gateway` 授权。输入端和管理员身份不能充当代理身份，目标仍受 Gateway 精确域名白名单限制。WebSocket 二进制帧承载未经解密的官方 TLS；模型账号与 MewDex 设备授权分开。该接口与对话输入协议独立，新增网页或 CLI 输入端无需实现模型转发。
+Hub 运行共享模型引擎时，快照声明 `hub-projects` 和 `hub-model-account`。`Project.directories` 保存跨机器目录引用，中央项目的 `path` 为空，`revision` 用于并发更新校验。`GET /v1/projects` 返回中央项目，管理员通过 `PUT /v1/projects/{id}` 提交名称、分类、目录组和 `expectedRevision`。
 
-`engine.useHubGateway` 与显式 `engine.proxyUrl/proxyTokenFile` 互斥。仅配置 `gateway.allowedHosts` 即可在 Hub 的现有入口启用通道；可选 `gateway.listen` 另外提供独立 CONNECT 入口。公网依然要求 HTTPS/WSS，开发用回环 SSH 链路不代表最终部署已经脱离 SSH。
+执行节点声明 `hub-execution`。Hub 通过已配对控制连接发送 `terminal.exec`、`terminal.wait`、`terminal.stop`、`terminal.stopOwner`，输入端的 HTTP 指令入口拒绝直接提交这些操作。回合的 `ownerId`、工具调用生成的稳定指令编号和本机任务编号共同限定执行归属。重连查询原编号，停止回合会在节点留下持久拒绝标记。
+
+`FileRequest.directory` 选择 Hub 项目目录组中的目录，下发的 `terminal.file.list` 和 `terminal.file.export` 由节点完成。文件回传使用原输入请求的授权和快照编号，上传节点需匹配 Hub 解析的执行目标。`OutputFile.directory` 记录快照的来源目录。
 
 本文件记录当前开发协议，不代表产品已验收。停止和重启后的完整进程确认、手机后台恢复及生产安装分发仍在实施。服务不能把失联显示成已停止；界面也不能用控制指令回执替代完整回合完成状态。
 
 ## 原生本机管理接口
+
+独立分发后的输入 APP 声明 `localService=false`，通过网络 SDK 管理 Hub。桌面 APP 的 `channel_connection` 接口启动专用消息连接器，连接配置通过原生管道交付。
+
+`GET /v1/input-bridges` 列出当前管理员身份下的在线 APP。APP 以该管理员凭据连接 `/v1/input-bridges/ws?id=...&name=...`，Hub 将 `/v1/messaging` 请求转发给选定连接。可选 `bridgeId` 显式指定 APP，多个连接时必须选择。该连接用于渠道管理，渠道提交继续通过带项目范围的普通 `client` 身份使用 `/v1/commands`。平台凭据和收发回执由 APP 保存。
+
+执行端的独立网页控制面板通过带面板密钥的 `/api/device` 调用现有本机管理层。执行节点仍通过 `/v1/node/ws` 与 Hub 建立主动连接。
 
 `apps/client/src/localProtocol.ts` 由 Go 管理类型生成，独立于网络输入 SDK。电脑原生宿主可以调用本机管理程序；手机和网页不暴露本机执行、配置或数据恢复命令。
 

@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { useRef, type Ref } from "react";
 import {
   ExternalLink,
@@ -37,20 +38,20 @@ export function InteractionPanel({
       className="interaction-list"
       ref={containerRef}
       role="region"
-      aria-label="当前待处理请求"
+      aria-label={t("当前待处理请求")}
       tabIndex={-1}
     >
       {error && (
         <div className="error" role="alert">
-          无法读取待处理请求。
-          <button onClick={() => void onRefresh()}>重试</button>
+          {t("无法读取待处理请求。")}
+          <button onClick={() => void onRefresh()}>{t("重试")}</button>
         </div>
       )}
       {!!requests.length && (
         <div className="interaction-heading">
           <MessageCircleQuestion size={16} />
-          <strong>需要你处理</strong>
-          <span>{requests.length} 项</span>
+          <strong>{t("需要你处理")}</strong>
+          <span>{t("{0} 项", requests.length)}</span>
         </div>
       )}
       {requests.map((request) => (
@@ -118,49 +119,53 @@ function InteractionCard({
         <strong>{request.title}</strong>
         <small>
           {state === "submitting"
-            ? "正在发送"
+            ? t("正在发送")
             : state === "sent"
-              ? "回复已提交"
+              ? t("回复已提交")
               : state === "unconfirmed"
-                ? "结果待确认"
+                ? t("结果待确认")
                 : request.blocking
-                  ? "等待处理"
-                  : "可继续工作"}
+                  ? t("等待处理")
+                  : t("可继续工作")}
         </small>
       </header>
       {request.message && <p>{request.message}</p>}
       {request.command && <pre>{request.command}</pre>}
       {request.filePatch && (
-        <pre aria-label="本次文件修改">{request.filePatch}</pre>
+        <pre aria-label={t("本次文件修改")}>{request.filePatch}</pre>
       )}
       {request.cwd && (
-        <div className="request-location">执行目录：{request.cwd}</div>
+        <div className="request-location">
+          {t("执行目录：{0}", request.cwd)}
+        </div>
       )}
       {request.permissions && (
         <div className="request-permissions">
           <p>
             {request.kind === "permissions"
-              ? "以下额外权限仅在当前回合生效："
-              : "以下额外权限仅用于这一次命令："}
+              ? t("以下额外权限仅在当前回合生效：")
+              : t("以下额外权限仅用于这一次命令：")}
           </p>
           <ul>
             {request.permissions.readPaths.map((path) => (
               <li key={`read:${path}`}>
-                读取：<code>{path}</code>
+                {t("读取：")}
+                <code>{path}</code>
               </li>
             ))}
             {request.permissions.writePaths.map((path) => (
               <li key={`write:${path}`}>
-                读写：<code>{path}</code>
+                {t("读写：")}
+                <code>{path}</code>
               </li>
             ))}
-            {request.permissions.network && <li>允许工具访问网络</li>}
+            {request.permissions.network && <li>{t("允许工具访问网络")}</li>}
           </ul>
         </div>
       )}
       {request.details && (
         <details>
-          <summary>查看请求内容</summary>
+          <summary>{t("查看请求内容")}</summary>
           <pre>{request.details}</pre>
         </details>
       )}
@@ -175,10 +180,10 @@ function InteractionCard({
               )
             }
           >
-            打开请求网页
+            {t("打开请求网页")}
             <ExternalLink size={13} />
           </button>
-          <p>在网页完成操作后，再选择继续。</p>
+          <p>{t("在网页完成操作后，再选择继续。")}</p>
         </div>
       )}
       <form
@@ -207,28 +212,32 @@ function InteractionCard({
             key={question.id}
             question={question}
             value={values[question.id]}
-            error={response.fieldErrors[question.id]}
+            error={
+              response.fieldErrors[question.id]
+                ? t(response.fieldErrors[question.id])
+                : undefined
+            }
             disabled={locked || !request.canAccept}
             onChange={(value) => onChange(question.id, value)}
           />
         ))}
         {error && (
           <div className="error" role="alert">
-            {error}
+            {t(error)}
           </div>
         )}
         {state === "sent" ? (
-          <p role="status">回复已提交，正在同步请求状态。</p>
+          <p role="status">{t("回复已提交，正在同步请求状态。")}</p>
         ) : state === "unconfirmed" ? (
           <div className="request-result-status" role="status">
-            <span>回复结果待确认，请读取当前状态。</span>
+            <span>{t("回复结果待确认，请读取当前状态。")}</span>
             <button
               onClick={() => void onObserve()}
               disabled={reading}
               type="button"
             >
               <RefreshCw size={14} />
-              {reading ? "正在读取…" : "刷新状态"}
+              {reading ? t("正在读取…") : t("刷新状态")}
             </button>
           </div>
         ) : (
@@ -237,7 +246,7 @@ function InteractionCard({
               (isQuestion || request.kind === "form") &&
               request.canAccept && (
                 <span className="request-submit-hint">
-                  {keyboardModifierLabel()}+Enter 发送回复
+                  {t("{0}+Enter 发送回复", keyboardModifierLabel())}
                 </span>
               )}
             {!isQuestion && (
@@ -246,31 +255,33 @@ function InteractionCard({
                 disabled={locked}
                 onClick={() => void reply("decline")}
               >
-                拒绝本次请求
+                {t("拒绝本次请求")}
               </button>
             )}
             {request.canAccept && (
               <button className="primary" type="submit" disabled={locked}>
                 {state === "submitting"
-                  ? "正在发送…"
+                  ? t("正在发送…")
                   : isQuestion || request.kind === "form"
-                    ? "发送回复"
+                    ? t("发送回复")
                     : request.kind === "link"
-                      ? "继续任务"
+                      ? t("继续任务")
                       : request.kind === "permissions"
-                        ? "允许本回合权限"
-                        : "允许本次操作"}
+                        ? t("允许本回合权限")
+                        : t("允许本次操作")}
               </button>
             )}
           </div>
         )}
         {!request.canAccept && (
           <p className="request-note">
-            当前无法接受此请求，可查看请求内容了解原因。
+            {t("当前无法接受此请求，可查看请求内容了解原因。")}
           </p>
         )}
         {disabled && (
-          <p className="request-note">设备未连接或任务已停止，暂时不能回复。</p>
+          <p className="request-note">
+            {t("设备未连接或任务已停止，暂时不能回复。")}
+          </p>
         )}
       </form>
     </section>

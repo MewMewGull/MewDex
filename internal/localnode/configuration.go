@@ -60,12 +60,6 @@ func (m *Manager) setup(ctx context.Context, setup *Setup) error {
 	if !setup.Hub && !setup.Executor {
 		return errors.New("select a Hub or executor role for this computer")
 	}
-	if setup.Gateway && !setup.Hub {
-		return errors.New("the desktop gateway is enabled on its Hub; a standalone gateway uses an explicit service profile")
-	}
-	if setup.UseHubGateway && (setup.Hub || !setup.Executor) {
-		return errors.New("Hub forwarding is available to a remote executor")
-	}
 	projects, err := normalizeProjects(setup.Projects)
 	if err != nil {
 		return err
@@ -89,7 +83,7 @@ func (m *Manager) setup(ctx context.Context, setup *Setup) error {
 	if err != nil || portNumber < 0 || portNumber > 65535 || (host != "localhost" && (net.ParseIP(host) == nil || !net.ParseIP(host).IsLoopback())) {
 		return errors.New("desktop setup requires a loopback Hub listener")
 	}
-	if setup.Executor {
+	if setup.Executor || setup.Hub {
 		if !filepath.IsAbs(m.options.Engine) {
 			return errors.New("a bundled execution engine is required")
 		}
@@ -99,7 +93,7 @@ func (m *Manager) setup(ctx context.Context, setup *Setup) error {
 		}
 	}
 	enginePath := m.options.Engine
-	if setup.Executor {
+	if setup.Executor || setup.Hub {
 		enginePath, err = runtimefiles.Engine(m.options.Root, m.options.Engine, engine.CompatibleVersion)
 		if err != nil {
 			return err
@@ -107,7 +101,7 @@ func (m *Manager) setup(ctx context.Context, setup *Setup) error {
 	}
 	c := config.Config{DeviceID: protocol.ID(), Name: name, DataDir: filepath.Join(m.options.Root, "data"), Listen: listen, Hub: setup.Hub, Executor: setup.Executor, HubURL: setup.HubURL, Projects: projects,
 		AllowedOrigins: []string{"tauri://localhost", "http://tauri.localhost", "https://tauri.localhost", "http://127.0.0.1:1420", "http://localhost:1420"},
-		Engine:         config.Engine{Executable: enginePath, Home: filepath.Join(m.options.Root, "engine-home"), UseHubGateway: setup.UseHubGateway}}
+		Engine:         config.Engine{Executable: enginePath, Home: filepath.Join(m.options.Root, "engine-home")}}
 	if !c.Hub {
 		if err := config.ValidateURL(c.HubURL, false); err != nil {
 			return err
@@ -116,14 +110,15 @@ func (m *Manager) setup(ctx context.Context, setup *Setup) error {
 	} else if c.HubURL != "" {
 		return errors.New("a new Hub does not join a second Hub")
 	}
-	if setup.Gateway {
-		c.Gateway = &config.Gateway{AllowedHosts: []string{"chatgpt.com", "auth.openai.com", "api.openai.com", "chat.openai.com", "ab.chatgpt.com"}}
-	}
 	if pending, err := config.Read(m.draft()); err == nil {
 		c.DeviceID = pending.DeviceID
 		c.Engine.ProxyUsername = c.DeviceID
+		pending.Engine.UseHubGateway, pending.Gateway = false, nil
 		if !bytes.Equal(protocol.JSON(c), protocol.JSON(pending)) {
 			return errors.New("an unfinished setup exists with different settings; it was preserved")
+		}
+		if err = replaceJSON(m.draft(), c); err != nil {
+			return err
 		}
 	} else if errors.Is(err, os.ErrNotExist) {
 		c.Engine.ProxyUsername = c.DeviceID

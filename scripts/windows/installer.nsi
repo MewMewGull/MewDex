@@ -1,5 +1,4 @@
-; Current-user installer. Startup is an explicit choice, shared with the Go
-; manager and desktop. No cmd/PowerShell startup script or second SSH service.
+; Current-user input APP installer with an independent APP startup preference.
 Unicode true
 ManifestDPIAware true
 RequestExecutionLevel user
@@ -71,21 +70,10 @@ Function .onInit
   ${EndIf}
   StrCpy $AutoStart "false"
   InitPluginsDir
-  SetOutPath "$PLUGINSDIR"
-  File /oname=mewdex-node.exe "${PAYLOAD}\mewdex-node.exe"
-  ClearErrors
-  ExecWait '"$PLUGINSDIR\mewdex-node.exe" install -root "$LOCALAPPDATA\app.mewdex.client" -app-config "$APPDATA\app.mewdex.client" -inspect-output "$PLUGINSDIR\startup.ini"' $0
-  ${If} ${Errors}
-    MessageBox MB_OK|MB_ICONSTOP "无法读取已有的 Hub 自动启动设置，安装已停止。" /SD IDOK
-    Call ReopenWorkbench
-    Abort
+  ReadRegStr $0 HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "MewDexInput"
+  ${If} $0 != ""
+    StrCpy $AutoStart "true"
   ${EndIf}
-  ${If} $0 != 0
-    MessageBox MB_OK|MB_ICONSTOP "已有的 Hub 设置需要核对，请在工作台中处理后再安装。" /SD IDOK
-    Call ReopenWorkbench
-    Abort
-  ${EndIf}
-  ReadINIStr $AutoStart "$PLUGINSDIR\startup.ini" "MewDex" "AutoStart"
   ClearErrors
   ${GetOptions} $Parameters "/AUTOSTART=" $ExplicitStartup
   ${IfNot} ${Errors}
@@ -96,19 +84,6 @@ Function .onInit
       Abort
     ${EndIf}
     StrCpy $AutoStart $ExplicitStartup
-  ${EndIf}
-  ; Check before copying application files, including manual installer upgrades.
-  ClearErrors
-  ExecWait '"$PLUGINSDIR\mewdex-node.exe" install -root "$LOCALAPPDATA\app.mewdex.client" -app-config "$APPDATA\app.mewdex.client" -prepare-update' $0
-  ${If} ${Errors}
-    MessageBox MB_OK|MB_ICONSTOP "无法检查本机任务，更新已停止。请重新打开工作台后重试。" /SD IDOK
-    Call ReopenWorkbench
-    Abort
-  ${EndIf}
-  ${If} $0 != 0
-    MessageBox MB_OK|MB_ICONSTOP "本机存在执行中或待确认任务，或服务状态需要核对。请在工作台处理后重新安装。" /SD IDOK
-    Call ReopenWorkbench
-    Abort
   ${EndIf}
 FunctionEnd
 
@@ -137,20 +112,20 @@ FunctionEnd
 
 Function StartupPage
   Call SkipUpdatePage
-  !insertmacro MUI_HEADER_TEXT "Hub 启动设置" "选择是否在登录 Windows 后自动启动 MewDex Hub。"
+  !insertmacro MUI_HEADER_TEXT "APP 启动设置" "选择是否在登录 Windows 后自动打开输入 APP。"
   nsDialogs::Create 1018
   Pop $Dialog
   ${If} $Dialog == error
     Abort
   ${EndIf}
-  ${NSD_CreateLabel} 0 0 100% 36u "MewDex Hub 是后台服务，负责设备连接和可选的公网反向代理。登录时静默启动到系统托盘。"
+  ${NSD_CreateLabel} 0 0 100% 36u "APP 连接已部署的 Hub，并保持 QQ、微信和飞书渠道连接。"
   Pop $0
-  ${NSD_CreateCheckbox} 0 46u 100% 20u "开机自启动 MewDex Hub（登录当前 Windows 账户后）"
+  ${NSD_CreateCheckbox} 0 46u 100% 20u "登录当前 Windows 账户后启动 MewDex APP"
   Pop $StartupCheckbox
   ${If} $AutoStart == "true"
     ${NSD_Check} $StartupCheckbox
   ${EndIf}
-  ${NSD_CreateLabel} 0 80u 100% 60u "首次安装默认关闭；升级保留当前设置。新设备完成首次配置后生效。之后可在桌面端的“本机设备 → 启动设置”中修改。升级会接管已有公网代理，并更新空闲的 Hub；有未完成任务时暂停升级。"
+  ${NSD_CreateLabel} 0 80u 100% 60u "首次安装默认关闭，升级保留 APP 启动选择。Hub 和执行端使用各自的发布包独立部署。"
   Pop $0
   nsDialogs::Show
 FunctionEnd
@@ -196,15 +171,10 @@ Section "MewDex" Main
   Call EnsureWebView2
   SetOutPath "$INSTDIR"
   File /r "${PAYLOAD}\*"
-  ClearErrors
-  ExecWait '"$INSTDIR\mewdex-node.exe" install -root "$LOCALAPPDATA\app.mewdex.client" -app-config "$APPDATA\app.mewdex.client" -workbench "$INSTDIR\mewdex-client.exe" -autostart=$AutoStart' $0
-  ${If} ${Errors}
-    MessageBox MB_OK|MB_ICONSTOP "无法保存 Hub 启动设置。安装未完成，请重试。" /SD IDOK
-    Abort
-  ${EndIf}
-  ${If} $0 != 0
-    MessageBox MB_OK|MB_ICONSTOP "Hub 启动设置保存失败，安装未完成。请在工作台中核对已有配置后重试。" /SD IDOK
-    Abort
+  ${If} $AutoStart == "true"
+    WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "MewDexInput" '$\"$INSTDIR\mewdex-client.exe$\"'
+  ${Else}
+    DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "MewDexInput"
   ${EndIf}
   WriteRegStr HKCU "Software\MewDex" "InstallDir" "$INSTDIR"
   CreateDirectory "$SMPROGRAMS\MewDex"
@@ -221,16 +191,7 @@ SectionEnd
 
 Section "Uninstall"
   SetShellVarContext current
-  ClearErrors
-  ExecWait '"$INSTDIR\mewdex-node.exe" install -root "$LOCALAPPDATA\app.mewdex.client" -app-config "$APPDATA\app.mewdex.client" -uninstall' $0
-  ${If} ${Errors}
-    MessageBox MB_OK|MB_ICONSTOP "无法停止 Hub；为保留可管理的入口，卸载已停止。" /SD IDOK
-    Abort
-  ${EndIf}
-  ${If} $0 != 0
-    MessageBox MB_OK|MB_ICONSTOP "Hub 停止或启动项移除尚未确认，请在工作台中核对后重试卸载。" /SD IDOK
-    Abort
-  ${EndIf}
+  DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "MewDexInput"
   ; Remove only files installed by this package; preserve user data and any
   ; unrelated files placed in the installation directory.
   !include "${MANIFEST}"

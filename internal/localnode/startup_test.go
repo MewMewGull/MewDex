@@ -10,6 +10,7 @@ import (
 
 	"mewdex/internal/config"
 	"mewdex/internal/lifecycle"
+	"mewdex/internal/serviceguard"
 	"mewdex/internal/startup"
 )
 
@@ -61,7 +62,7 @@ func TestManagedStartupOwnsTheInstallationAndSuspendsChangedProfiles(t *testing.
 	}
 	called := false
 	sentinel := errors.New("fixture exits without creating a service")
-	err = driver.RunManaged(ctx, record.Definition.Owner, func(_ context.Context, c config.Config) error {
+	err = driver.RunManaged(ctx, record.Definition.Owner, func(ctx context.Context, c config.Config) error {
 		called = true
 		if c.InstallationRoot != "" {
 			t.Fatal("foreground callback would acquire its installation lease twice")
@@ -70,7 +71,7 @@ func TestManagedStartupOwnsTheInstallationAndSuspendsChangedProfiles(t *testing.
 			lease.Close()
 			t.Fatal("managed service did not retain the installation lease")
 		}
-		return sentinel
+		return serviceguard.Run(ctx, c.DataDir, nil, c.Hub || c.Executor, func(context.Context) error { return sentinel })
 	})
 	if !called || !errors.Is(err, sentinel) {
 		t.Fatal("current entry was not run or lost its error")

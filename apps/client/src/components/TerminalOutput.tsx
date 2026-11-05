@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { useEffect, useRef, useState } from "react";
 import { Terminal as XTerminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
@@ -230,15 +231,15 @@ export function TerminalOutput({
           query={query}
           onQuery={(query) => update({ query })}
           autoFocus={autoFocusFind}
-          label="查找当前终端缓冲区"
+          label={t("查找当前终端缓冲区")}
           status={
             !query
               ? ""
               : matches.resultCount >= 1000
-                ? "1000+ 项"
+                ? t("1000+ 项")
                 : matches.resultCount
                   ? `${matches.resultIndex >= 0 ? matches.resultIndex + 1 + "/" : ""}${matches.resultCount}`
-                  : "无匹配"
+                  : t("无匹配")
           }
           hasResults={matches.resultCount > 0}
           onPrevious={() => next(true)}
@@ -251,10 +252,10 @@ export function TerminalOutput({
         {selected && (
           <CopyButton
             text={() => terminal.current?.getSelection() ?? ""}
-            label="复制选中"
+            label={t("复制选中")}
           />
         )}
-        <span>5000 行滚动记录</span>
+        <span>{t("5000 行滚动记录")}</span>
         {!following && (
           <button
             onClick={() => {
@@ -262,7 +263,8 @@ export function TerminalOutput({
               setFollowing(true);
             }}
           >
-            <ArrowDown size={13} /> 跟随最新
+            <ArrowDown size={13} />
+            {t(" 跟随最新")}
           </button>
         )}
       </div>

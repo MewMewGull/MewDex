@@ -48,12 +48,10 @@ try {
         if (-not (Test-Path -LiteralPath $taskBinary -PathType Leaf)) { throw 'The expected native executable is missing.' }
         $taskReport.binary = $taskBinary
         $taskReport.sha256 = (Get-FileHash -LiteralPath $taskBinary -Algorithm SHA256).Hash.ToLowerInvariant()
-        $taskHelper = Join-Path (Split-Path $taskBinary -Parent) 'mewdex-node.exe'
-        $taskEngineManifest = Join-Path (Split-Path $taskBinary -Parent) 'engine\mewdex-engine.json'
-        if (-not (Test-Path -LiteralPath $taskHelper -PathType Leaf) -or -not (Test-Path -LiteralPath $taskEngineManifest -PathType Leaf)) { throw 'Native service resources are missing from the development output.' }
+        $taskHelper = Join-Path (Split-Path $taskBinary -Parent) 'mewdex-input-bridge.exe'
+        if (-not (Test-Path -LiteralPath $taskHelper -PathType Leaf)) { throw 'The APP channel connector is missing from the development output.' }
         $taskReport.helperSha256 = (Get-FileHash -LiteralPath $taskHelper -Algorithm SHA256).Hash.ToLowerInvariant()
-        $taskReport.engineManifestSha256 = (Get-FileHash -LiteralPath $taskEngineManifest -Algorithm SHA256).Hash.ToLowerInvariant()
-        $taskReport.engineVersion = (Get-Content -LiteralPath $taskEngineManifest -Raw | ConvertFrom-Json).version
+        $taskReport.component = 'app'
         $taskReport.phase = 'complete'
         $taskEvidenceDir = Join-Path $taskRoot '.state\evidence'
         [IO.Directory]::CreateDirectory($taskEvidenceDir) | Out-Null

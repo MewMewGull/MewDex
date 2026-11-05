@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { useEffect, useRef } from "react";
 import { ArrowDown, ArrowUp, Search, X } from "lucide-react";
 
@@ -10,7 +11,7 @@ export function OutputFindBar({
   onNext,
   onClose,
   label,
-  closeLabel = "关闭输出查找",
+  closeLabel = t("关闭输出查找"),
   autoFocus = true,
 }: {
   query: string;
@@ -56,7 +57,7 @@ export function OutputFindBar({
       <small role="status">{status}</small>
       <button
         className="icon-button"
-        aria-label="上一个匹配"
+        aria-label={t("上一个匹配")}
         disabled={!hasResults}
         onClick={onPrevious}
       >
@@ -64,7 +65,7 @@ export function OutputFindBar({
       </button>
       <button
         className="icon-button"
-        aria-label="下一个匹配"
+        aria-label={t("下一个匹配")}
         disabled={!hasResults}
         onClick={onNext}
       >

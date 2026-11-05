@@ -1,25 +1,24 @@
 package hub
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"strings"
 
 	"github.com/coder/websocket"
-	"mewdex/internal/gateway"
 	"mewdex/internal/protocol"
 )
 
-func (h *Hub) AuthorizeGateway(_ context.Context, device, token string) (gateway.Grant, error) {
-	id, err := h.store.Authenticate(token)
-	if err != nil {
-		return gateway.Grant{}, err
-	}
-	return gateway.IdentityGrant(id, device)
-}
-
 func (h *Hub) allowsCommand(id protocol.Identity, c protocol.Command) bool {
+	if strings.HasPrefix(c.Kind, "terminal.") || c.Terminal != nil {
+		return false
+	}
+	if strings.HasPrefix(c.Kind, "workspace.") && c.DeviceID == h.coordinatorID {
+		return false
+	}
+	if h.coordinator != nil && !strings.HasPrefix(c.Kind, "workspace.") && c.DeviceID != h.coordinatorID {
+		return false
+	}
 	if (strings.HasPrefix(c.Kind, "account.") || strings.HasPrefix(c.Kind, "workspace.")) && id.Role != "admin" {
 		return false
 	}
@@ -83,6 +82,15 @@ func interactionEventForIdentity(id protocol.Identity, event protocol.Event) pro
 }
 
 func (h *Hub) visibleEvent(id protocol.Identity, e protocol.Event) bool {
+	if strings.HasPrefix(e.Kind, "terminal.") {
+		return false
+	}
+	if e.Kind == "project.catalog.updated" {
+		var project struct {
+			ProjectID string `json:"projectId"`
+		}
+		return json.Unmarshal(e.Payload, &project) == nil && id.Access.Allows(h.coordinatorID, project.ProjectID)
+	}
 	if e.Kind == "workspace.catalog.updated" && id.Role != "admin" {
 		return false
 	}
@@ -119,9 +127,13 @@ func (h *Hub) disconnectIdentity(id string) {
 	for conn := range h.subscribers[id] {
 		connections = append(connections, conn)
 	}
+	for _, bridge := range h.inputBridges {
+		if bridge.owner == id {
+			connections = append(connections, bridge.conn)
+		}
+	}
 	close(h.wake)
 	h.wake = make(chan struct{})
-	revokeGateway := h.revokeGateway
 	h.mu.Unlock()
 	for _, p := range peers {
 		p.cancel()
@@ -129,9 +141,6 @@ func (h *Hub) disconnectIdentity(id string) {
 	}
 	for _, conn := range connections {
 		_ = conn.CloseNow()
-	}
-	if revokeGateway != nil {
-		revokeGateway(id)
 	}
 }
 

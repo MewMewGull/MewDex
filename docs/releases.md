@@ -4,13 +4,13 @@ MewDex 的组件和平台组成由根目录 `mewdex.product.json` 定义。平�
 
 | 系统 | App 组成 | 安装包 |
 | --- | --- | --- |
-| Windows | Input Terminal、Execute Terminal、Hub、Hub Controller | `.exe` / `.msi` |
-| macOS | Input Terminal、Execute Terminal、Hub、Hub Controller | `.dmg` / `.pkg` |
-| Linux Desktop | Input Terminal、Execute Terminal、Hub、Hub Controller | `.AppImage` / `.deb` / `.rpm` |
+| Windows | Input Terminal、Hub Controller、Message Connector | `.exe` / `.msi` |
+| macOS | Input Terminal、Hub Controller、Message Connector | `.dmg` / `.pkg` |
+| Linux Desktop | Input Terminal、Hub Controller、Message Connector | `.AppImage` / `.deb` / `.rpm` |
 | Android | Input Terminal、Hub Controller | `.apk` |
 | iOS / iPadOS | Input Terminal、Hub Controller | 已签名 `.ipa` |
 
-桌面 App 随包提供本机服务程序和完整执行引擎，Hub 与 Execute Terminal 的启用由设备配置决定。移动端通过 Hub Controller 使用远程 Hub 的管理接口。无界面服务器可单独运行 Hub 或 Execute Terminal 的 Go 服务。
+APP、Hub、网页输入端和执行端分别打包。APP 与网页端共用输入界面。桌面 APP 随包提供消息连接器，Hub 与执行端各自携带完整引擎。执行端包包含其独立网页控制面板。
 
 ## 准备平台产物
 
@@ -23,8 +23,23 @@ npm run version:app -- 0.1.1-preview.20261104
 Windows 使用 `scripts/build-desktop-development.ps1 -SideBySide` 构建开发版，再执行下列命令生成安装程序。
 
 ```powershell
-node scripts/build-windows-installer.mjs .state/desktop-development-next-target/debug
+python scripts/export-windows-development.py
+node scripts/build-windows-installer.mjs dist/windows/MewDex-Windows-x64
 ```
+
+Windows APP 使用 `dist/windows/MewDex-Windows-x64`、`MewDex-Windows-x64.zip` 和 `MewDex-Windows-x64.exe`。导出脚本核对新构建的 APP 与消息连接器，并移出旧导出目录中的合并服务资源。
+
+独立服务与网页输入端可一起导出，也可分别导出。
+
+```sh
+npm run package:services
+npm run package:hub
+npm run package:executor
+npm run package:web
+npm run package:services -- --target=linux:x64
+```
+
+支持 Windows、macOS、Linux 的 x64 和 ARM64 服务目标。各包包含 `component.json`、`START-HERE.txt` 和第三方许可。网页包携带 `ui/`，Hub 与执行端携带 `engine/`。默认生成对应目录与 ZIP，导出报告位于目标目录的 `component-packages.json`。服务包固定运行角色，执行端通过 `mewdex-executor panel` 配置 Hub WebSocket 连接和本机目录。
 
 macOS 和 Linux 在对应系统准备依赖和桌面资源后构建。平台配置默认生成 macOS DMG 和 Linux AppImage，可通过 Tauri 的 `--bundles` 选择其他支持的格式。
 
@@ -50,16 +65,17 @@ Android 使用 `scripts/mobile-android.ps1` 准备项目并构建 APK。iOS 在 
       "os": "windows",
       "arch": "x64",
       "kind": "installer",
+      "distribution": "app",
       "configuration": "Debug",
       "signed": false,
       "file": "dist/windows/MewDex-Windows-x64.exe",
-      "components": ["input-terminal", "execute-terminal", "hub", "hub-controller"]
+      "components": ["input-terminal", "hub-controller", "message-connector"]
     }
   ]
 }
 ```
 
-正式版的 `platforms` 覆盖五个系统，每个系统至少一个对应架构的安装包。预览版可选择本次已提供的平台，生成的说明会同时列出其他平台的待构建状态。ZIP 和 tar.gz 可作为附加便携包，每个已声明的平台仍需安装包。
+`distribution` 可为 `app`、`hub`、`web` 或 `executor`，缺省为 `app`。服务与网页包使用 `kind: "portable"`，组件分别为 `["hub"]`、`["input-terminal", "hub-controller"]` 和 `["execute-terminal", "executor-panel"]`。预览版可单独发布这些便携包。发布 APP 时，所声明平台仍需 APP 安装包。正式版覆盖五个系统的 APP 安装包。
 
 移动端的组件清单为 `input-terminal` 和 `hub-controller`。iOS 产物还需 `signed: true` 和 `installation`，后者描述签名所对应的分发及安装方式。架构、构建类型和签名声明必须与实际产物一致。
 
@@ -88,7 +104,7 @@ npm run release:prepare -- path/to/release.json
 
 发布附件必须上传 `release-manifest.json`，应用根据其中的系统、架构、安装包类型、大小和 SHA-256 选择及校验下载。缺少清单或本机安装包的版本提供 Release 页面入口。清单中的 `summary` 用于 Atom 回退时显示更新说明。
 
-- Windows EXE 安装包由本仓库的 NSIS 脚本生成，清单标记 `updateMode: "windows-nsis"`。应用下载校验后，点击“退出并安装更新”会等待当前进程退出，在原目录运行安装并重新打开工作台。安装前复用本机任务检查，配置位置与启动偏好由现有安装管理器读取。
+- Windows APP 安装包由本仓库的 NSIS 脚本生成，清单标记 `distribution: "app"` 和 `updateMode: "windows-nsis"`。应用下载校验后，点击“退出并安装更新”会等待当前 APP 退出，在原目录安装并重新打开工作台。安装程序单独管理 APP 的登录自启动选择。
 - macOS 和 Linux 桌面端支持应用内下载及校验，之后打开 DMG、PKG 或系统安装程序。AppImage 打开下载目录，按平台安装方式替换。
 - Android 打开对应架构 APK 的官方 Release 下载地址，由系统安装流程处理。iOS 打开该 Release 中与签名及分发方式对应的安装说明。
 

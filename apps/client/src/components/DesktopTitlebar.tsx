@@ -1,5 +1,6 @@
+import { t } from "../localization.ts";
 import { useEffect, useLayoutEffect, useState } from "react";
-import { isTauri } from "@tauri-apps/api/core";
+import { invoke, isTauri } from "@tauri-apps/api/core";
 import { getCurrentWindow, type Window } from "@tauri-apps/api/window";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { Network } from "lucide-react";
@@ -69,7 +70,7 @@ export function DesktopTitlebar() {
     try {
       await action();
     } catch {
-      setError("窗口操作失败，请重试");
+      setError(t("窗口操作失败，请重试"));
     }
   }
 
@@ -78,7 +79,7 @@ export function DesktopTitlebar() {
     <header
       className="desktop-titlebar"
       data-focused={focused}
-      aria-label="窗口标题栏"
+      aria-label={t("窗口标题栏")}
     >
       <div className="desktop-titlebar-drag" data-tauri-drag-region>
         <Network size={14} aria-hidden="true" />
@@ -92,9 +93,9 @@ export function DesktopTitlebar() {
       <div className="desktop-window-controls">
         <button
           type="button"
-          aria-label="最小化"
-          title="最小化"
-          onClick={() => void run(() => appWindow.minimize())}
+          aria-label={t("最小化")}
+          title={t("最小化")}
+          onClick={() => void run(() => invoke("desktop_window_minimize"))}
         >
           <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
             <path d="M0 5.5h10" />
@@ -102,8 +103,8 @@ export function DesktopTitlebar() {
         </button>
         <button
           type="button"
-          aria-label={maximized ? "还原窗口" : "最大化"}
-          title={maximized ? "还原窗口" : "最大化"}
+          aria-label={maximized ? t("还原窗口") : t("最大化")}
+          title={maximized ? t("还原窗口") : t("最大化")}
           onClick={() => void run(() => appWindow.toggleMaximize())}
         >
           <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
@@ -117,8 +118,8 @@ export function DesktopTitlebar() {
         <button
           type="button"
           className="desktop-window-close"
-          aria-label="关闭窗口"
-          title="关闭窗口"
+          aria-label={t("关闭窗口")}
+          title={t("关闭窗口")}
           onClick={() => void run(() => appWindow.close())}
         >
           <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">

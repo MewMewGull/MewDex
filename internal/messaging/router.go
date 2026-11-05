@@ -17,7 +17,11 @@ const helpText = "发送文字即可在绑定项目中工作；执行中收到�
 
 func (m *Manager) process(ctx context.Context, item inbox) {
 	c, _ := m.config(item.Envelope.Platform)
-	if _, err := m.authorize(c, item.Envelope); err != nil || c.key(item.Envelope) != item.BindingID {
+	_, authorizationErr := m.authorize(c, item.Envelope)
+	if errors.Is(authorizationErr, ErrHubUnavailable) {
+		return
+	}
+	if authorizationErr != nil || c.key(item.Envelope) != item.BindingID {
 		item.State, item.Envelope.Text, item.Envelope.ReplyToken, item.Command = "cancelled", "", "", nil
 		_ = m.store.Put("messaging_inbox", item.ID, item)
 		return
@@ -35,7 +39,7 @@ func (m *Manager) process(ctx context.Context, item inbox) {
 		return
 	}
 	text, err := m.route(ctx, c, &b, &item)
-	if ctx.Err() != nil {
+	if ctx.Err() != nil || errors.Is(err, ErrHubUnavailable) {
 		return // Replay only the saved command receipt after restart.
 	}
 	if err != nil {
@@ -53,7 +57,10 @@ func (m *Manager) route(ctx context.Context, c channel, b *binding, item *inbox)
 	}
 	var session protocol.Session
 	if b.SessionID != "" {
-		if err := m.store.Get("sessions", b.SessionID, &session); err != nil {
+		if err := m.backend.Get("sessions", b.SessionID, &session); err != nil {
+			if errors.Is(err, ErrHubUnavailable) {
+				return "", err
+			}
 			return "", errors.New("原会话不可用，请使用 /new 新建会话")
 		}
 		if session.DeviceID != c.DeviceID || session.ProjectID != c.ProjectID {
@@ -64,7 +71,7 @@ func (m *Manager) route(ctx context.Context, c channel, b *binding, item *inbox)
 		if session.ID == "" {
 			return "尚未创建会话。", nil
 		}
-		page, err := m.store.EventPage(session.ID, 0, 500)
+		page, err := m.backend.EventPage(session.ID, 0, 500)
 		if err != nil {
 			return "", err
 		}
@@ -82,7 +89,7 @@ func (m *Manager) route(ctx context.Context, c channel, b *binding, item *inbox)
 		if session.ID == "" {
 			return "尚未创建会话，发送文字即可开始。", nil
 		}
-		items, err := m.store.QueueItems(session.ID)
+		items, err := m.backend.QueueItems(session.ID)
 		if err != nil {
 			return "", err
 		}
@@ -99,7 +106,7 @@ func (m *Manager) route(ctx context.Context, c channel, b *binding, item *inbox)
 			return "当前会话还有执行或队列状态需要处理，请先在 MewDex 中确认。", nil
 		}
 		if session.ID != "" {
-			items, err := m.store.QueueItems(session.ID)
+			items, err := m.backend.QueueItems(session.ID)
 			if err != nil {
 				return "", err
 			}
@@ -152,8 +159,11 @@ func (m *Manager) route(ctx context.Context, c channel, b *binding, item *inbox)
 				if len(fields) < 2 {
 					return "请附上当前会话的请求编号。", nil
 				}
-				var request protocol.Interaction
-				if err := m.store.Get("interactions", fields[1], &request); err != nil || request.SessionID != b.SessionID || request.State != "pending" {
+				request, err := m.backend.Interaction(b.SessionID, fields[1])
+				if errors.Is(err, ErrHubUnavailable) {
+					return "", err
+				}
+				if err != nil || request.SessionID != b.SessionID || request.State != "pending" {
 					return "", errors.New("请求不属于此会话，或已经过期")
 				}
 				if request.Kind == "permissions" || request.Permissions != nil {
@@ -301,7 +311,7 @@ func (m *Manager) checkBinding(id string) {
 	if _, err := m.authorize(c, b.Envelope); err != nil || c.key(b.Envelope) != b.ID || b.IdentityID != c.IdentityID {
 		return
 	}
-	events, err := m.store.Events(b.Cursor, b.SessionID, 200)
+	events, err := m.backend.Events(b.Cursor, b.SessionID, 200)
 	if err != nil || len(events) == 0 {
 		return
 	}
@@ -358,7 +368,12 @@ func (m *Manager) deliver(ctx context.Context) {
 					continue
 				}
 				c, _ := m.config(out.Envelope.Platform)
-				if _, err = m.authorize(c, out.Envelope); err != nil || c.key(out.Envelope) != out.BindingID {
+				_, err = m.authorize(c, out.Envelope)
+				if errors.Is(err, ErrHubUnavailable) {
+					blocked[out.BindingID] = true
+					continue
+				}
+				if err != nil || c.key(out.Envelope) != out.BindingID {
 					out.State, out.Text, out.Envelope.ReplyToken = "cancelled", "", ""
 					_ = m.store.Put("messaging_outbox", out.ID, out)
 					continue

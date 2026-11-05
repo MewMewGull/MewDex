@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { useState } from "react";
 import { useModelCatalog } from "../useModelCatalog";
 import { RefreshCw } from "lucide-react";
@@ -50,31 +51,31 @@ export function ModelSettings({
     onChange(selectPolicyModel(value, model, models, inheritedModel));
   }
   const defaultLabel = inheritedModel
-    ? `继承 ${inheritedModel}`
-    : "执行端默认模型";
+    ? t("继承 {0}", inheritedModel)
+    : t("执行端默认模型");
   return (
     <div className="model-policy-controls">
       <div className="model-policy-heading">
-        <span>模型与推理</span>
+        <span>{t("模型与推理")}</span>
         {catalogSupported && (
           <button
             type="button"
             className="model-catalog-action"
             disabled={!online || catalog.isFetching}
             onClick={() => void catalog.refetch()}
-            aria-label="刷新执行端模型目录"
+            aria-label={t("刷新执行端模型目录")}
           >
             <RefreshCw size={12} />
-            {catalog.isFetching ? "读取中…" : "刷新目录"}
+            {catalog.isFetching ? t("读取中…") : t("刷新目录")}
           </button>
         )}
       </div>
       <div className="model-policy-row">
         <label>
-          模型
+          {t("模型")}
           {catalogSupported ? (
             <select
-              aria-label="选择模型"
+              aria-label={t("选择模型")}
               disabled={disabled}
               value={custom ? ":custom" : (value.model ?? "")}
               onChange={(event) => {
@@ -87,14 +88,14 @@ export function ModelSettings({
               {models.map((item) => (
                 <option key={item.id} value={item.model}>
                   {item.displayName || item.model}
-                  {item.isDefault ? " · 推荐" : ""}
+                  {item.isDefault ? t(" · 推荐") : ""}
                 </option>
               ))}
-              <option value=":custom">自定义模型…</option>
+              <option value=":custom">{t("自定义模型…")}</option>
             </select>
           ) : (
             <input
-              aria-label="模型名称"
+              aria-label={t("模型名称")}
               disabled={disabled}
               value={value.model ?? ""}
               maxLength={200}
@@ -106,20 +107,20 @@ export function ModelSettings({
           )}
         </label>
         <label>
-          推理强度
+          {t("推理强度")}
           {model && reasoningSupported ? (
             <select
-              aria-label="选择推理强度"
+              aria-label={t("选择推理强度")}
               disabled={disabled}
               value={value.reasoningEffort ?? ""}
               onChange={(event) =>
                 onChange({ reasoningEffort: event.target.value || undefined })
               }
             >
-              <option value="">由执行端决定</option>
+              <option value="">{t("由执行端决定")}</option>
               {value.reasoningEffort && !knownEffort && (
                 <option value={value.reasoningEffort}>
-                  当前设置 · {reasoningLabel(value.reasoningEffort)}
+                  {t("当前设置 · {0}", reasoningLabel(value.reasoningEffort))}
                 </option>
               )}
               {model.supportedReasoningEfforts.map((item) => (
@@ -130,7 +131,7 @@ export function ModelSettings({
             </select>
           ) : (
             <input
-              aria-label="推理强度"
+              aria-label={t("推理强度")}
               disabled={
                 disabled ||
                 !reasoningSupported ||
@@ -144,9 +145,9 @@ export function ModelSettings({
               placeholder={
                 reasoningSupported
                   ? !value.model && !inheritedModel
-                    ? "选择模型后查看支持的强度"
-                    : "留空由执行端决定"
-                  : "此设备暂不支持设置"
+                    ? t("选择模型后查看支持的强度")
+                    : t("留空由执行端决定")
+                  : t("此设备暂不支持设置")
               }
             />
           )}
@@ -154,13 +155,13 @@ export function ModelSettings({
       </div>
       {catalogSupported && custom && (
         <label>
-          自定义模型名称
+          {t("自定义模型名称")}
           <input
-            aria-label="自定义模型名称"
+            aria-label={t("自定义模型名称")}
             disabled={disabled}
             value={value.model ?? ""}
             maxLength={200}
-            placeholder="输入执行端使用的模型标识"
+            placeholder={t("输入执行端使用的模型标识")}
             onChange={(event) => choose(event.target.value)}
           />
         </label>
@@ -169,24 +170,29 @@ export function ModelSettings({
         <p className="policy-note">
           {model.description}
           {model.defaultReasoningEffort
-            ? ` · 建议强度：${reasoningLabel(model.defaultReasoningEffort)}`
+            ? t(
+                " · 建议强度：{0}",
+                reasoningLabel(model.defaultReasoningEffort),
+              )
             : ""}
           {knownEffort?.description ? ` · ${knownEffort.description}` : ""}
         </p>
       )}
       {!model && !value.model && reasoningSupported && (
         <p className="policy-note">
-          继承模型时由执行端决定推理强度；选择具体模型后可查看其支持的选项。
+          {t(
+            "继承模型时由执行端决定推理强度；选择具体模型后可查看其支持的选项。",
+          )}
         </p>
       )}
       {catalogSupported && (
         <div className="model-catalog-status">
           <p className="policy-note">
             {!online
-              ? "设备离线，可先修改设置。"
+              ? t("设备离线，可先修改设置。")
               : catalog.isError
-                ? "模型目录暂时不可读，可保留设置或填写自定义模型。"
-                : "目录由当前执行端提供，实际可用性取决于该设备账号。"}
+                ? t("模型目录暂时不可读，可保留设置或填写自定义模型。")
+                : t("目录由当前执行端提供，实际可用性取决于该设备账号。")}
           </p>
           {catalog.hasNextPage && (
             <button
@@ -195,12 +201,12 @@ export function ModelSettings({
               disabled={!online || catalog.isFetching}
               onClick={() => void catalog.fetchNextPage()}
             >
-              {catalog.isFetchingNextPage ? "读取中…" : "更多模型"}
+              {catalog.isFetchingNextPage ? t("读取中…") : t("更多模型")}
             </button>
           )}
           {catalog.isError && (
             <details>
-              <summary>读取详情</summary>
+              <summary>{t("读取详情")}</summary>
               <p>{catalog.error.message}</p>
             </details>
           )}

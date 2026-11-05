@@ -1,8 +1,11 @@
 {
   "bundle": {
     "active": true,
-    "targets": ["dmg"],
-    "externalBin": ["binaries/mewdex-node"],
-    "resources": { "engine/": "engine/" }
+    "targets": [
+      "dmg"
+    ],
+    "externalBin": [
+      "binaries/mewdex-input-bridge"
+    ]
   }
 }

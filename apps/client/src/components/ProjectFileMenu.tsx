@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import type { ReactElement } from "react";
 import * as ContextMenu from "@radix-ui/react-context-menu";
 import type { ProjectOpener } from "../projectFileActions";
@@ -41,12 +42,13 @@ export function ProjectFileMenu({
             disabled={!native || (directory && !local)}
             onSelect={() => onOpen(defaultOpener)}
           >
-            使用默认应用打开
+            {t("使用默认应用打开")}
           </ContextMenu.Item>
           {native && (!directory || local) && (
             <ContextMenu.Sub>
               <ContextMenu.SubTrigger className={item}>
-                打开方式<span>›</span>
+                {t("打开方式")}
+                <span>›</span>
               </ContextMenu.SubTrigger>
               <ContextMenu.Portal>
                 <ContextMenu.SubContent
@@ -64,7 +66,7 @@ export function ProjectFileMenu({
                   ))}
                   {local && (
                     <ContextMenu.Item className={item} onSelect={onReveal}>
-                      文件资源管理器
+                      {t("文件资源管理器")}
                     </ContextMenu.Item>
                   )}
                   {!directory && (
@@ -72,7 +74,7 @@ export function ProjectFileMenu({
                       className={item}
                       onSelect={() => onOpen("open-with")}
                     >
-                      选择其他应用…
+                      {t("选择其他应用…")}
                     </ContextMenu.Item>
                   )}
                 </ContextMenu.SubContent>
@@ -81,29 +83,29 @@ export function ProjectFileMenu({
           )}
           {!directory && (
             <ContextMenu.Item className={item} onSelect={onPreview}>
-              在 MewDex 中预览
+              {t("在 MewDex 中预览")}
             </ContextMenu.Item>
           )}
           {local && (
             <ContextMenu.Item className={item} onSelect={onReveal}>
-              在资源管理器中显示
+              {t("在资源管理器中显示")}
             </ContextMenu.Item>
           )}
           <ContextMenu.Item className={item} onSelect={onCopy}>
-            复制路径
+            {t("复制路径")}
           </ContextMenu.Item>
           {native && (
             <>
               <ContextMenu.Separator className="file-menu-separator" />
               <ContextMenu.Label className="session-context-label">
-                此工作区默认打开方式
+                {t("此工作区默认打开方式")}
               </ContextMenu.Label>
               <ContextMenu.RadioGroup
                 value={defaultOpener}
                 onValueChange={onDefault}
               >
                 {[
-                  { id: "default", name: "系统默认应用" },
+                  { id: "default", name: t("系统默认应用") },
                   ...openers.map((opener) => ({
                     id: `editor:${opener.id}`,
                     name: opener.name,

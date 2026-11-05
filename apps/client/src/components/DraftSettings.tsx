@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { useMemo, useState } from "react";
 import { ArrowUpRight, FilePenLine, Search, Trash2, X } from "lucide-react";
 import { filterDraftEntries, type DraftEntry } from "../composerDrafts";
@@ -26,20 +27,22 @@ export function DraftSettings({
     <section className="network-section draft-library">
       <h3>
         <FilePenLine size={15} />
-        本机草稿
+        {t("本机草稿")}
       </h3>
       <p className="muted">
-        未发送的文字和已上传附件引用保存在这台设备，重开后可继续编辑。未完成上传的文件保留在本次应用中，退出应用后需重新选择。按网络与输入身份分别保存，恢复草稿不会自动发送。
+        {t(
+          "未发送的文字和已上传附件引用保存在这台设备，重开后可继续编辑。未完成上传的文件保留在本次应用中，退出应用后需重新选择。按网络与输入身份分别保存，恢复草稿不会自动发送。",
+        )}
       </p>
       <div className="draft-settings-actions">
         <span>
           {entries.length
-            ? `${entries.length} 份未发送的草稿`
-            : "暂无未发送的草稿"}
+            ? t("{0} 份未发送的草稿", entries.length)
+            : t("暂无未发送的草稿")}
         </span>
         <button disabled={!entries.length && !error} onClick={onClear}>
           <Trash2 size={14} />
-          清空本机草稿
+          {t("清空本机草稿")}
         </button>
       </div>
       {entries.length > 0 && (
@@ -47,13 +50,16 @@ export function DraftSettings({
           <div className="search-field draft-library-search">
             <Search size={14} />
             <input
-              aria-label="搜索本机草稿"
-              placeholder="搜索内容、附件、设备或项目"
+              aria-label={t("搜索本机草稿")}
+              placeholder={t("搜索内容、附件、设备或项目")}
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
             {search && (
-              <button aria-label="清除草稿搜索" onClick={() => setSearch("")}>
+              <button
+                aria-label={t("清除草稿搜索")}
+                onClick={() => setSearch("")}
+              >
                 <X size={13} />
               </button>
             )}
@@ -61,7 +67,7 @@ export function DraftSettings({
           <div
             className="draft-library-items"
             role="list"
-            aria-label="本机未发送草稿"
+            aria-label={t("本机未发送草稿")}
           >
             {visible.map((entry) => (
               <article
@@ -87,16 +93,16 @@ export function DraftSettings({
                 {(entry.uploadedCount > 0 || entry.pendingCount > 0) && (
                   <p className="draft-library-files">
                     {entry.uploadedCount > 0
-                      ? `${entry.uploadedCount} 个已上传附件`
+                      ? t("{0} 个已上传附件", entry.uploadedCount)
                       : ""}
                     {entry.uploadedCount > 0 && entry.pendingCount > 0
                       ? " · "
                       : ""}
                     {entry.pendingCount > 0
-                      ? `${entry.pendingCount} 个待处理附件`
+                      ? t("{0} 个待处理附件", entry.pendingCount)
                       : ""}
                     {entry.failedCount > 0 && (
-                      <span>{` · ${entry.failedCount} 个失败`}</span>
+                      <span>{t(" · {0} 个失败", entry.failedCount)}</span>
                     )}
                   </p>
                 )}
@@ -111,17 +117,19 @@ export function DraftSettings({
                     <ArrowUpRight size={13} />
                     {entry.canOpen
                       ? entry.canEdit
-                        ? "继续编辑"
-                        : "查看对话"
-                      : "暂不可继续"}
+                        ? t("继续编辑")
+                        : t("查看对话")
+                      : t("暂不可继续")}
                   </button>
                   {entry.text && (
-                    <CopyButton text={entry.text} label="复制草稿文字" />
+                    <CopyButton text={entry.text} label={t("复制草稿文字")} />
                   )}
                 </div>
               </article>
             ))}
-            {!visible.length && <p className="empty-list">没有找到匹配草稿</p>}
+            {!visible.length && (
+              <p className="empty-list">{t("没有找到匹配草稿")}</p>
+            )}
           </div>
         </>
       )}

@@ -1,3 +1,4 @@
+import { t } from "./localization.ts";
 // Native device management is separate from the network SDK used by every input.
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { Request, Result, Snapshot } from "./hub-controller/localProtocol";
@@ -13,6 +14,7 @@ export interface InputCapabilities {
   desktopPreferences?: boolean;
   attachmentSave?: boolean;
   projectDirectory?: boolean;
+  messagingBridge?: boolean;
 }
 
 const remoteCapabilities: InputCapabilities = {
@@ -23,14 +25,30 @@ const remoteCapabilities: InputCapabilities = {
 };
 
 export const localServiceStates: Record<string, string> = {
-  unconfigured: "尚未配置",
-  "setup-pending": "配置尚未完成",
-  stopped: "已停止",
-  starting: "正在启动",
-  running: "运行中",
-  stopping: "正在停止",
-  unknown: "状态待核实",
-  unreadable: "配置无法读取",
+  get unconfigured() {
+    return t("尚未配置");
+  },
+  get "setup-pending"() {
+    return t("配置尚未完成");
+  },
+  get stopped() {
+    return t("已停止");
+  },
+  get starting() {
+    return t("正在启动");
+  },
+  get running() {
+    return t("运行中");
+  },
+  get stopping() {
+    return t("正在停止");
+  },
+  get unknown() {
+    return t("状态待核实");
+  },
+  get unreadable() {
+    return t("配置无法读取");
+  },
 };
 let capabilities: Promise<InputCapabilities> | undefined;
 
@@ -43,21 +61,21 @@ export function inputCapabilities(): Promise<InputCapabilities> {
 export async function deviceRequest(request: Request): Promise<Result> {
   const support = await inputCapabilities();
   if (!support.localService || !support.helperPresent)
-    throw new Error("当前输入端没有可用的本机设备服务");
+    throw new Error(t("当前输入端没有可用的本机设备服务"));
   try {
     return await invoke<Result>("device_request", { request });
   } catch (error) {
-    throw new Error(typeof error === "string" ? error : "本机设备操作失败");
+    throw new Error(typeof error === "string" ? error : t("本机设备操作失败"));
   }
 }
 
 export async function chooseProject(): Promise<string | null> {
   if (!(await inputCapabilities()).localService)
-    throw new Error("当前输入端不提供本机项目选择");
+    throw new Error(t("当前输入端不提供本机项目选择"));
   try {
     return await invoke<string | null>("choose_project");
   } catch (error) {
-    throw new Error(typeof error === "string" ? error : "无法选择项目目录");
+    throw new Error(typeof error === "string" ? error : t("无法选择项目目录"));
   }
 }
 
@@ -66,11 +84,13 @@ export async function openProjectDirectory(
   projectId: string,
 ): Promise<void> {
   if (!(await inputCapabilities()).projectDirectory)
-    throw new Error("此输入端暂未提供项目目录打开");
+    throw new Error(t("此输入端暂未提供项目目录打开"));
   try {
     await invoke("open_project_directory", { deviceId, projectId });
   } catch (cause) {
-    throw new Error(typeof cause === "string" ? cause : "无法打开本机项目目录");
+    throw new Error(
+      typeof cause === "string" ? cause : t("无法打开本机项目目录"),
+    );
   }
 }
 
@@ -78,11 +98,11 @@ export async function chooseBackup(
   mode: "open" | "save",
 ): Promise<string | null> {
   if (!(await inputCapabilities()).localService)
-    throw new Error("当前输入端不提供本机数据恢复");
+    throw new Error(t("当前输入端不提供本机数据恢复"));
   try {
     return await invoke<string | null>("choose_backup", { mode });
   } catch (error) {
-    throw new Error(typeof error === "string" ? error : "无法选择备份文件");
+    throw new Error(typeof error === "string" ? error : t("无法选择备份文件"));
   }
 }
 
@@ -106,7 +126,9 @@ async function installationRequest<T>(
   try {
     return await invoke<T>(command, args);
   } catch (cause) {
-    throw new Error(typeof cause === "string" ? cause : "无法读取本机配置位置");
+    throw new Error(
+      typeof cause === "string" ? cause : t("无法读取本机配置位置"),
+    );
   }
 }
 

@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -14,6 +15,8 @@ import {
   Palette,
   MessageCircle,
   Download,
+  Globe2,
+  Sparkles,
 } from "lucide-react";
 import {
   MewDexClient,
@@ -21,7 +24,7 @@ import {
   type Device,
   type Identity,
 } from "@mewdex/sdk";
-import { ModelAccountCard } from "./ModelAccountCard";
+import { HubConnectionPanel, HubGPTPanel } from "./HubConnectionPanel";
 import { InputAlertSettings } from "../components/InputAlertSettings";
 import type { InputAlerts } from "../input-terminal/useInputAlerts";
 import { SettingsFrame } from "../components/SettingsFrame";
@@ -38,6 +41,7 @@ import { MewDexAccountSettings } from "./MewDexAccountSettings";
 import { MessagingSettings } from "./MessagingSettings";
 import { WebWorkbenchButton } from "./WebWorkbenchButton";
 import { AppUpdateSettings } from "../components/AppUpdates";
+import { LanguageSettings } from "../components/LanguageSettings";
 
 type Section =
   | "account"
@@ -71,14 +75,11 @@ function AccessEditor({
   return (
     <div className="access-editor">
       {executor ? (
-        <label className="checkbox">
-          <input
-            type="checkbox"
-            checked={value.gateway}
-            onChange={(e) => onChange({ ...value, gateway: e.target.checked })}
-          />
-          允许通过本网络的请求出口连接模型服务
-        </label>
+        <p className="muted">
+          {t(
+            "执行端连接 Hub 后接收执行指令，模型会话和 ChatGPT 账号统一由 Hub 管理。",
+          )}
+        </p>
       ) : (
         <>
           <label className="checkbox">
@@ -89,7 +90,7 @@ function AccessEditor({
                 onChange({ ...value, allDevices: e.target.checked })
               }
             />
-            可操作网络内全部执行设备和项目
+            {t("可操作网络内全部执行设备和项目")}
           </label>
           {!value.allDevices && (
             <div className="access-targets">
@@ -119,7 +120,7 @@ function AccessEditor({
                     </label>
                     {target && (
                       <div className="project-grants">
-                        <small>项目留空表示此设备的全部项目</small>
+                        <small>{t("项目留空表示此设备的全部项目")}</small>
                         {device.projects.map((project) => (
                           <label className="checkbox" key={project.id}>
                             <input
@@ -170,7 +171,9 @@ export function HubController({
   loginKey,
   accountSupported = false,
   onLocalDevice,
+  onLocalModelRouting,
   onDisconnect,
+  onChangeHub,
   draftSettings,
   workspaceView,
   initialModelDeviceId,
@@ -186,7 +189,9 @@ export function HubController({
   loginKey: string;
   accountSupported?: boolean;
   onLocalDevice?: () => void;
+  onLocalModelRouting?: () => void;
   onDisconnect: () => void;
+  onChangeHub: () => void;
   draftSettings: DraftSettingsProps;
   workspaceView: {
     restoreLastLocation: boolean;
@@ -208,7 +213,6 @@ export function HubController({
     enabled: open && section === "access" && identity.role === "admin",
   });
   const [role, setRole] = useState<"client" | "executor" | "admin">("client");
-  const [accountDevice, setAccountDevice] = useState(devices[0]?.id ?? "");
   useEffect(() => {
     if (!open) return;
     if (initialExecutorSetup && identity.role === "admin") {
@@ -219,19 +223,8 @@ export function HubController({
       setError("");
       return;
     }
-    const target =
-      identity.role === "admin" &&
-      initialModelDeviceId &&
-      devices.some((device) => device.id === initialModelDeviceId)
-        ? initialModelDeviceId
-        : undefined;
-    setSection(target ? "models" : "general");
-    if (target) setAccountDevice(target);
+    setSection(initialModelDeviceId ? "models" : "general");
   }, [open, initialModelDeviceId, initialExecutorSetup, identity.role]);
-  useEffect(() => {
-    if (!devices.some((device) => device.id === accountDevice))
-      setAccountDevice(devices[0]?.id ?? "");
-  }, [devices, accountDevice]);
   const [access, setAccess] = useState<Access>(initialAccess);
   const [code, setCode] = useState("");
   const [error, setError] = useState("");
@@ -255,8 +248,8 @@ export function HubController({
     <SettingsFrame<Section>
       open={open}
       onOpenChange={onOpenChange}
-      title="设置"
-      description="管理输入偏好、设备连接与授权。"
+      title={t("设置")}
+      description={t("管理输入偏好、Hub 连接、共用 GPT 账号和访问权限。")}
       selected={section}
       onSelect={(value) => {
         setSection(value);
@@ -265,65 +258,69 @@ export function HubController({
       sections={[
         {
           id: "general",
-          label: "通用",
+          label: t("通用"),
           icon: <Bell size={16} />,
-          group: "工作台",
+          group: t("工作台"),
         },
         {
           id: "appearance",
-          label: "外观",
+          label: t("外观"),
           icon: <Palette size={16} />,
-          group: "工作台",
+          group: t("工作台"),
         },
         {
           id: "drafts",
-          label: "草稿",
+          label: t("草稿"),
           icon: <FilePenLine size={16} />,
-          group: "工作台",
+          group: t("工作台"),
         },
         {
           id: "updates",
-          label: "应用更新",
+          label: t("应用更新"),
           icon: <Download size={16} />,
-          group: "工作台",
+          group: t("工作台"),
         },
         {
           id: "connection",
-          label: "连接与服务",
-          icon: <Monitor size={16} />,
-          group: "连接",
+          label: t("Hub 连接"),
+          icon: <Globe2 size={16} />,
+          group: t("连接"),
         },
         {
           id: "account",
-          label: "MewDex 账号",
+          label: t("MewDex 账号"),
           icon: <KeyRound size={16} />,
-          group: "连接",
+          group: t("连接"),
         },
         ...(identity.role === "admin"
           ? [
               {
                 id: "pairing" as const,
-                label: "添加设备",
+                label: t("添加设备"),
                 icon: <KeyRound size={16} />,
-                group: "连接",
+                group: t("连接"),
               },
-              {
-                id: "models" as const,
-                label: "节点 ChatGPT",
-                icon: <Monitor size={16} />,
-                group: "模型与访问",
-              },
+            ]
+          : []),
+        {
+          id: "models",
+          label: t("GPT 连接"),
+          icon: <Sparkles size={16} />,
+          group: t("模型与访问"),
+        },
+        ...(identity.role === "admin"
+          ? [
               {
                 id: "messaging" as const,
-                label: "消息渠道",
+                label: t("消息渠道"),
                 icon: <MessageCircle size={16} />,
-                group: "模型与访问",
+                group: t("模型与访问"),
               },
               {
                 id: "access" as const,
-                label: "访问权限",
+                label: t("访问权限"),
                 icon: <ShieldCheck size={16} />,
-                group: "模型与访问",
+                group: t("模型与访问"),
               },
             ]
           : []),
@@ -344,55 +341,65 @@ export function HubController({
       )}
       {section === "general" && (
         <>
+          <LanguageSettings />
           <InputAlertSettings alerts={alerts} />
           <DesktopPreferences />
           <section className="network-section">
             <h3>
-              <Keyboard size={15} /> 输入与键盘
+              <Keyboard size={15} />
+              {t(" 输入与键盘")}
             </h3>
             <label>
-              键盘发送方式
+              {t("键盘发送方式")}
               <select
                 value={workspaceView.sendKey}
                 onChange={(event) =>
                   workspaceView.onSendKeyChange(event.target.value as SendKey)
                 }
               >
-                <option value="enter">Enter 发送，Shift + Enter 换行</option>
+                <option value="enter">
+                  {t("Enter 发送，Shift + Enter 换行")}
+                </option>
                 <option value="modifier-enter">
-                  {modifier} + Enter 发送，Enter 换行
+                  {t("{0} + Enter 发送，Enter 换行", modifier)}
                 </option>
               </select>
             </label>
             <p className="muted">
               {touch
-                ? `触屏回车用于换行，点按发送或使用 ${modifier} + Enter 发送。`
-                : `${sendKeyHint(workspaceView.sendKey, false, modifier)}。切换执行设备时保持。`}
+                ? t(
+                    "触屏回车用于换行，点按发送或使用 {0} + Enter 发送。",
+                    modifier,
+                  )
+                : t(
+                    "{0}。切换执行设备时保持。",
+                    sendKeyHint(workspaceView.sendKey, false, modifier),
+                  )}
             </p>
             <details className="settings-shortcuts">
-              <summary>键盘快捷键</summary>
+              <summary>{t("键盘快捷键")}</summary>
               <dl>
                 {[
                   [
-                    "发送消息",
+                    t("发送消息"),
                     touch || workspaceView.sendKey === "modifier-enter"
                       ? `${modifier}+Enter`
                       : "Enter",
                   ],
                   [
-                    "换行",
+                    t("换行"),
                     touch || workspaceView.sendKey === "modifier-enter"
                       ? "Enter"
                       : "Shift+Enter",
                   ],
-                  ["快速切换设备、项目与对话", `${modifier}+K`],
-                  ["查找当前对话内容", `${modifier}+F`],
-                  ["新对话", `${modifier}+N`],
-                  ["聚焦输入框", `${modifier}+L`],
-                  ["显示或隐藏导航", `${modifier}+B`],
-                  ["打开或关闭终端", `${modifier}+J`],
-                  ["查看任务与请求", `${modifier}+Shift+J`],
-                  ["打开设置", `${modifier}+,`],
+                  [t("快速切换设备、项目与对话"), `${modifier}+K`],
+                  [t("查找当前对话内容"), `${modifier}+F`],
+                  [t("新对话"), `${modifier}+N`],
+                  [t("聚焦输入框"), `${modifier}+L`],
+                  [t("显示或隐藏导航"), `${modifier}+B`],
+                  [t("打开或关闭终端"), `${modifier}+J`],
+                  [t("查看任务与请求"), `${modifier}+Shift+J`],
+                  [t("打开设置"), `${modifier}+,`],
                 ].map(([label, key]) => (
                   <div key={label}>
                     <dt>{label}</dt>
@@ -407,7 +414,7 @@ export function HubController({
           <section className="network-section">
             <h3>
               <History size={15} />
-              工作位置
+              {t("工作位置")}
             </h3>
             <label className="checkbox">
               <input
@@ -419,10 +426,12 @@ export function HubController({
                   )
                 }
               />
-              打开工作台时继续上次对话
+              {t("打开工作台时继续上次对话")}
             </label>
             <p className="muted">
-              各台设备分别记住新对话使用的项目，导航展开状态也会保留。恢复位置不会启动任务。
+              {t(
+                "各台设备分别记住新对话使用的项目，导航展开状态也会保留。恢复位置不会启动任务。",
+              )}
             </p>
             {workspaceView.error && (
               <p className="error" role="alert">
@@ -434,13 +443,42 @@ export function HubController({
       )}
       {section === "connection" && (
         <>
+          <HubConnectionPanel
+            baseURL={baseURL}
+            identity={identity}
+            locallyHosted={!!onLocalModelRouting}
+            onChangeHub={onChangeHub}
+          />
+          <section className="network-section">
+            <h3>
+              <Globe2 size={16} />
+              {t(" Hub 的输入入口")}
+            </h3>
+            <WebWorkbenchButton baseURL={baseURL} />
+            <details className="connection-advanced">
+              <summary>{t("登录密钥")}</summary>
+              <p className="muted">
+                {t(
+                  "登录密钥拥有当前输入端的访问权限，可用于连接此 Hub。管理员可在访问权限中撤销对应身份。",
+                )}
+              </p>
+              <CopyButton text={loginKey} label={t("复制登录密钥")} />
+            </details>
+            <button className="settings-disconnect" onClick={onDisconnect}>
+              <LogOut size={15} />
+              {t("退出 MewDex")}
+            </button>
+            <p className="muted">{t("退出会清除当前网络的本机草稿。")}</p>
+          </section>
           {onLocalDevice && (
             <section className="network-section">
               <h3>
-                <Monitor size={15} />
-                本机设备
+                <Monitor size={16} />
+                {t(" 此设备的服务")}
               </h3>
-              <p className="muted">管理本机执行服务、项目、自启动和数据。</p>
+              <p className="muted">
+                {t("管理此设备的执行能力、后台服务、自启动和本机数据。")}
+              </p>
               <button
                 className="settings-link"
                 onClick={() => {
@@ -448,52 +486,27 @@ export function HubController({
                   onLocalDevice();
                 }}
               >
-                管理本机设备
+                {t("查看连接与本机服务")}
               </button>
             </section>
           )}
-          <section className="network-section">
-            <h3>
-              <ShieldCheck size={15} />
-              当前连接
-            </h3>
-            <dl className="connection-details">
-              <div>
-                <dt>输入端</dt>
-                <dd>{identity.name}</dd>
-              </div>
-              <div>
-                <dt>设备网络</dt>
-                <dd>{baseURL}</dd>
-              </div>
-              <div>
-                <dt>访问范围</dt>
-                <dd>
-                  {identity.role === "admin"
-                    ? "网络管理员"
-                    : identity.access.allDevices
-                      ? "全部执行设备"
-                      : `${identity.access.targets.length} 台执行设备`}
-                </dd>
-              </div>
-            </dl>
-            {onLocalDevice && <WebWorkbenchButton baseURL={baseURL} />}
-            <details className="connection-advanced">
-              <summary>登录密钥</summary>
-              <p className="muted">
-                保存此密钥后，退出连接也能用相同网络地址和密钥重新登录。密钥拥有当前输入端的访问权限，请妥善保管；管理员可在访问管理中撤销此输入端。
-              </p>
-              <CopyButton text={loginKey} label="复制登录密钥" />
-            </details>
-            <button className="settings-disconnect" onClick={onDisconnect}>
-              <LogOut size={15} />
-              退出 MewDex
-            </button>
-            <p className="muted">
-              退出会清除当前网络的本机草稿，不退出节点的 ChatGPT 账号。
-            </p>
-          </section>
         </>
+      )}
+      {section === "models" && (
+        <HubGPTPanel
+          client={client}
+          baseURL={baseURL}
+          devices={devices}
+          canManage={identity.role === "admin"}
+          onNetworkSettings={
+            onLocalModelRouting
+              ? () => {
+                  onOpenChange(false);
+                  onLocalModelRouting();
+                }
+              : undefined
+          }
+        />
       )}
       {section === "drafts" && <DraftSettings {...draftSettings} />}
       {section === "appearance" && <AppearanceSettings />}
@@ -502,10 +515,11 @@ export function HubController({
           {section === "pairing" && (
             <section className="network-section">
               <h3>
-                <KeyRound size={15} /> 添加输入端或执行端
+                <KeyRound size={15} />
+                {t(" 添加输入端或执行端")}
               </h3>
               <label>
-                设备角色
+                {t("设备角色")}
                 <select
                   value={role}
                   onChange={(e) => {
@@ -522,15 +536,19 @@ export function HubController({
                     setCode("");
                   }}
                 >
-                  <option value="client">输入端：手机、桌面或网页</option>
-                  <option value="executor">执行端：电脑或服务器</option>
+                  <option value="client">
+                    {t("输入端：手机、桌面或网页")}
+                  </option>
+                  <option value="executor">{t("执行端：电脑或服务器")}</option>
                   <option value="admin">
-                    管理员输入端：管理设备、授权与模型登录
+                    {t("管理员输入端：管理设备、授权与模型登录")}
                   </option>
                 </select>
               </label>
               {role === "admin" ? (
-                <p className="muted">管理员输入端可以管理整个设备网络。</p>
+                <p className="muted">
+                  {t("管理员输入端可以管理整个设备网络。")}
+                </p>
               ) : (
                 <AccessEditor
                   value={access}
@@ -549,52 +567,20 @@ export function HubController({
                   })
                 }
               >
-                生成一次性配对码
+                {t("生成一次性配对码")}
               </button>
               {code && (
                 <div className="pairing-result">
                   <code>{code}</code>
                   <button
                     className="icon-button"
-                    aria-label="复制配对码"
+                    aria-label={t("复制配对码")}
                     onClick={() => void navigator.clipboard.writeText(code)}
                   >
                     <Copy size={15} />
                   </button>
-                  <small>十分钟内有效，只能使用一次</small>
+                  <small>{t("十分钟内有效，只能使用一次")}</small>
                 </div>
-              )}
-            </section>
-          )}
-          {section === "models" && (
-            <section className="network-section">
-              <h3>
-                <ShieldCheck size={15} /> 节点的 ChatGPT 账号与订阅
-              </h3>
-              <label>
-                执行设备
-                <select
-                  value={accountDevice}
-                  onChange={(e) => setAccountDevice(e.target.value)}
-                >
-                  {devices.map((device) => (
-                    <option key={device.id} value={device.id}>
-                      {device.name}
-                      {device.online ? "" : "（离线）"}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              {accountDevice && (
-                <ModelAccountCard
-                  key={accountDevice}
-                  client={client}
-                  deviceId={accountDevice}
-                  online={
-                    !!devices.find((device) => device.id === accountDevice)
-                      ?.online
-                  }
-                />
               )}
             </section>
           )}
@@ -602,9 +588,12 @@ export function HubController({
             <>
               <section className="network-section">
                 <h3>
-                  <ShieldCheck size={15} /> MewDex 登录与执行端身份
+                  <ShieldCheck size={15} />
+                  {t(" MewDex 登录与执行端身份")}
                 </h3>
-                {identities.isLoading && <p className="muted">正在加载…</p>}
+                {identities.isLoading && (
+                  <p className="muted">{t("正在加载…")}</p>
+                )}
                 {identities.error && (
                   <div className="error">{identities.error.message}</div>
                 )}
@@ -613,17 +602,18 @@ export function HubController({
                     <div>
                       <strong>
                         {item.name}
-                        {item.id === identity.id ? "（当前 MewDex 连接）" : ""}
+                        {item.id === identity.id
+                          ? t("（当前 MewDex 连接）")
+                          : ""}
                       </strong>
                       <small>
                         {item.accountId
-                          ? "MewDex 账号"
+                          ? t("MewDex 账号")
                           : item.role === "executor"
-                            ? "执行端"
+                            ? t("执行端")
                             : item.role === "admin"
-                              ? "管理员输入端"
-                              : "输入端"}
-                        {item.access.gateway ? " · 请求出口已授权" : ""}
+                              ? t("管理员输入端")
+                              : t("输入端")}
                       </small>
                     </div>
                     {item.role !== "admin" && (
@@ -633,12 +623,12 @@ export function HubController({
                           setEditedAccess(item.access);
                         }}
                       >
-                        访问范围
+                        {t("访问范围")}
                       </button>
                     )}
                     <button
                       className="icon-button"
-                      aria-label={`撤销 ${item.name}`}
+                      aria-label={t("撤销 {0}", item.name)}
                       disabled={busy || item.id === identity.id}
                       onClick={() => void action(() => client.revoke(item.id))}
                     >
@@ -649,7 +639,7 @@ export function HubController({
               </section>
               {editing && (
                 <section className="network-section access-edit-section">
-                  <h3>{editing.name} · 访问范围</h3>
+                  <h3>{t("{0} · 访问范围", editing.name)}</h3>
                   <AccessEditor
                     value={editedAccess}
                     onChange={setEditedAccess}
@@ -666,7 +656,7 @@ export function HubController({
                       })
                     }
                   >
-                    保存访问范围
+                    {t("保存访问范围")}
                   </button>
                 </section>
               )}

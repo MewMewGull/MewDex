@@ -1,3 +1,4 @@
+import { t } from "./localization.ts";
 import type { Attachment } from "@mewdex/sdk";
 
 export const maxAttachmentBytes = 20 * 1024 * 1024;
@@ -78,7 +79,7 @@ export class AttachmentUploads {
           state: oversized ? "failed" : "queued",
           retryable: !oversized,
           error: oversized
-            ? "单个附件不能超过 20 MiB，请移除后选择较小文件。"
+            ? t("单个附件不能超过 20 MiB，请移除后选择较小文件。")
             : undefined,
         },
       });
@@ -169,7 +170,9 @@ export class AttachmentUploads {
         attachment.targetDeviceId !== transfer.view.target.deviceId ||
         attachment.targetProjectId !== transfer.view.target.projectId
       )
-        throw new Error("上传结果与原执行设备或项目不一致，附件未加入草稿。");
+        throw new Error(
+          t("上传结果与原执行设备或项目不一致，附件未加入草稿。"),
+        );
       transfer.attachment = attachment;
       transfer.file = undefined;
       transfer.view = { ...transfer.view, state: "ready" };

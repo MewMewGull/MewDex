@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import {
   AlertCircle,
   Check,
@@ -21,7 +22,7 @@ export function AttachmentUploadList({
   if (!items.length) return null;
   const failed = items.filter((item) => item.state === "failed").length;
   return (
-    <div className="attachment-upload-list" aria-label="待处理附件">
+    <div className="attachment-upload-list" aria-label={t("待处理附件")}>
       <div className="attachment-upload-items">
         {items.map((item) => (
           <article
@@ -44,12 +45,12 @@ export function AttachmentUploadList({
               <small>
                 {formatBytes(item.size)} ·{" "}
                 {item.state === "uploading"
-                  ? "正在上传"
+                  ? t("正在上传")
                   : item.state === "queued"
-                    ? "等待上传"
+                    ? t("等待上传")
                     : item.state === "ready"
-                      ? "已上传，等待前面的附件处理"
-                      : "上传失败"}
+                      ? t("已上传，等待前面的附件处理")
+                      : t("上传失败")}
               </small>
               {item.error && (
                 <span className="attachment-upload-error">{item.error}</span>
@@ -58,8 +59,8 @@ export function AttachmentUploadList({
             {item.state === "failed" && item.retryable && (
               <button
                 className="icon-button"
-                aria-label={`重试上传 ${item.name}`}
-                title="重试上传"
+                aria-label={t("重试上传 {0}", item.name)}
+                title={t("重试上传")}
                 onClick={() => onRetry(item.id)}
               >
                 <RotateCcw size={14} />
@@ -67,11 +68,11 @@ export function AttachmentUploadList({
             )}
             <button
               className="icon-button"
-              aria-label={`${item.state === "queued" || item.state === "uploading" ? "取消上传" : "移除待处理附件"} ${item.name}`}
+              aria-label={`${item.state === "queued" || item.state === "uploading" ? t("取消上传") : t("移除待处理附件")} ${item.name}`}
               title={
                 item.state === "queued" || item.state === "uploading"
-                  ? "取消上传"
-                  : "移除"
+                  ? t("取消上传")
+                  : t("移除")
               }
               onClick={() => onRemove(item.id)}
             >
@@ -82,8 +83,8 @@ export function AttachmentUploadList({
       </div>
       <p className="attachment-upload-note" role="status">
         {failed
-          ? `${failed} 个附件未上传，请重试或移除后发送。`
-          : "附件准备完成后可发送；切换对话会继续上传到原草稿。"}
+          ? t("{0} 个附件未上传，请重试或移除后发送。", failed)
+          : t("附件准备完成后可发送；切换对话会继续上传到原草稿。")}
       </p>
     </div>
   );

@@ -18,7 +18,7 @@ mod attachment_files;
 #[cfg(desktop)]
 mod desktop;
 #[cfg(desktop)]
-mod desktop_installation;
+mod input_channels;
 #[cfg(desktop)]
 mod desktop_notifications;
 #[cfg(desktop)]
@@ -42,7 +42,8 @@ fn input_capabilities(app: tauri::AppHandle) -> serde_json::Value {
     value["desktopNotifications"] = serde_json::json!(cfg!(target_os = "windows"));
     value["desktopPreferences"] = serde_json::json!(cfg!(target_os = "windows"));
     value["attachmentSave"] = serde_json::json!(cfg!(desktop));
-    value["projectDirectory"] = serde_json::json!(cfg!(desktop));
+    value["projectDirectory"] = serde_json::json!(false);
+    value["messagingBridge"] = serde_json::json!(cfg!(desktop));
     let product: serde_json::Value = serde_json::from_str(include_str!("../../../../mewdex.product.json"))
         .expect("valid bundled MewDex component manifest");
     value["components"] = product["platforms"][std::env::consts::OS]["components"].clone();
@@ -89,20 +90,15 @@ pub fn run() {
                 app_updates::app_update_download,
                 app_updates::app_update_cancel,
                 app_updates::app_update_install,
-                desktop::device_request,
-                desktop::choose_project,
-                desktop::open_project_directory,
-                desktop::open_project_file,
+                input_channels::channel_connection,
                 desktop::project_openers,
-                desktop::choose_backup,
-                desktop_installation::local_installation_status,
-                desktop_installation::local_installation_prepare,
-                desktop_installation::local_installation_apply,
                 desktop_notifications::desktop_notification_permission,
                 desktop_notifications::desktop_notification_enable,
                 desktop_notifications::desktop_notification_send,
                 desktop_window::desktop_preferences,
                 desktop_window::desktop_preferences_save,
+                desktop_window::desktop_window_minimize,
+                desktop_window::desktop_language,
                 attachment_files::save_attachment_file,
                 attachment_files::open_received_file
             ]);
@@ -119,7 +115,7 @@ pub fn run() {
     builder
         .setup(|app| {
             #[cfg(desktop)]
-            app.manage(desktop_installation::PendingSelection::default());
+            app.manage(input_channels::Channels::default());
             #[cfg(target_os = "windows")]
             desktop_window_windows::install(app)?;
             notification_actions::install(app.handle());
@@ -141,6 +137,10 @@ pub fn run() {
         .build(tauri::generate_context!())
         .expect("MewDex client runtime failed")
         .run(|app, event| {
+            #[cfg(desktop)]
+            if matches!(event, tauri::RunEvent::Exit) {
+                app.state::<input_channels::Channels>().close();
+            }
             if matches!(event, tauri::RunEvent::Resumed) {
                 let _ = app.emit("mewdex://resume", ());
             }

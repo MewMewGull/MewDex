@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { useId } from "react";
 import type { InputQuestion } from "@mewdex/sdk";
 import type { QuestionValue } from "../interactionResponses";
@@ -39,9 +40,9 @@ export function QuestionField({
       {numeric && (
         <p className="request-field-hint" id={`${inputID}-hint`}>
           {[
-            q.kind === "integer" ? "整数" : "数字",
-            q.minimum != null ? `最小 ${q.minimum}` : "",
-            q.maximum != null ? `最大 ${q.maximum}` : "",
+            q.kind === "integer" ? t("整数") : t("数字"),
+            q.minimum != null ? t("最小 {0}", q.minimum) : "",
+            q.maximum != null ? t("最大 {0}", q.maximum) : "",
           ]
             .filter(Boolean)
             .join(" · ")}
@@ -101,11 +102,11 @@ export function QuestionField({
             )
           }
         >
-          <option value="">请选择</option>
+          <option value="">{t("请选择")}</option>
           {q.kind === "boolean" ? (
             <>
-              <option value="true">是</option>
-              <option value="false">否</option>
+              <option value="true">{t("是")}</option>
+              <option value="false">{t("否")}</option>
             </>
           ) : (
             q.options.map((o) => (
@@ -127,7 +128,9 @@ export function QuestionField({
           maxLength={q.maxLength ?? 65536}
           value={value === undefined ? "" : String(value)}
           placeholder={
-            q.options.length ? "选择一个选项，或输入自己的回答" : "输入你的回答"
+            q.options.length
+              ? t("选择一个选项，或输入自己的回答")
+              : t("输入你的回答")
           }
           onChange={(event) => onChange(event.target.value)}
         />
@@ -158,7 +161,7 @@ export function QuestionField({
           value={value === undefined ? "" : String(value)}
           placeholder={
             q.allowText && q.options.length
-              ? "选择一个选项，或输入自己的回答"
+              ? t("选择一个选项，或输入自己的回答")
               : ""
           }
           onChange={(e) => onChange(e.target.value)}
@@ -166,7 +169,7 @@ export function QuestionField({
       )}
       {error && (
         <p id={`${inputID}-error`} className="request-field-error" role="alert">
-          {error}
+          {t(error)}
         </p>
       )}
     </div>

@@ -10,7 +10,6 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync/atomic"
 	"testing"
 
@@ -33,6 +32,7 @@ func testManager(t *testing.T) *Manager {
 	if err != nil {
 		t.Fatal(err)
 	}
+	fixtureEngine(t, m)
 	return m
 }
 
@@ -107,7 +107,7 @@ func fixtureEngine(t *testing.T, m *Manager) {
 	m.options.Engine = filepath.Join(root, entry)
 }
 
-func TestRemoteSetupRetainsIdentityWhenForwardingGrantIsMissing(t *testing.T) {
+func TestRemoteSetupUsesHubWithoutAForwardingGrant(t *testing.T) {
 	m := testManager(t)
 	fixtureEngine(t, m)
 	var pairCalls atomic.Int32
@@ -144,17 +144,17 @@ func TestRemoteSetupRetainsIdentityWhenForwardingGrantIsMissing(t *testing.T) {
 	defer server.Close()
 	setup := &Setup{Name: "remote executor", Executor: true, HubURL: server.URL, UseHubGateway: true, Invitation: "one-time-test-invitation", Projects: []protocol.Project{{Path: t.TempDir()}}}
 	request := Request{Operation: "setup", Setup: setup}
-	if _, err := m.Handle(context.Background(), request); err == nil || !strings.Contains(err.Error(), "does not grant") {
-		t.Fatalf("expected missing forwarding grant, got %v", err)
+	if _, err := m.Handle(context.Background(), request); err != nil {
+		t.Fatal(err)
 	}
 	pending, err := m.Handle(context.Background(), Request{Operation: "status"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !pending.Snapshot.SetupPending || pending.Snapshot.DeviceID != pairedDevice.Load().(string) || !pending.Snapshot.UseHubGateway {
-		t.Fatal("unfinished setup identity or forwarding setting was discarded")
+	if !pending.Snapshot.Configured || pending.Snapshot.DeviceID != pairedDevice.Load().(string) || pending.Snapshot.UseHubGateway {
+		t.Fatal("execution node retained model routing or lost its identity")
 	}
-	draft, err := os.ReadFile(m.draft())
+	draft, err := os.ReadFile(m.profile())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -163,7 +163,7 @@ func TestRemoteSetupRetainsIdentityWhenForwardingGrantIsMissing(t *testing.T) {
 	}
 	setup.Invitation = ""
 	grant.Store(true)
-	result, err := m.Handle(context.Background(), request)
+	result, err := m.Handle(context.Background(), Request{Operation: "status"})
 	if err != nil {
 		t.Fatal(err)
 	}

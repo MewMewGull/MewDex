@@ -11,7 +11,7 @@ type Notification struct {
 	RequestID json.RawMessage
 }
 
-// Engine keeps upstream JSON-RPC inside the executor boundary.
+// Engine keeps upstream JSON-RPC inside the Hub's task coordinator.
 type Engine interface {
 	Call(context.Context, string, any, any) error
 	Respond(context.Context, json.RawMessage, json.RawMessage) error

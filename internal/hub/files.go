@@ -15,6 +15,53 @@ import (
 
 type fileExporterKey struct{}
 
+func (h *Hub) projectFileCommand(ctx context.Context, command protocol.Command) protocol.CommandResult {
+	fail := func(err error) protocol.CommandResult {
+		return protocol.CommandResult{CommandID: command.ID, State: "failed", Error: err.Error()}
+	}
+	var session protocol.Session
+	if command.File == nil || h.store.Get("sessions", command.SessionID, &session) != nil || session.DeviceID != h.coordinatorID {
+		return fail(errors.New("Hub conversation and file request required"))
+	}
+	var project protocol.Project
+	if err := h.store.Get("hub_projects", session.ProjectID, &project); err != nil {
+		return fail(err)
+	}
+	index := 0
+	if command.File.Directory != nil {
+		index = *command.File.Directory
+	}
+	if index < 0 || index >= len(project.Directories) {
+		return fail(errors.New("请选择项目目录组中的目录"))
+	}
+	directory := project.Directories[index]
+	kind := "terminal.file.list"
+	if command.Kind == "file.export" {
+		kind = "terminal.file.export"
+	}
+	child := protocol.Command{ID: "f_" + command.ID, DeviceID: directory.DeviceID, ProjectID: directory.ProjectID, Kind: kind, File: command.File, RequestID: command.ID, SourceID: command.SourceID, CreatedAt: command.CreatedAt, Terminal: &protocol.TerminalRequest{OwnerID: session.ID}}
+	result, err := h.runTerminal(ctx, child)
+	result.CommandID = command.ID
+	if err != nil {
+		result.Error = err.Error()
+		if result.State == "accepted" {
+			result.State = "unknown"
+		}
+	}
+	return result
+}
+
+func (h *Hub) fileExecutionDevice(command protocol.Command) string {
+	if command.DeviceID != h.coordinatorID {
+		return command.DeviceID
+	}
+	child, err := h.store.Command("f_" + command.ID)
+	if err != nil || child.Kind != "terminal.file.export" || child.RequestID != command.ID || child.SourceID != command.SourceID || child.Terminal == nil || child.Terminal.OwnerID != command.SessionID {
+		return ""
+	}
+	return child.DeviceID
+}
+
 func (h *Hub) exportCommand(id string) (protocol.Command, protocol.Session, error) {
 	c, err := h.store.Command(id)
 	if err != nil || c.Kind != "file.export" || c.File == nil || c.SessionID == "" {
@@ -35,7 +82,7 @@ func (h *Hub) exportCommand(id string) (protocol.Command, protocol.Session, erro
 // input command determines ownership; an upload cannot choose another scope.
 func (h *Hub) PublishFileExport(ctx context.Context, request protocol.Command, path string, meta protocol.Attachment, body io.Reader) (protocol.OutputFile, error) {
 	c, session, err := h.exportCommand(request.ID)
-	if err != nil || c.SourceID != request.SourceID || c.DeviceID != request.DeviceID {
+	if err != nil || c.SourceID != request.SourceID || request.DeviceID != c.DeviceID && request.DeviceID != h.fileExecutionDevice(c) {
 		return protocol.OutputFile{}, errors.New("file export does not match its original request")
 	}
 	if h.attachments == nil {
@@ -57,11 +104,27 @@ func (h *Hub) PublishFileExport(ctx context.Context, request protocol.Command, p
 	}
 	if exporter, ok := ctx.Value(fileExporterKey{}).(string); ok {
 		actor, err := h.store.Identity(exporter)
-		if err != nil || actor.Role != "executor" || actor.DeviceID != c.DeviceID {
+		if err != nil || actor.Role != "executor" || actor.DeviceID != h.fileExecutionDevice(c) {
 			return protocol.OutputFile{}, errors.New("executor authorization changed during file upload")
 		}
 	}
 	output := protocol.OutputFile{ID: meta.ID, CommandID: c.ID, SessionID: session.ID, DeviceID: session.DeviceID, ProjectID: session.ProjectID, Path: path, Attachment: meta, CreatedAt: meta.CreatedAt}
+	if c.DeviceID == h.coordinatorID {
+		child, err := h.store.Command("f_" + c.ID)
+		if err != nil {
+			return output, err
+		}
+		var device protocol.Device
+		if err = h.store.Get("devices", child.DeviceID, &device); err != nil {
+			return output, err
+		}
+		for _, binding := range device.Projects {
+			if binding.ID == child.ProjectID {
+				output.Directory = &protocol.ProjectDirectory{DeviceID: device.ID, ProjectID: binding.ID, Name: binding.Name, Path: binding.Path}
+				break
+			}
+		}
+	}
 	if err = h.store.RecordOutput(output); err != nil {
 		if errors.Is(err, store.ErrConflict) {
 			return output, err
@@ -75,7 +138,7 @@ func (h *Hub) PublishFileExport(ctx context.Context, request protocol.Command, p
 func (h *Hub) receiveFileExport(w http.ResponseWriter, r *http.Request) {
 	actor := identity(r)
 	c, _, err := h.exportCommand(r.URL.Query().Get("commandId"))
-	if err != nil || actor.Role != "executor" || actor.DeviceID != c.DeviceID {
+	if err != nil || actor.Role != "executor" || actor.DeviceID != h.fileExecutionDevice(c) {
 		problem(w, 403, errors.New("an authorized executor export request is required"))
 		return
 	}

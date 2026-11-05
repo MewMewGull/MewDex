@@ -1,4 +1,4 @@
-package gateway
+package engine
 
 import (
 	"context"
@@ -10,8 +10,8 @@ import (
 	"mewdex/internal/config"
 )
 
-// Probe verifies an explicit proxy route with TLS, without sending model credentials or inference.
-func Probe(ctx context.Context, c config.Engine) (map[string]any, error) {
+// ProbeProxy verifies the Hub's configured HTTP proxy with TLS.
+func ProbeProxy(ctx context.Context, c config.Engine) (map[string]any, error) {
 	if c.ProxyURL == "" {
 		return nil, errors.New("engine.proxyUrl is not configured")
 	}

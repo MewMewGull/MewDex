@@ -8,16 +8,15 @@ import (
 	"testing"
 	"time"
 
+	"mewdex/internal/inputbridge"
 	"mewdex/internal/protocol"
+	"mewdex/internal/store"
+	"net/http/httptest"
 )
 
 func TestMessagingSettingsRequireAdminAndNeverReturnSecrets(t *testing.T) {
 	h, s, server, admin := testHub(t)
-	closeMessaging, err := h.StartMessaging(context.Background())
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(closeMessaging)
+	startAPPBridge(t, h, s, server, admin)
 	secret := "private-channel-credential"
 	response := request(t, server.URL, admin, "PUT", "/v1/messaging/qq", protocol.MessagingUpdate{AppID: "qq-app", Secret: &secret})
 	data, _ := io.ReadAll(response.Body)
@@ -84,4 +83,54 @@ func TestMessagingCommandsUseCurrentScopedIdentityAndApprovalChecks(t *testing.T
 	if _, err = h.submitMessagingCommand(context.Background(), id.ID, command); err == nil {
 		t.Fatal("revoked identity kept submitting messages")
 	}
+}
+
+func TestMessagingSettingsRequireHubProjectInCoordinatorMode(t *testing.T) {
+	h, s, server, admin := testHub(t)
+	h.coordinatorID = "local.hub"
+	h.coordinator = &Coordinator{hub: h}
+	startAPPBridge(t, h, s, server, admin)
+	response := request(t, server.URL, admin, "PUT", "/v1/messaging/qq", protocol.MessagingUpdate{Enabled: true, DeviceID: "local", ProjectID: "project"})
+	defer response.Body.Close()
+	if response.StatusCode != 400 {
+		t.Fatal("a channel was configured to bypass Hub project routing", response.Status)
+	}
+}
+
+func startAPPBridge(t *testing.T, h *Hub, s *store.Store, server *httptest.Server, token string) {
+	t.Helper()
+	identity, err := s.Authenticate(token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	root := t.TempDir()
+	go func() {
+		done <- inputbridge.Run(ctx, inputbridge.Options{Root: root, BaseURL: server.URL, Token: token, HubDeviceID: h.config.DeviceID, IdentityID: identity.ID})
+	}()
+	t.Cleanup(func() {
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(10 * time.Second):
+			t.Error("APP bridge did not stop")
+		}
+	})
+	deadline := time.Now().Add(5 * time.Second)
+	for time.Now().Before(deadline) {
+		h.mu.Lock()
+		connected := len(h.inputBridges) > 0
+		h.mu.Unlock()
+		if connected {
+			return
+		}
+		select {
+		case err := <-done:
+			t.Fatalf("APP bridge exited: %v", err)
+		default:
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("APP bridge did not connect")
 }

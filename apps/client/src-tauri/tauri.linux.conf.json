@@ -1,8 +1,11 @@
 {
   "bundle": {
     "active": true,
-    "targets": ["appimage"],
-    "externalBin": ["binaries/mewdex-node"],
-    "resources": { "engine/": "engine/" }
+    "targets": [
+      "appimage"
+    ],
+    "externalBin": [
+      "binaries/mewdex-input-bridge"
+    ]
   }
 }

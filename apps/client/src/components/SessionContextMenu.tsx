@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { useRef, useState, type ReactElement } from "react";
 import * as ContextMenu from "@radix-ui/react-context-menu";
 import { X } from "lucide-react";
@@ -33,7 +34,7 @@ export function SessionContextMenu({
           <ContextMenu.Content
             className="session-context-menu"
             collisionPadding={8}
-            aria-label={`${session.title} 的对话操作`}
+            aria-label={t("{0} 的对话操作", session.title)}
             onCloseAutoFocus={(event) => {
               if (openingDialog.current) event.preventDefault();
               openingDialog.current = false;
@@ -52,7 +53,7 @@ export function SessionContextMenu({
                   setError("");
                   if (action.patch) {
                     void onUpdate(session, action.patch).catch((cause: Error) =>
-                      setError(`未能${action.label}：${cause.message}`),
+                      setError(t("未能{0}：{1}", action.label, cause.message)),
                     );
                   } else {
                     openingDialog.current = true;
@@ -77,7 +78,7 @@ export function SessionContextMenu({
           </span>
           <button
             className="icon-button"
-            aria-label="关闭对话整理错误"
+            aria-label={t("关闭对话整理错误")}
             onClick={() => setError("")}
           >
             <X size={12} />

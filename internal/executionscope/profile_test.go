@@ -64,6 +64,29 @@ func TestScopeBindsCanonicalGrantsAndIdentity(t *testing.T) {
 	}
 }
 
+func TestProjectDirectoryGroupSharesOnlyItsLocalRoots(t *testing.T) {
+	spec := profileFixture(t)
+	second := t.TempDir()
+	spec.Workspaces = []string{second}
+	profile, err := Build(spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	canonical, err := literalPath(second)
+	if err != nil || profile.filesystem[canonical] != "write" {
+		t.Fatal("project group root was omitted", err)
+	}
+	spec.AccessMode = "read-only"
+	profile, err = Build(spec)
+	if err != nil || profile.filesystem[canonical] != "read" || profile.filesystem[profile.Workspace()] != "read" {
+		t.Fatal("read-only policy did not cover the whole project group", err)
+	}
+	spec.Workspaces = []string{spec.Private[0]}
+	if _, err = Build(spec); err == nil {
+		t.Fatal("private node data became a project group root")
+	}
+}
+
 func TestSelectedAccessModesChangeEffectiveGrants(t *testing.T) {
 	spec := profileFixture(t)
 	ids := map[string]bool{}

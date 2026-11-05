@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { Monitor, Network } from "lucide-react";
 import type { LocalDeviceController } from "./useLocalDevice";
 
@@ -7,7 +8,7 @@ export function LocalSetupPanel({ device }: { device: LocalDeviceController }) {
   const locked = busy || pending;
   const canSave =
     !busy &&
-    (!setup.executor || !!snapshot?.enginePresent) &&
+    (!(setup.executor || setup.hub) || !!snapshot?.enginePresent) &&
     (!setup.hub ||
       (!!setup.account?.username.trim() &&
         (setup.account?.password.length ?? 0) >= 8));
@@ -21,25 +22,35 @@ export function LocalSetupPanel({ device }: { device: LocalDeviceController }) {
         void device.saveSetup(submitter?.value !== "save");
       }}
     >
-      <h3>准备这台电脑</h3>
+      <h3>{t("准备这台电脑")}</h3>
       <p className="muted">
-        启用执行能力后会准备默认工作区，进入工作台即可开始，也可选择自己的项目目录。
+        {t(
+          "启用执行能力后会准备默认工作区，进入工作台即可开始，也可选择自己的项目目录。",
+        )}
+      </p>
+      <p className="muted">
+        {t(
+          "Hub 管理跨机器项目、对话和模型账号。执行端连接 Hub 后接收指令并回传执行结果。",
+        )}
       </p>
       {snapshot?.startupPreference !== undefined && (
         <p className="muted">
-          安装时的开机自启动选择：
-          {snapshot.startupPreference ? "开启，完成配置后生效" : "关闭"}
-          。可在“启动设置”中修改。
+          {t(
+            "安装时的开机自启动选择：{0}。可在“启动设置”中修改。",
+            snapshot.startupPreference ? t("开启，完成配置后生效") : t("关闭"),
+          )}
         </p>
       )}
       {setup.hub && (
         <fieldset disabled={busy}>
-          <legend>MewDex 账号</legend>
+          <legend>{t("MewDex 账号")}</legend>
           <p className="muted">
-            为这个中央后端设置登录账号，其他终端可用此账号管理所有执行设备。
+            {t(
+              "为这个中央后端设置登录账号，其他终端可用此账号管理所有执行设备。",
+            )}
           </p>
           <label>
-            MewDex 用户名
+            {t("MewDex 用户名")}
             <input
               autoComplete="username"
               value={setup.account?.username ?? ""}
@@ -55,7 +66,7 @@ export function LocalSetupPanel({ device }: { device: LocalDeviceController }) {
             />
           </label>
           <label>
-            MewDex 密码
+            {t("MewDex 密码")}
             <input
               type="password"
               autoComplete="new-password"
@@ -73,28 +84,31 @@ export function LocalSetupPanel({ device }: { device: LocalDeviceController }) {
             />
           </label>
           <p className="muted">
-            这不是 ChatGPT 账号。节点的模型订阅可进入工作台后单独设置。
+            {t("ChatGPT 账号在进入工作台后由 Hub 统一连接。")}
           </p>
         </fieldset>
       )}
       <fieldset disabled={locked}>
         <label>
-          电脑名称（可选）
+          {t("电脑名称（可选）")}
           <input
             value={setup.name}
             onChange={(event) => updateSetup({ name: event.target.value })}
-            placeholder="默认使用这台电脑的名称"
+            placeholder={t("默认使用这台电脑的名称")}
           />
         </label>
-        <div className="setup-network-choice" aria-label="设备连接方式">
+        <div
+          className="setup-network-choice"
+          aria-label={t("MewDex 网络连接方式")}
+        >
           <button
             type="button"
             aria-pressed={setup.hub}
             onClick={() => updateSetup({ hub: true })}
           >
             <Monitor size={18} />
-            <strong>创建自己的网络</strong>
-            <small>从这台电脑开始</small>
+            <strong>{t("创建 MewDex 网络")}</strong>
+            <small>{t("在这台电脑运行 Hub，管理设备和任务")}</small>
           </button>
           <button
             type="button"
@@ -102,13 +116,13 @@ export function LocalSetupPanel({ device }: { device: LocalDeviceController }) {
             onClick={() => updateSetup({ hub: false, executor: true })}
           >
             <Network size={18} />
-            <strong>加入已有网络</strong>
-            <small>让这台电脑执行任务</small>
+            <strong>{t("加入已有 MewDex 网络")}</strong>
+            <small>{t("连接已有 Hub，让这台电脑执行任务")}</small>
           </button>
         </div>
         {setup.hub && (
           <label>
-            Hub 监听端口
+            {t("Hub 监听端口")}
             <input
               type="number"
               min={1}
@@ -120,12 +134,12 @@ export function LocalSetupPanel({ device }: { device: LocalDeviceController }) {
                 updateSetup({ listen: `127.0.0.1:${event.target.value}` })
               }
             />
-            <small>默认 47830；端口被占用时请自行修改。</small>
+            <small>{t("默认 47830；端口被占用时请自行修改。")}</small>
           </label>
         )}
         {!setup.hub && (
           <label>
-            设备网络地址
+            {t("MewDex Hub 地址")}
             <input
               type="url"
               value={setup.hubUrl}
@@ -140,7 +154,7 @@ export function LocalSetupPanel({ device }: { device: LocalDeviceController }) {
       </fieldset>
       {!setup.hub && (
         <label>
-          本机执行配对码
+          {t("本机执行配对码")}
           <input
             value={setup.invitation ?? ""}
             disabled={busy}
@@ -149,27 +163,19 @@ export function LocalSetupPanel({ device }: { device: LocalDeviceController }) {
             }
             autoComplete="off"
             placeholder={
-              pending ? "已有授权时可留空" : "使用网络管理员提供的执行端配对码"
+              pending
+                ? t("已有授权时可留空")
+                : t("使用网络管理员提供的执行端配对码")
             }
             required={!pending}
           />
         </label>
       )}
       <details className="setup-advanced">
-        <summary>高级设置</summary>
+        <summary>{t("高级设置")}</summary>
         <fieldset disabled={locked}>
           {setup.hub && (
             <>
-              <label className="checkbox">
-                <input
-                  type="checkbox"
-                  checked={setup.gateway}
-                  onChange={(event) =>
-                    updateSetup({ gateway: event.target.checked })
-                  }
-                />
-                为其他设备转发模型请求
-              </label>
               <label className="checkbox">
                 <input
                   type="checkbox"
@@ -178,32 +184,20 @@ export function LocalSetupPanel({ device }: { device: LocalDeviceController }) {
                     updateSetup({ executor: event.target.checked })
                   }
                 />
-                允许在这台电脑执行任务
+                {t("允许在这台电脑执行任务")}
               </label>
               <p className="muted">
-                手机和远端电脑连接前，需要设置可访问的 HTTPS 地址。
+                {t("手机和远端电脑连接前，需要设置可访问的 HTTPS 地址。")}
               </p>
             </>
-          )}
-          {!setup.hub && (
-            <label className="checkbox">
-              <input
-                type="checkbox"
-                checked={setup.useHubGateway}
-                onChange={(event) =>
-                  updateSetup({ useHubGateway: event.target.checked })
-                }
-              />
-              通过网络主控转发模型请求
-            </label>
           )}
         </fieldset>
       </details>
       {pending && (
-        <p className="muted">上次配置已保存，完成网络配对后可继续。</p>
+        <p className="muted">{t("上次配置已保存，完成网络配对后可继续。")}</p>
       )}
-      {setup.executor && snapshot && !snapshot.enginePresent && (
-        <p className="error">安装中缺少执行组件，请补全安装后继续。</p>
+      {(setup.executor || setup.hub) && snapshot && !snapshot.enginePresent && (
+        <p className="error">{t("安装中缺少执行组件，请补全安装后继续。")}</p>
       )}
       <div className="local-device-actions">
         <button
@@ -214,13 +208,13 @@ export function LocalSetupPanel({ device }: { device: LocalDeviceController }) {
         >
           {device.phase ||
             (pending
-              ? "继续配置并启动"
+              ? t("继续配置并启动")
               : setup.hub
-                ? "创建并进入工作台"
-                : "保存并启动本机执行")}
+                ? t("创建并进入工作台")
+                : t("保存并启动本机执行"))}
         </button>
         <button type="submit" value="save" disabled={!canSave}>
-          仅保存配置
+          {t("仅保存配置")}
         </button>
       </div>
     </form>

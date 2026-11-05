@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"testing"
 
@@ -52,7 +53,7 @@ func TestEmptyExecutorPreparesDefaultWorkspace(t *testing.T) {
 	if len(restored.Projects()) != 2 {
 		t.Fatal("workspace catalog was not persisted", restored.Projects())
 	}
-	if restoredDefault, err := restored.project(defaultProject.ID); err != nil || restoredDefault != defaultProject {
+	if restoredDefault, err := restored.project(defaultProject.ID); err != nil || !reflect.DeepEqual(restoredDefault, defaultProject) {
 		t.Fatal("default workspace changed after restart", restoredDefault, err)
 	}
 	fake.mu.Lock()

@@ -140,6 +140,30 @@ test("a portable ZIP cannot replace the required OS installer", async (t) => {
   );
 });
 
+test("service distributions publish independently and keep their component boundaries", async (t) => {
+  const root = await workspace(t);
+  const asset = {
+    ...artifact(),
+    distribution: "hub",
+    kind: "portable",
+    components: ["hub"],
+    file: "dist/MewDex-Hub-Windows.zip",
+  };
+  await writeFile(path.join(root, asset.file), "owned Hub package fixture");
+  const result = await prepareRelease(definition([asset]), { root });
+  assert.equal(result.manifest.assets[0].distribution, "hub");
+  assert.equal(result.manifest.assets[0].updateMode, "none");
+  await assert.rejects(
+    prepareRelease(
+      definition([
+        { ...asset, components: product.platforms.windows.components },
+      ]),
+      { root },
+    ),
+    /Incorrect components/,
+  );
+});
+
 test("mobile packages require exactly Input Terminal and Hub Controller", async (t) => {
   const root = await workspace(t);
   const asset = artifact("android");

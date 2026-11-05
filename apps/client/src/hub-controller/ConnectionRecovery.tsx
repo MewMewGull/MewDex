@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { useEffect, useState } from "react";
 import { Monitor, RefreshCw, WifiOff } from "lucide-react";
 import { sameNetworkAddress } from "../connectionRead";
@@ -40,10 +41,10 @@ export function LocalServiceReconnect({
       <div>
         <strong>
           {device.working
-            ? "正在启动本机服务…"
-            : device.phase || "本机服务已停止"}
+            ? t("正在启动本机服务…")
+            : device.phase || t("本机服务已停止")}
         </strong>
-        <p>启动后继续使用已有配对连接这个网络。</p>
+        <p>{t("启动后继续使用已有配对连接这个网络。")}</p>
         {device.error && (
           <p className="error" role="alert">
             {device.error}
@@ -63,7 +64,7 @@ export function LocalServiceReconnect({
           })
         }
       >
-        {device.working ? "正在启动…" : "启动服务并重试"}
+        {device.working ? t("正在启动…") : t("启动服务并重试")}
       </button>
     </div>
   );
@@ -97,17 +98,21 @@ export function NetworkConnectionNotice({
   }, [connected]);
   if (connected || !visible) return null;
   return (
-    <section className="network-connection-notice" aria-label="设备网络连接">
+    <section
+      className="network-connection-notice"
+      aria-label={t("设备网络连接")}
+    >
       <div className="network-connection-summary" role="status">
         <WifiOff size={18} />
         <div>
           <strong>
-            {reconnecting ? "正在重新连接设备网络" : "设备网络暂时不可用"}
+            {reconnecting ? t("正在重新连接设备网络") : t("设备网络暂时不可用")}
           </strong>
-          <p>可以继续编辑草稿，连接恢复后再发送。</p>
+          <p>{t("可以继续编辑草稿，连接恢复后再发送。")}</p>
         </div>
         <button onClick={onRetry}>
-          <RefreshCw size={14} /> 立即重试
+          <RefreshCw size={14} />
+          {t(" 立即重试")}
         </button>
       </div>
       {localAvailable && (
@@ -115,12 +120,12 @@ export function NetworkConnectionNotice({
       )}
       {onLocalDevice && (
         <button className="network-connection-manage" onClick={onLocalDevice}>
-          查看本机服务
+          {t("查看本机服务")}
         </button>
       )}
       {error && (
         <details className="connection-recovery-details">
-          <summary>连接详情</summary>
+          <summary>{t("连接详情")}</summary>
           <p>{address}</p>
           <p>{error}</p>
         </details>

@@ -8,7 +8,7 @@ import (
 	"testing"
 )
 
-func TestWebWorkbenchRequiresTheCurrentLocalHubAndKeepsItsProfile(t *testing.T) {
+func TestLegacyWebPreferenceRequiresStandaloneDeploymentAndKeepsItsProfile(t *testing.T) {
 	m := testManager(t)
 	ctx := context.Background()
 	setup, err := m.Handle(ctx, Request{Operation: "setup", Setup: &Setup{Hub: true, Name: "web-entry", Listen: "127.0.0.1:0"}})
@@ -29,8 +29,8 @@ func TestWebWorkbenchRequiresTheCurrentLocalHubAndKeepsItsProfile(t *testing.T) 
 	}
 	for _, enabled := range []bool{true, false} {
 		result, err := m.Handle(ctx, Request{Operation: "web.apply", ExpectedDeviceID: setup.Snapshot.DeviceID, WebWorkbench: &WebWorkbenchSettings{Enabled: enabled}})
-		if err != nil || result.WebWorkbench == nil || result.WebWorkbench.Enabled != enabled || webui.Enabled(m.options.Root) != enabled {
-			t.Fatal("web preference was not persisted", err)
+		if err == nil || result.WebWorkbench != nil || webui.Enabled(m.options.Root) {
+			t.Fatal("a separate Hub still enabled an embedded web input", err)
 		}
 	}
 	after, err := os.ReadFile(m.profile())

@@ -6,10 +6,13 @@ export interface Project {
   name: string;
   path: string;
   category?: string;
+  directories?: ProjectDirectory[];
+  revision?: number;
 }
 
 export interface Device {
   id: string;
+  hostId?: string;
   name: string;
   platform: string;
   roles: string[];
@@ -88,6 +91,7 @@ export interface Input {
 }
 
 export interface Command {
+  terminal?: TerminalRequest | null;
   workspace?: WorkspaceRequest | null;
   models?: ModelListRequest | null;
   file?: FileRequest | null;
@@ -202,6 +206,7 @@ export interface Identity {
   name: string;
   role: string;
   deviceId?: string;
+  hostId?: string;
   createdAt: string;
   access: Access;
   accountId?: string;
@@ -320,6 +325,7 @@ export interface PromptInspection {
 }
 
 export interface FileRequest {
+  directory?: number | null;
   path: string;
   after?: string;
 }
@@ -340,6 +346,7 @@ export interface FileListing {
 }
 
 export interface OutputFile {
+  directory?: ProjectDirectory | null;
   id: string;
   commandId: string;
   sessionId: string;
@@ -479,6 +486,47 @@ export interface MewDexAccountLogin {
   password: string;
 }
 
+export interface ProjectDirectory {
+  deviceId: string;
+  projectId: string;
+  name: string;
+  path: string;
+}
+
+export interface HubProjectRequest {
+  name: string;
+  category?: string;
+  directories: ProjectDirectory[];
+  expectedRevision: number;
+}
+
+export interface TerminalRequest {
+  workspaceIds?: string[];
+  ownerId: string;
+  jobId?: string;
+  command?: string[];
+  cwd?: string;
+  accessMode?: string;
+  timeoutMs?: number;
+  yieldMs?: number;
+}
+
+export interface TerminalJob {
+  workspaceIds?: string[];
+  id: string;
+  ownerId: string;
+  projectId: string;
+  state: string;
+  cwd: string;
+  stdout: string;
+  stderr: string;
+  exitCode?: number | null;
+  error?: string;
+  truncated?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface ServerAuthentication {
   methods: string[];
   defaultMethod: string;
@@ -486,10 +534,12 @@ export interface ServerAuthentication {
 }
 
 export interface ServerInfo {
+  hubDeviceId?: string;
   name: string;
   protocolVersion: number;
   capabilities: string[];
   authentication: ServerAuthentication;
+  inputProxy?: Device | null;
 }
 
 export interface MessagingChannel {
@@ -524,5 +574,10 @@ export interface MessagingUpdate {
 export interface MessagingLogin {
   state: string;
   url: string;
+}
+
+export interface InputBridge {
+  id: string;
+  name: string;
 }
 

@@ -155,6 +155,37 @@ func (s *Store) LocalMewDexKey() (string, protocol.Identity, error) {
 	return s.issueMewDexKey(record.Identity)
 }
 
+// Before account setup, repeated local desktop logins share one input identity.
+// Only the native owner of this Hub database can issue these local credentials.
+func (s *Store) LocalInputKey(deviceID, name string) (string, protocol.Identity, error) {
+	var identity protocol.Identity
+	if deviceID == "" {
+		return "", identity, errors.New("local Hub device identity is required")
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return "", identity, err
+	}
+	defer tx.Rollback()
+	var raw []byte
+	err = tx.QueryRow("SELECT data FROM objects WHERE bucket='local_input' AND id=?", deviceID).Scan(&raw)
+	if errors.Is(err, sql.ErrNoRows) {
+		identity = protocol.Identity{ID: protocol.ID(), Name: name, Role: "admin", DeviceID: deviceID, CreatedAt: protocol.Now(), Access: protocol.DefaultAccess("admin")}
+		if _, err = tx.Exec("INSERT INTO objects VALUES('local_input',?,?)", deviceID, protocol.JSON(identity)); err != nil {
+			return "", identity, err
+		}
+	} else if err != nil {
+		return "", identity, err
+	} else if err = json.Unmarshal(raw, &identity); err != nil {
+		return "", identity, err
+	}
+	token := protocol.ID() + protocol.ID()
+	if _, err = tx.Exec("INSERT INTO identities VALUES(?,?)", Hash(token), protocol.JSON(identity)); err != nil {
+		return "", identity, err
+	}
+	return token, identity, tx.Commit()
+}
+
 func (s *Store) ProvisionMewDexAccount(login protocol.MewDexAccountLogin) error {
 	accounts, err := s.List("mewdex_accounts")
 	if err != nil {

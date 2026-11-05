@@ -22,6 +22,7 @@ type Spec struct {
 	ProjectID     string
 	EngineVersion string
 	Workspace     string
+	Workspaces    []string
 	ReadOnly      []string
 	Private       []string
 	AccessMode    string
@@ -126,8 +127,19 @@ func Build(spec Spec) (Profile, error) {
 		return profile, errors.New("a filesystem root cannot be an execution project")
 	}
 	filesystem := map[string]string{":minimal": "read", root: "write"}
+	roots := []string{root}
+	for _, path := range spec.Workspaces {
+		additional, err := literalPath(path)
+		if err != nil || filepath.Dir(additional) == additional {
+			return profile, errors.New("additional execution roots must be existing project directories")
+		}
+		roots = append(roots, additional)
+		filesystem[additional] = "write"
+	}
 	if spec.AccessMode == "read-only" {
-		filesystem[root] = "read"
+		for _, path := range roots {
+			filesystem[path] = "read"
+		}
 	}
 	if spec.AccessMode != "" && spec.AccessMode != "workspace" && spec.AccessMode != "read-only" && spec.AccessMode != "workspace-network" {
 		return profile, errors.New("unsupported execution access mode")
@@ -139,8 +151,10 @@ func Build(spec Spec) (Profile, error) {
 		if err != nil {
 			return profile, fmt.Errorf("private execution path: %w", err)
 		}
-		if within(path, root) {
-			return profile, errors.New("execution project is inside private node data; select a separate project directory")
+		for _, root := range roots {
+			if within(path, root) {
+				return profile, errors.New("execution project is inside private node data; select a separate project directory")
+			}
 		}
 		privateSet[path] = true
 	}
@@ -175,7 +189,11 @@ func Build(spec Spec) (Profile, error) {
 				insidePrivate = true
 			}
 		}
-		if insidePrivate || within(path, root) {
+		containsRoot := false
+		for _, root := range roots {
+			containsRoot = containsRoot || within(path, root)
+		}
+		if insidePrivate || containsRoot {
 			return profile, errors.New("read-only inputs and public runtimes must be outside private roots and cannot contain the writable project")
 		}
 		filesystem[path] = "read"
@@ -226,6 +244,9 @@ func (p Profile) Definition() map[string]any {
 func (p Profile) ThreadConfig() map[string]any {
 	config := executionSettings()
 	config["permissions"] = map[string]any{p.id: p.Definition()}
+	// Account routing reloads the retained configuration without the original
+	// thread/start overrides. Keep its selected profile in that configuration.
+	config["default_permissions"] = p.id
 	return config
 }
 

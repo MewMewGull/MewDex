@@ -3,8 +3,8 @@ import path from "node:path";
 
 const root = path.resolve(import.meta.dirname, "..");
 const source = path.join(root, "apps/client/dist");
-const destination = path.join(root, "internal/webui/static");
-const generated = new Set([".keep"]);
+const destination = path.join(root, "dist/web/ui");
+const generated = new Set();
 
 // Copy assets first and publish the index last so it always references complete files.
 async function copyDirectory(directory, prefix = "") {
@@ -45,4 +45,4 @@ async function removeStale(directory, prefix = "") {
   }
 }
 await removeStale(destination);
-console.log("Prepared shared web UI for the bundled Hub");
+console.log("Prepared independent web input assets in dist/web/ui");

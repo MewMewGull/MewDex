@@ -1,3 +1,4 @@
+import { t } from "./localization.ts";
 import { MewDexError } from "@mewdex/sdk";
 
 // Only connection reads use this policy. User commands keep their original
@@ -26,7 +27,7 @@ export async function readConnection<T>(
   const timer = setTimeout(
     () =>
       request.abort(
-        new DOMException("连接超时，请检查设备网络", "TimeoutError"),
+        new DOMException(t("连接超时，请检查设备网络"), "TimeoutError"),
       ),
     timeoutMs,
   );

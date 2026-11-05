@@ -1,3 +1,4 @@
+import { t } from "./localization.ts";
 import type {
   CommandResult,
   Interaction,
@@ -64,7 +65,7 @@ function receiptResponse(
       ...next,
       state: "idle",
       commandId: "",
-      error: result.error || "回复没有完成，请重新填写后提交。",
+      error: result.error || t("回复没有完成，请重新填写后提交。"),
     };
   return next;
 }

@@ -691,6 +691,7 @@ button:disabled {
   gap: 3px;
 }
 .composer .composer-inline-controls {
+  position: relative;
   display: flex;
   flex: 1;
   align-items: center;
@@ -829,8 +830,7 @@ button:disabled {
   color: var(--text-strong);
   font-size: calc(12px * var(--ui-scale));
 }
-.composer-model-menu .composer-menu-content,
-.composer-context-menu .composer-menu-content {
+.composer-model-menu .composer-menu-content {
   left: auto;
   right: 0;
 }
@@ -894,10 +894,66 @@ button:disabled {
   padding: 4px 8px;
   line-height: 1.7;
 }
-.composer-menu-content progress {
-  width: calc(100% - 16px);
-  margin: 0 8px 6px;
-  height: 5px;
+.composer-context-indicator {
+  display: flex;
+  flex-shrink: 0;
+}
+.composer-context-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+.composer-context-button:hover,
+.composer-context-button:focus-visible {
+  color: var(--text-strong);
+}
+.composer-context-ring {
+  flex-shrink: 0;
+}
+.composer-context-track {
+  opacity: 0.28;
+}
+.composer-context-tooltip {
+  position: absolute;
+  z-index: 36;
+  right: 0;
+  bottom: calc(100% + 8px);
+  width: max-content;
+  max-width: min(100%, calc(100vw - 28px));
+  padding: 9px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border: 1px solid var(--panel-border);
+  border-radius: 16px;
+  background: var(--panel);
+  box-shadow: 0 8px 24px var(--shadow);
+  color: var(--text-strong);
+  font-size: calc(12px * var(--ui-scale));
+  line-height: 1.5;
+  text-align: center;
+}
+.composer-context-tooltip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 0;
+  width: 100%;
+  height: 9px;
+}
+.composer-context-tooltip > span {
+  color: var(--text-muted);
+}
+.composer-context-tooltip > p {
+  margin: 0;
 }
 .composer-toolbar .queue-button {
   padding: 0;
@@ -951,8 +1007,46 @@ button:disabled {
 
 /* Project creation and editing share a small, folder-first form. */
 .settings-dialog.project-create-dialog {
-  width: min(560px, calc(100vw - 32px));
+  width: min(680px, calc(100vw - 32px));
   padding: 28px;
+}
+.project-directories-heading,
+.project-directory-controls,
+.project-directory-path {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.project-directories-heading,
+.project-directory-controls {
+  justify-content: space-between;
+}
+.project-directories-heading h3 {
+  margin: 0;
+}
+.project-directories-heading button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.project-directories {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+  max-height: 45vh;
+  overflow-y: auto;
+}
+.project-directories .project-source-card {
+  align-items: stretch;
+}
+.project-directory-controls select,
+.project-directory-controls input,
+.project-directory-path input {
+  flex: 1;
+  min-width: 0;
+}
+.hub-network-summary {
+  cursor: default;
 }
 .project-create-dialog .project-name-field {
   display: flex;
@@ -1125,6 +1219,129 @@ button:disabled {
   min-width: 110px;
   margin: 0;
   color: var(--accent-contrast);
+}
+.settings-dialog .local-device-actions > .primary {
+  color: var(--accent-contrast);
+  background: var(--accent);
+  border-color: var(--accent-border);
+}
+.hub-connection-heading {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.hub-connection-symbol {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 54px;
+  height: 54px;
+  border: 1px solid var(--accent-border);
+  border-radius: 16px;
+  color: var(--accent-text);
+  background: var(--accent-surface);
+}
+.hub-connection-heading > div {
+  min-width: 0;
+  flex: 1;
+}
+.hub-connection-eyebrow {
+  color: var(--text-muted);
+  font-size: calc(11px * var(--ui-scale));
+}
+.hub-connection-heading h3 {
+  margin: 6px 0;
+  color: var(--text-strong);
+  font-size: calc(20px * var(--ui-scale));
+  overflow-wrap: anywhere;
+}
+.hub-connection-heading p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: calc(12px * var(--ui-scale));
+}
+.hub-connection-badge {
+  flex-shrink: 0;
+  padding: 5px 9px;
+  border-radius: 20px;
+  color: var(--accent-text);
+  background: var(--accent-surface);
+  font-size: calc(11px * var(--ui-scale));
+}
+.hub-connection-address {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border: 1px solid var(--panel-border);
+  border-radius: 9px;
+  background: var(--surface);
+}
+.hub-connection-address code,
+.hub-model-owner code {
+  overflow-wrap: anywhere;
+  color: var(--text-strong);
+  font-size: calc(12px * var(--ui-scale));
+}
+.hub-connection-facts {
+  margin: 20px 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 15px;
+}
+.connection-details.hub-connection-facts > div {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0;
+}
+@container settings-frame (max-width: 600px) {
+  .hub-connection-facts {
+    grid-template-columns: 1fr;
+  }
+}
+.hub-model-owner {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  margin: 18px 0;
+  color: var(--accent-text);
+}
+.hub-gpt-settings .account-state {
+  color: var(--accent-text);
+}
+.hub-connection-flow {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 24px;
+  margin: 20px 0;
+}
+.hub-connection-flow > span {
+  position: relative;
+  padding: 13px 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text-strong);
+  text-align: center;
+  font-size: calc(12px * var(--ui-scale));
+}
+.hub-connection-flow > span:nth-child(2) {
+  color: var(--accent-text);
+  border-color: var(--accent-border);
+  background: var(--accent-surface);
+}
+.hub-connection-flow > span:not(:last-child)::after {
+  content: "→";
+  position: absolute;
+  right: -20px;
+  color: var(--text-muted);
+}
+.local-connection-service .local-service-summary {
+  color: var(--accent-text);
+  font-weight: 500;
 }
 .settings-dialog.folder-picker-dialog {
   width: min(630px, calc(100vw - 32px));

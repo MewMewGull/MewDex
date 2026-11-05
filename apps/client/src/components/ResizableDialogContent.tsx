@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import {
   useLayoutEffect,
   useRef,
@@ -109,8 +110,8 @@ export function ResizableDialogContent({
         type="button"
         className="icon-button"
         onClick={reset}
-        aria-label="还原弹窗默认尺寸"
-        title="还原默认尺寸"
+        aria-label={t("还原弹窗默认尺寸")}
+        title={t("还原默认尺寸")}
       >
         <RotateCcw size={16} />
       </button>
@@ -118,8 +119,8 @@ export function ResizableDialogContent({
         type="button"
         className="icon-button"
         onClick={() => remember({ ...layout, maximized: !layout.maximized })}
-        aria-label={layout.maximized ? "还原弹窗大小" : "最大化弹窗"}
-        title={layout.maximized ? "还原大小" : "最大化"}
+        aria-label={layout.maximized ? t("还原弹窗大小") : t("最大化弹窗")}
+        title={layout.maximized ? t("还原大小") : t("最大化")}
         aria-pressed={!!layout.maximized}
       >
         {layout.maximized ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
@@ -147,8 +148,8 @@ export function ResizableDialogContent({
             className={`dialog-resize-handle dialog-resize-${direction}`}
             tabIndex={direction === "se" ? 0 : -1}
             aria-hidden={direction !== "se" ? true : undefined}
-            aria-label="调整弹窗大小"
-            title="拖动调整大小 · 双击还原 · 方向键微调 · Home 还原"
+            aria-label={t("调整弹窗大小")}
+            title={t("拖动调整大小 · 双击还原 · 方向键微调 · Home 还原")}
             onPointerDown={(event) => {
               if (event.button !== 0 || drag.current) return;
               event.preventDefault();

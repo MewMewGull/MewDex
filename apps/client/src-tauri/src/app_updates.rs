@@ -93,6 +93,8 @@ struct Asset {
     os: String,
     arch: String,
     kind: String,
+    #[serde(default)]
+    distribution: String,
     #[serde(flatten)]
     package: Package,
 }
@@ -267,7 +269,7 @@ async fn releases(client: &Client) -> Result<Vec<GitHubRelease>, String> {
 }
 
 fn package_rank(asset: &Asset, os: &str, arch: &str) -> Option<usize> {
-    if asset.os != os || asset.arch != arch || asset.kind != "installer" {
+    if asset.os != os || asset.arch != arch || asset.kind != "installer" || (!asset.distribution.is_empty() && asset.distribution != "app") {
         return None;
     }
     let extensions: &[&str] = match os {

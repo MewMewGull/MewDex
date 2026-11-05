@@ -2,36 +2,44 @@
 
 ## 角色
 
-MewDex 分为四个组件，平台 App 负责组合它们，运行角色由用户配置。
+MewDex 独立发布 APP、网页输入端、Hub 与执行端。APP 和网页端共用输入界面与网络 SDK，桌面 APP 负责消息渠道连接，执行端提供独立网页控制面板。
 
 | 组件 | 代码归属 | 职责 |
 | --- | --- | --- |
 | Input Terminal（输入终端） | `apps/client/src/input-terminal/` | 用户输入、对话、结果与交互 |
-| Execute Terminal（执行终端） | `internal/executor/`、`internal/engine/` | 本机执行与引擎会话 |
-| Hub（管理终端） | `internal/hub/`、`internal/transport/` | 网络身份、设备注册、请求路由与事件 |
-| Hub Controller（管理终端的管理器） | `apps/client/src/hub-controller/`、`internal/localnode/` | 本机管理与经过 Hub 授权的远程管理 |
+| Execute Terminal（执行终端） | `internal/executor/terminal.go`、`internal/engine/sandbox.go` | 本机沙箱执行、目录绑定、任务状态与文件回传 |
+| Hub（管理终端） | `internal/hub/`、`internal/transport/` | 项目、模型账号、对话编排、设备连接与事件历史 |
+| Hub Controller（管理终端的管理器） | `apps/client/src/hub-controller/` | Hub 账号、项目、设备授权与在线 APP 的渠道管理 |
+| Message Connector（消息连接器） | `internal/inputbridge/`、`internal/messaging/` | 桌面 APP 的平台连接、消息处理、持久收发与 Hub 输入 |
+| Executor Control Panel（执行端控制面板） | `internal/executorpanel/`、`internal/localnode/` | 独立执行端的本机配置、配对、启停与目录管理 |
 
-Windows、macOS、桌面 Linux App 包含四个组件。Android、iOS / iPadOS App 包含 Input Terminal 和 Hub Controller。组件与平台组成以 `mewdex.product.json` 为准，平台外壳的能力声明嵌入这份清单。`apps/client/src/main.tsx` 组合界面与控制入口，Tauri 外壳按平台提供能力。桌面打开 App 时按配置启动本机 Hub 或 Execute Terminal，输入连接可指向本机或远程 Hub。
+Windows、macOS、Linux 桌面 APP 组合输入工作台、网络管理界面和消息连接器。Hub、网页服务器和执行端分别部署。原生 APP 使用 Tauri 承载共享界面，分发包携带专用消息连接器。组件与产物边界以 `mewdex.product.json` 的 `components`、`platforms` 和 `distributions` 为准。
 
-Hub Controller 通过本机原生接口管理服务配置、启停、自启动、数据与升级，通过 Hub API 管理远程设备、项目、授权和模型账号。移动端使用同一远程管理界面。各操作沿用当前身份与目标设备的权限。
+`mewdex-input-bridge` 随 APP 生命周期运行，保存该 APP 的渠道配置、平台凭据、入站消息与回复回执，并建立到 Hub 的认证 WebSocket 管理连接。APP 和网页端复用 `/v1/messaging`，Hub 根据当前身份和所选 APP 转发管理操作。渠道指令继续使用按项目限定的普通输入身份，经 Hub 的原有指令接口处理。多个在线 APP 显式选择渠道归属。关闭 APP 后，该 APP 的平台连接结束。
 
-组件名与协议身份分别建模。现有协议中的 `client` / `admin` 表示输入和管理身份，`executor` 表示节点身份，Hub Controller 使用已有的登录和授权接口。Gateway 属于 Hub 的可选模型网络出口能力。
+独立 `mewdex-web` 从 `ui/` 读取输入页面，将 API 和 WebSocket 请求转发给部署时指定的 Hub。Hub 提供中央 API。执行端通过原有 `/v1/node/ws` 主动连接 Hub，独立面板复用 `internal/localnode` 管理本机配对、服务和目录。
 
-执行节点具有独立设备身份。MewDex 账号作为中央登录身份，可在多个 Input Terminal 和 Hub Controller 使用。节点的 ChatGPT 账号提供该节点使用的模型订阅。
+组件名与协议身份分别建模。现有协议中的 `client` / `admin` 表示输入和管理身份，`executor` 表示节点身份，Hub Controller 使用已有的登录和授权接口。Hub 持有模型引擎，执行端通过已配对的控制连接接收命令。
+
+执行节点具有独立设备身份。MewDex 账号作为中央登录身份，可在多个 Input Terminal 和 Hub Controller 使用。Hub 的 ChatGPT 账号为整个网络提供模型服务。
 
 MewDex 账号、密码哈希及项目展示元数据保存在 Hub。输入终端没有已保存连接时，先匿名检查中央地址与协议，再读取服务器公开的认证方式及默认方式，最后才向已确认的服务器提交用户名密码或密钥。新建 Hub 时设置首个账号，账号密码为默认登录方式，同时可选密钥；已保存连接继续通过系统凭据库中的令牌恢复。已有数据尚无账号时，兼容管理员密钥或原配对码，登录后可设置用户名密码。没有匿名注册入口。无图形界面的 Hub 可用 `mewdex account -config <profile>` 从标准输入读取 `{username,password}` 完成首个账号配置，密码不放在命令参数中。
 
 本项目按用户确认的可信个人网络运行：通过 MewDex 账号登录后，用户获得中央网络内全部执行节点和项目的管理权限，不再逐台申请输入权限。账号密码登录保持稳定的账号/输入身份编号，生成独立的随机登录令牌；原密钥在关联账号及修改密码后继续可用，访问管理可以撤销对应身份的登录令牌。旧版配对身份仍兼容原访问规则，执行节点的配对与出口授权独立保留。
 
-项目创建通过 Hub 路由至目标执行节点，由节点确认并持久化真实目录绑定，再回传中央项目列表。名称与分类由 Hub 直接保存，可在节点离线时修改；修改、公开列表、事件和指令回执在同一事务内提交。重连及旧目录事件不能覆盖中央修改的名称与分类。项目路径与实际文件仍由执行节点负责，中央改名不会移动目录、改变已有对话的执行位置或同步项目文件。旧 Hub 没有 `central-projects` 能力时，输入端保留原在线编辑行为。
+项目由 Hub 保存名称、分类、目录组及修订号。每条目录引用包含设备编号、目录绑定编号、用途名称和原生路径。执行端注册真实目录绑定，Hub 将多个绑定组合成一个项目。中央项目更新通过修订号校验，离线目录可以继续参与项目元数据编辑。
 
-本机服务设置只管理该电脑的配置、启停、监听端口、自启动与数据维护，不提供项目清单或项目编辑入口。项目管理统一位于登录后的 Hub 工作台，目录选择与名称、分类修改复用 Hub 的授权与路由；已有节点目录绑定继续保留。
+Hub 的协调器复用现有执行器中的会话、队列、策略、回执及历史管理，使用独立的 `coordinator/coordinator.db`。其协议设备编号为 Hub 编号加 `.hub`，供共享 SDK 保持稳定的会话归属。输入端以 Hub 项目为导航入口，原设备对话可从历史区域读取。
 
-Input Terminal → Hub → Execute Terminal → Codex App Server（本机 stdio）。Execute Terminal 可独立选择 Hub 的 Gateway 能力作为模型网络出口。
+Hub 通过 `dynamicTools` 提供 `mewdex_exec`、`mewdex_wait`、`mewdex_stop`。工具调用按当前项目目录组解析到已配对节点，通过现有 WebSocket 控制连接下发。执行节点使用固定版 `codex sandbox` 执行 argv，保存指令回执、进程输出和任务状态。模型会话及 ChatGPT 登录位于 Hub。
 
-远端执行器可以用 `engine.useHubGateway` 在回环地址启动临时 CONNECT 代理，再经配对 Hub 的 WebSocket 转发。公网使用 WSS，官方模型 TLS 保留在通道内。模型子进程只取得每次启动生成的本地代理密码，设备令牌留在 Go 服务中；Gateway 校验设备身份、出口授权和精确域名，撤销时关闭存量通道。独立 HTTPS CONNECT 出口仍可用于单独部署的 Gateway。
+执行权限在节点上由真实绑定目录生成。同一项目在同一机器上的多个目录共同进入执行范围，策略控制写入和网络访问，节点私有数据继续作为排除项。运行中和结果未确认的任务占用重叠目录。停止操作先保存回合停止标记，再结束对应进程，后续迟到的同回合指令会被拒绝。
 
-Hub 的 `gateway.forwardDeviceId` 可指定已配对的远端 Gateway 节点作为模型出口。该节点通过现有控制连接接收转发请求，再主动建立一次性 WSS 数据连接，所有连接共用 Hub 的 HTTPS 入口。Gateway 可以单独运行，配置 `hub: false`、`executor: false`、`hubUrl`、`nodeTokenFile` 和 `gateway.allowedHosts` 即可。出口机器已有本地 HTTP 代理时，可通过 `gateway.upstreamProxyUrl` 接入。Hub 检查调用节点的出口权限，数据连接绑定指定出口节点的身份和控制连接，指定节点离线时返回失败。各执行器继续使用自己的模型账号及项目目录。
+只有部署 Hub 的机器需要访问 OpenAI。输入端和执行端连接 Hub，构成逻辑网络。桌面、移动端、网页、QQ、微信和飞书通过统一输入指令入口提交对话。Hub 的 OpenAI 连接可以使用本机网络或 HTTP 代理。
+
+项目文件读取与快照通过 Hub 选择目录组中的执行端，复用受限目录读取、哈希校验、文件回传和原始请求授权。快照归属 Hub 对话，并记录来源目录。
+
+本机服务设置负责这台电脑的配置、启停、自启动、备份和升级。Hub 的 OpenAI 连接在 Hub 机器上配置。备份及升级包含中央项目和 Hub 会话数据库，Hub 内部的临时对话工作目录在采用副本时重新绑定。
 
 首版为一个活动 Hub、多输入端、多执行端。Hub 为可达的自托管地址；局域网/私有网络及 TLS 反向代理均可接入。不构建多主选举或 NAT 穿透服务。
 
@@ -39,7 +47,7 @@ Hub 的 `gateway.forwardDeviceId` 可指定已配对的远端 Gateway 节点作�
 
 - `internal/protocol`：版本化的设备、项目、会话、命令和事件协议。
 - `internal/store`：SQLite 状态与迁移，业务通过接口访问。
-- `internal/engine`：引擎接口与 Codex JSON-RPC 适配，不依赖界面和 Hub。
+- `internal/engine` 提供 Hub 的 Codex JSON-RPC 适配和执行端的本地沙箱入口。
 - `internal/executionscope`：由本机可信路径生成命名执行权限、绑定范围指纹并核对引擎响应，覆盖完整会话生命周期。
 - `internal/attachments`：附件的不可变归属、完整性校验与按会话隔离的只读视图，独立于输入界面。
 - `internal/projectfiles`：在本机项目根目录内读取目录和普通文件，复用执行范围的私有路径边界，不跟随符号链接或 Windows 重解析链接；不依赖模型、Hub 或界面。
@@ -53,13 +61,15 @@ Hub 的 `gateway.forwardDeviceId` 可指定已配对的远端 Gateway 节点作�
 - `internal/executor`：本机执行、工作区约束、指令去重与任务控制。
 - `internal/hub`：设备注册、访问控制、路由、事件投递与查询 API。
 - `internal/transport`：节点连接、重连和事件补传。
-- `internal/gateway`：受限目标的网络转发，独立于会话管理。
 - `internal/localnode`：本机设备配置、服务生命周期、项目配置、备份恢复、当前安装升级和执行端重新配对；不依赖图形界面。
 - `internal/runtimefiles`：按内容哈希保存服务程序和完整引擎资源，避免后台运行程序锁住安装目录。
 - `internal/workspace`：目录规范化、符号链接解析及工作区重叠判断。
 - `internal/backup`：流式加密归档、路径与清单校验、向新目录解包及校验复制；业务选择与配置采用留在本机管理层。
 - `packages/sdk`：独立 TypeScript SDK，不引用 React、Tauri 或浏览器存储。
-- `apps/client`：平台 App 组合层，分别装配 `src/input-terminal` 和 `src/hub-controller`。平台存储与通知通过适配器注入。
+- `apps/client`：APP 与网页端共用的输入界面和网络管理界面，平台存储与通知通过适配器注入。
+- `internal/inputbridge`、`internal/messaging`：APP 专用的消息平台连接、持久收发和 Hub 输入适配。
+- `internal/executorpanel`：执行端的独立网页控制面板。
+- `cmd/mewdex-web`、`internal/webui`：独立网页服务器与外部输入资源服务。
 
 当前优先完善 Windows 桌面工作台，交互组件仍可由其他输入形态复用。设备选择、对话导航、快速切换、消息阅读和设置框架按职责拆分；草稿按执行设备与对话归属，发送回执只清除对应的已发送内容。Markdown 渲染使用 `react-markdown` 与 GFM 插件，代码块与消息复用复制组件；网络 SDK 不承担呈现或本机存储职责。Windows 窗口几何状态交给固定的 Tauri window-state 插件，不保存隐藏状态。界面层级与快捷键见 [桌面体验](desktop-experience.md)。
 
@@ -147,7 +157,7 @@ Hub 和执行端分别声明 `collaboration-modes`；输入端取两端能力的
 
 ## 会话与控制
 
-会话绑定设备 ID、项目目录、引擎会话 ID、策略版本。输入端可跨设备继续会话，执行位置保持不变。跨设备迁移明确处理文件和环境。
+会话绑定 Hub 协调器 ID、中央项目 ID、引擎会话 ID 及策略版本。输入端可从不同入口继续同一会话。Hub 按项目目录组选择执行位置，各目录保留所属机器的原生路径和环境。
 
 命令使用客户端生成的唯一 ID，服务端持久登记。结果不明的执行命令不能自动重放。执行端事件先持久化，再发送并确认，Hub 去重并分配全局递增序号。输入端按序号补齐事件。
 
@@ -157,21 +167,15 @@ Hub 和执行端分别声明 `collaboration-modes`；输入端取两端能力的
 
 模型回合结束后继续查询引擎登记的后台进程。构建等进程尚在运行时保留工作区占用，后续排队输入继续等待；列表不可读取时暂停并冻结。只有确认这些进程已退出后才释放目录和推进队列。该证据范围仍是引擎登记的进程，操作系统孤立进程的完整清理另行实现和验证。
 
-## 桌面本机服务与输入界面
+## 独立服务与输入界面
 
-桌面应用同时提供输入工作台和本机设备管理入口。Rust 只调用固定的 Go 程序、选择目录与访问平台凭据库；配置、执行、转发和生命周期逻辑都在可复用的 Go 模块中。关闭窗口后后台服务继续运行，启动与停止以设备和实例标识确认，不按缓存 PID 强杀。
+输入 APP 的原生层提供凭据库、通知、附件与消息连接器。`input_capabilities` 声明 `localService=false`，共享界面据此使用远程 Hub 连接。原生层公开 `channel_connection` 管理专用连接器，其配置通过管道交付并在当前 APP 退出时结束。
 
-Windows 首次使用与后续服务管理共用 `useLocalDevice` 操作控制器。创建、启动和输入连接按一次用户动作顺序调用原本机接口；重新保存输入凭据时复用已经获得的输入身份。本机面板自动读取状态，以分类页面组织服务、启动、数据和维护，切换分类保留后台任务视图。项目管理通过登录后的 Hub 工作台进入。读取到没有后台操作后停止空闲轮询；待确认或进行中的操作仍按原编号查询。
+`useInputConnection` 继续负责恢复、保存与移除 Hub 输入身份。`useInputChannels` 将已核实的管理员连接交给 APP 的原生层。网页端使用同一套输入与渠道管理接口，渠道连接由选定的在线桌面 APP 承担。
 
-`LocalServiceActions` 共用概览和执行端配对页的启动、停止及输入连接入口，继续使用 `useLocalDevice` 的原生命周期操作；未接入新重试、配对或服务控制协议。恢复结果根据原恢复方案的角色说明启动顺序，后续定位依当前本机快照进入连接或概览。页面导航不自动连接、生成配对码、修改账号或解冻队列。
+独立服务继续复用 `internal/localnode` 的配置、配对、启停、目录绑定和生命周期核对。执行端通过本机网页面板管理，API 使用面板密钥与 Origin 检查。发布包固定 Hub 或执行端角色，原开发 CLI 保留旧合并配置兼容路径。旧配置、服务数据及未完成任务由原位置保留，采用拆分部署时准备各自单角色配置。
 
-本机管理默认使用应用数据目录，也可通过原生选择器接入已有 `device.json` 所在目录。Rust 只保存目录选择，读取及预览仍交给固定 Go 管理程序；采用前再次读取设备身份，变化时返回重新选择。输入页面仅持有临时预览编号，不能通过请求指定任意服务根目录。采用后重新建立本机管理视图，后续设备操作统一读取已保存位置；原配置、运行实例、账号与数据不迁移。开发环境显式指定目录时优先保持该隔离范围，切换入口不可用。这个本机适配不进入网络 SDK，手机和未来网页不需要具备它。
-
-`useInputConnection` 独立处理输入身份恢复、明确保存与移除；`connectionRead` 为它和网络快照同步提供读取超时及重试分类，网络请求使用 SDK 的 AbortSignal。重试只读原身份或快照，不创建配对、发送消息或重放未知操作。明确授权失败和其他需处理的配置错误不会进入自动读取循环；HTTP 错误保留状态码，包括反向代理返回纯文本的情况。工作台用同步连接状态控制消息发送，并把缓存设备状态标为上次状态。
-
-当保存的输入地址与本机 Hub 地址匹配时，连接恢复视图复用 `useLocalDevice` 的启动操作，成功后重新读取原输入身份；不调用会创建新管理员身份的 `connect`。本机地址由 Go 管理层统一生成，包括停止状态。Windows 已实际通过这一入口启动独立后台实例，在图形输入关闭与重编译期间保持运行；当前仍使用项目内配置，系统登录触发及正式安装迁移另行联调。
-
-Go 服务、Codex 及其配套资源随桌面软件准备；运行前校验清单，并保存到应用自己的版本目录，不要求另装全局 CLI。首次配置默认使用独立的模型目录。输入身份与执行身份分别保存；手机和未来网页端只使用网络 SDK，不需要本机服务接口或模型凭据。
+Hub 与执行端携带各自完整的固定版 `engine/` 资源。APP 和网页输入通过 Hub 使用模型与执行能力。
 
 共享输入 UI 的 `inputViewport.ts` 处理触控编辑、键盘可见区域和消息区尺寸变化，SDK 保持不依赖 DOM。输入聚焦时按可见区域放置工作台，阅读区原本接近底部时保持最新回复可见。可见区域的语义参考 [VisualViewport](https://developer.mozilla.org/en-US/docs/Web/API/VisualViewport)；目标设备的实际布局仍由原生运行检查确认。
 

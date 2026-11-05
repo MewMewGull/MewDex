@@ -1,3 +1,5 @@
+import type { Project } from "@mewdex/sdk";
+
 // Message paths only navigate the scoped file viewer. They never reach a native
 // opener, a shell, or an automatic file upload.
 export interface ProjectFileLocation {
@@ -63,6 +65,22 @@ export function relativeProjectPath(path: string, project: string): string {
   const base = /^[a-z]:\//i.test(root) ? root.toLowerCase() : root;
   if (compare === base) return ".";
   return compare.startsWith(base + "/") ? path.slice(root.length + 1) : path;
+}
+
+export function projectFileTarget(path: string, project?: Project) {
+  let target = {
+    path: relativeProjectPath(path, project?.path ?? ""),
+    directory: undefined as number | undefined,
+  };
+  let longestRoot = 0;
+  project?.directories?.forEach((binding, index) => {
+    const relative = relativeProjectPath(path, binding.path);
+    if (relative !== path && binding.path.length > longestRoot) {
+      target = { path: relative, directory: index };
+      longestRoot = binding.path.length;
+    }
+  });
+  return target;
 }
 
 export function parentProjectPath(path: string): string {

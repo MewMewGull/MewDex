@@ -1,3 +1,4 @@
+import { t } from "./localization.ts";
 import type { Event, Input } from "@mewdex/sdk";
 
 export interface Message {
@@ -76,7 +77,7 @@ export function messagesFrom(events: Event[], sessionId: string): Message[] {
         message.text = String(
           item.command ??
             item.tool ??
-            (type === "fileChange" ? "文件变更" : type),
+            (type === "fileChange" ? t("文件变更") : type),
         );
         message.status = String(item.status ?? "inProgress");
         message.toolKind = type;
@@ -87,7 +88,7 @@ export function messagesFrom(events: Event[], sessionId: string): Message[] {
         sequence: event.sequence,
         role: "system",
         text: String(
-          object(p.error).message ?? p.error ?? p.message ?? "执行出现错误",
+          object(p.error).message ?? p.error ?? p.message ?? t("执行出现错误"),
         ),
       });
     }

@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useQuery } from "@tanstack/react-query";
@@ -78,8 +79,8 @@ function SaveButton({
       <button
         className="file-save-button"
         disabled={busy || !support.data}
-        aria-label={`保存附件 ${file.name}`}
-        title={support.data ? "保存到本机" : "当前输入端暂未提供文件保存"}
+        aria-label={t("保存附件 {0}", file.name)}
+        title={support.data ? t("保存到本机") : t("当前输入端暂未提供文件保存")}
         onClick={() => void save()}
       >
         {busy ? (
@@ -91,12 +92,12 @@ function SaveButton({
         )}
         <span>
           {busy
-            ? "正在保存…"
+            ? t("正在保存…")
             : saved === "saved"
-              ? "已保存"
+              ? t("已保存")
               : saved === "download-started"
-                ? "已开始下载"
-                : "保存"}
+                ? t("已开始下载")
+                : t("保存")}
         </span>
       </button>
       {error && (
@@ -210,7 +211,10 @@ export function AttachmentPreview({
         >
           <div className="dialog-heading">
             <Dialog.Title>{file.name}</Dialog.Title>
-            <Dialog.Close className="icon-button" aria-label="关闭附件预览">
+            <Dialog.Close
+              className="icon-button"
+              aria-label={t("关闭附件预览")}
+            >
               <X size={18} />
             </Dialog.Close>
           </div>
@@ -221,17 +225,17 @@ export function AttachmentPreview({
             {(image || text) && content.isPending && (
               <div className="file-preview-empty">
                 <LoaderCircle className="spinning" size={24} />
-                <span>正在读取附件…</span>
+                <span>{t("正在读取附件…")}</span>
               </div>
             )}
             {content.error && (
               <div className="file-preview-empty">
-                <span>暂时无法读取附件。</span>
+                <span>{t("暂时无法读取附件。")}</span>
                 <button
                   className="settings-link"
                   onClick={() => void content.refetch()}
                 >
-                  重试读取
+                  {t("重试读取")}
                 </button>
               </div>
             )}
@@ -245,12 +249,14 @@ export function AttachmentPreview({
               </div>
             )}
             {imageError && (
-              <p className="muted">无法预览这张图片，可以保存到本机查看。</p>
+              <p className="muted">
+                {t("无法预览这张图片，可以保存到本机查看。")}
+              </p>
             )}
             {text && content.data && (
               <>
                 {previewText === undefined ? (
-                  <p className="muted">正在读取文本…</p>
+                  <p className="muted">{t("正在读取文本…")}</p>
                 ) : (
                   <TextFilePreview
                     text={previewText}
@@ -263,20 +269,22 @@ export function AttachmentPreview({
                   />
                 )}
                 {file.size > textPreviewLimit && (
-                  <p className="muted">预览前 256 KiB，保存可获得完整文件。</p>
+                  <p className="muted">
+                    {t("预览前 256 KiB，保存可获得完整文件。")}
+                  </p>
                 )}
               </>
             )}
             {!image && !text && (
               <div className="file-preview-empty">
                 <File size={32} />
-                <span>此类型可保存后使用本机应用打开。</span>
+                <span>{t("此类型可保存后使用本机应用打开。")}</span>
               </div>
             )}
           </div>
           <footer className="attachment-preview-actions">
             {text && previewText !== undefined && (
-              <CopyButton text={previewText} label="复制预览内容" />
+              <CopyButton text={previewText} label={t("复制预览内容")} />
             )}
             <SaveButton client={client} file={file} content={content.data} />
           </footer>
@@ -310,27 +318,30 @@ function AttachmentCard({
         className="file-card-main"
         disabled={!file.data}
         onClick={() => setPreview(true)}
-        aria-label={file.data ? `查看附件 ${file.data.name}` : "正在读取附件"}
+        aria-label={
+          file.data ? t("查看附件 {0}", file.data.name) : t("正在读取附件")
+        }
       >
         <span className="file-card-icon">
           {image ? <ImageIcon size={19} /> : <FileText size={19} />}
         </span>
         <span>
           <strong title={file.data?.name}>
-            {file.data?.name ?? (file.error ? "附件暂不可用" : "正在读取附件…")}
+            {file.data?.name ??
+              (file.error ? t("附件暂不可用") : t("正在读取附件…"))}
           </strong>
           <small>{file.data ? formatBytes(file.data.size) : ""}</small>
         </span>
       </button>
       {file.error && (
         <button className="file-retry" onClick={() => void file.refetch()}>
-          重试
+          {t("重试")}
         </button>
       )}
       {onRemove ? (
         <button
           className="icon-button"
-          aria-label={`移除附件 ${file.data?.name ?? ""}`}
+          aria-label={t("移除附件 {0}", file.data?.name ?? "")}
           onClick={() => onRemove(item.id)}
         >
           <X size={14} />

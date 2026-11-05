@@ -17,19 +17,16 @@ import (
 	"github.com/coder/websocket"
 	"mewdex/internal/attachments"
 	"mewdex/internal/config"
-	"mewdex/internal/gateway"
-	"mewdex/internal/messaging"
 	"mewdex/internal/protocol"
 	"mewdex/internal/store"
-	"mewdex/internal/webui"
 )
 
 type Runner interface {
 	Handle(context.Context, protocol.Command) protocol.CommandResult
 }
 type peer struct {
-	ctx        context.Context
 	identityID string
+	instanceID string
 	conn       *websocket.Conn
 	device     protocol.Device
 	write      sync.Mutex
@@ -43,54 +40,41 @@ func (p *peer) send(ctx context.Context, f protocol.Frame) error {
 }
 
 type Hub struct {
-	config          config.Config
-	store           *store.Store
-	local           Runner
-	mu              sync.Mutex
-	peers           map[string]*peer
-	wake            chan struct{}
-	attachments     *attachments.Store
-	gatewayStatus   func() any
-	ctx             context.Context
-	subscribers     map[string]map[*websocket.Conn]bool
-	revokeGateway   func(string)
-	modelGateway    *gateway.Gateway
-	logins          map[string]loginWindow
-	messageChannels *messaging.Manager
-	browserOrigins  func() []string
-	webEnabled      func() bool
-	gatewayRelays   map[string]*gatewayRelay
+	config         config.Config
+	store          *store.Store
+	local          Runner
+	coordinator    Runner
+	coordinatorID  string
+	mu             sync.Mutex
+	nodeMu         sync.Mutex
+	projectMu      sync.Mutex
+	terminalMu     sync.Mutex
+	peers          map[string]*peer
+	wake           chan struct{}
+	attachments    *attachments.Store
+	ctx            context.Context
+	subscribers    map[string]map[*websocket.Conn]bool
+	logins         map[string]loginWindow
+	browserOrigins func() []string
+	inputBridges   map[string]*inputBridge
 }
 
 func New(c config.Config, s *store.Store) *Hub {
-	return &Hub{config: c, store: s, peers: map[string]*peer{}, wake: make(chan struct{}), ctx: context.Background(), subscribers: map[string]map[*websocket.Conn]bool{}, gatewayRelays: map[string]*gatewayRelay{}}
-}
-
-func (h *Hub) SetAttachments(s *attachments.Store) { h.attachments = s }
-func (h *Hub) SetGatewayStatus(status func() any) {
-	h.mu.Lock()
-	h.gatewayStatus = status
-	h.mu.Unlock()
-}
-func (h *Hub) SetContext(ctx context.Context)            { h.ctx = ctx }
-func (h *Hub) SetBrowserOrigins(origins func() []string) { h.browserOrigins = origins }
-func (h *Hub) SetWebUI(enabled func() bool)              { h.webEnabled = enabled }
-func (h *Hub) SetGatewayRevoker(revoke func(string)) {
-	h.mu.Lock()
-	h.revokeGateway = revoke
-	h.mu.Unlock()
-}
-func (h *Hub) SetModelGateway(g *gateway.Gateway) {
-	h.mu.Lock()
-	h.modelGateway = g
-	h.gatewayStatus = g.Snapshot
-	h.revokeGateway = g.Revoke
-	h.mu.Unlock()
-	if h.config.Gateway != nil && h.config.Gateway.ForwardDeviceID != "" {
-		g.SetForwarder(h.OpenGateway)
+	return &Hub{
+		config:        c,
+		store:         s,
+		coordinatorID: c.DeviceID + ".hub",
+		peers:         map[string]*peer{},
+		wake:          make(chan struct{}),
+		ctx:           context.Background(),
+		subscribers:   map[string]map[*websocket.Conn]bool{},
 	}
 }
-func (h *Hub) SetLocal(r Runner) { h.local = r }
+
+func (h *Hub) SetAttachments(s *attachments.Store)       { h.attachments = s }
+func (h *Hub) SetContext(ctx context.Context)            { h.ctx = ctx }
+func (h *Hub) SetBrowserOrigins(origins func() []string) { h.browserOrigins = origins }
+func (h *Hub) SetLocal(r Runner)                         { h.local = r }
 func (h *Hub) Device(d protocol.Device) error {
 	d.LastSeen = protocol.Now()
 	return h.store.RegisterDevice(d)
@@ -99,6 +83,15 @@ func (h *Hub) Ingest(e protocol.Event) (protocol.Event, error) {
 	stored, err := h.store.Ingest(e)
 	if err != nil {
 		return stored, err
+	}
+	if e.Kind == "terminal.job.updated" {
+		var job protocol.TerminalJob
+		if err = json.Unmarshal(e.Payload, &job); err != nil {
+			return stored, err
+		}
+		if err = h.recordTerminalJob(e.DeviceID, e.ID, job); err != nil {
+			return stored, err
+		}
 	}
 	h.notify()
 	return stored, nil
@@ -117,15 +110,6 @@ func (h *Hub) Handler() http.Handler {
 	m.HandleFunc("POST /v1/pair", h.pair)
 	m.HandleFunc("POST /v1/login", h.login)
 	m.Handle("/v1/", h.auth(http.HandlerFunc(h.api)))
-	web := webui.Handler()
-	m.Handle("/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if h.webEnabled == nil || !h.webEnabled() {
-			w.Header().Set("Cache-Control", "no-store")
-			http.Error(w, "网页版尚未启动，请在桌面 APP 中启动网页版。", http.StatusServiceUnavailable)
-			return
-		}
-		web.ServeHTTP(w, r)
-	}))
 	return h.cors(m)
 }
 func reply(w http.ResponseWriter, status int, v any) {
@@ -195,6 +179,7 @@ func (h *Hub) pair(w http.ResponseWriter, r *http.Request) {
 		Code     string `json:"code"`
 		Name     string `json:"name"`
 		DeviceID string `json:"deviceId"`
+		HostID   string `json:"hostId"`
 	}
 	if !decode(w, r, &req) {
 		return
@@ -203,12 +188,12 @@ func (h *Hub) pair(w http.ResponseWriter, r *http.Request) {
 		problem(w, 400, errors.New("name required"))
 		return
 	}
-	token, id, err := h.store.Pair(req.Code, req.Name, req.DeviceID, h.config.DeviceID)
+	token, id, err := h.store.PairWithHost(req.Code, req.Name, req.DeviceID, req.HostID, h.config.DeviceID, h.coordinatorID)
 	if err != nil {
 		problem(w, 401, err)
 		return
 	}
-	reply(w, 200, map[string]any{"token": token, "identity": id, "protocolVersion": protocol.Version})
+	reply(w, 200, map[string]any{"token": token, "identity": id, "protocolVersion": protocol.Version, "hubDeviceId": h.config.DeviceID, "inputProxy": h.inputProxy()})
 }
 
 func (h *Hub) api(w http.ResponseWriter, r *http.Request) {
@@ -217,39 +202,12 @@ func (h *Hub) api(w http.ResponseWriter, r *http.Request) {
 		reply(w, 200, id)
 		return
 	}
-	if r.Method == "GET" && r.URL.Path == "/v1/gateway/relay/ws" {
-		h.acceptGatewayRelay(w, r, id)
+	if r.URL.Path == "/v1/input-bridges/ws" {
+		h.inputBridgeWS(w, r)
 		return
 	}
-	if r.Method == "POST" && r.URL.Path == "/v1/gateway/authorize" {
-		var request struct {
-			DeviceID string `json:"deviceId"`
-		}
-		if !decode(w, r, &request) {
-			return
-		}
-		grant, err := gateway.IdentityGrant(id, request.DeviceID)
-		if err != nil {
-			problem(w, 403, err)
-			return
-		}
-		reply(w, 200, grant)
-		return
-	}
-	if r.Method == "GET" && r.URL.Path == "/v1/gateway/ws" {
-		grant, err := gateway.IdentityGrant(id, id.DeviceID)
-		if err != nil {
-			problem(w, 403, err)
-			return
-		}
-		h.mu.Lock()
-		g := h.modelGateway
-		h.mu.Unlock()
-		if g == nil {
-			problem(w, 503, errors.New("Hub model gateway is disabled"))
-			return
-		}
-		g.ServeTunnel(w, r, grant, strings.TrimPrefix(r.Header.Get("Authorization"), "Bearer "))
+	if r.Method == "GET" && r.URL.Path == "/v1/input-bridges" {
+		h.listInputBridges(w, r)
 		return
 	}
 	if strings.HasPrefix(r.URL.Path, "/v1/attachments") {
@@ -273,6 +231,8 @@ func (h *Hub) api(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch {
+	case r.URL.Path == "/v1/projects" || strings.HasPrefix(r.URL.Path, "/v1/projects/"):
+		h.projectsAPI(w, r)
 	case strings.HasPrefix(r.URL.Path, "/v1/messaging"):
 		h.messagingAPI(w, r)
 	case r.URL.Path == "/v1/mewdex/account":
@@ -287,19 +247,6 @@ func (h *Hub) api(w http.ResponseWriter, r *http.Request) {
 		h.searchMessages(w, r)
 	case r.Method == "GET" && r.URL.Path == "/v1/task-plan":
 		h.taskPlan(w, r)
-	case r.Method == "GET" && r.URL.Path == "/v1/gateway":
-		if id.Role != "admin" {
-			problem(w, 403, errors.New("admin required"))
-			return
-		}
-		h.mu.Lock()
-		snapshot := h.gatewayStatus
-		h.mu.Unlock()
-		if snapshot == nil {
-			reply(w, 200, map[string]bool{"enabled": false})
-		} else {
-			reply(w, 200, snapshot())
-		}
 	case r.Method == "GET" && r.URL.Path == "/v1/devices":
 		devices, err := h.visibleDevices(id)
 		if err != nil {
@@ -566,6 +513,10 @@ func (h *Hub) command(w http.ResponseWriter, r *http.Request, id protocol.Identi
 	}
 	c.SourceID = id.ID
 	c.CreatedAt = protocol.Now()
+	if strings.HasPrefix(c.Kind, "terminal.") || c.Terminal != nil {
+		problem(w, 403, errors.New("执行端指令由 Hub 调度"))
+		return
+	}
 	if !h.allowsCommand(id, c) {
 		problem(w, 403, errors.New("target project is outside this input's access scope"))
 		return
@@ -619,7 +570,7 @@ func (h *Hub) command(w http.ResponseWriter, r *http.Request, id protocol.Identi
 		h.replyResult(w, 200, result)
 		return
 	}
-	if c.Kind == "workspace.update" {
+	if c.Kind == "workspace.update" && c.DeviceID != h.coordinatorID {
 		out, updateErr := h.store.UpdateProjectMetadata(c)
 		if updateErr != nil {
 			out = protocol.CommandResult{CommandID: c.ID, State: "failed", Error: updateErr.Error()}
@@ -645,14 +596,22 @@ func (h *Hub) command(w http.ResponseWriter, r *http.Request, id protocol.Identi
 	h.mu.Lock()
 	remote := h.peers[c.DeviceID]
 	h.mu.Unlock()
-	if remote != nil && slices.Contains(remote.device.Roles, "gateway") && !slices.Contains(remote.device.Roles, "executor") {
+	if remote != nil && !slices.Contains(remote.device.Roles, "executor") {
 		result.State = "failed"
 		result.Error = "target device does not provide task execution"
 		_ = h.store.Finish(result)
 		h.replyResult(w, 202, result)
 		return
 	}
-	if c.DeviceID == h.config.DeviceID && h.local != nil {
+	if c.DeviceID == h.coordinatorID && h.coordinator != nil {
+		go func() {
+			ctx, cancel := context.WithTimeout(h.ctx, 45*time.Second)
+			defer cancel()
+			out := h.coordinator.Handle(ctx, c)
+			_ = h.store.Finish(out)
+			h.notify()
+		}()
+	} else if c.DeviceID == h.config.DeviceID && h.local != nil {
 		go func() {
 			ctx, cancel := context.WithTimeout(h.ctx, 45*time.Second)
 			defer cancel()
@@ -804,7 +763,9 @@ func (h *Hub) node(w http.ResponseWriter, r *http.Request, id protocol.Identity)
 	conn.SetReadLimit(4 * 1024 * 1024)
 	ctx, cancel := context.WithCancel(r.Context())
 	defer cancel()
-	_, b, err := conn.Read(ctx)
+	helloCtx, helloCancel := context.WithTimeout(ctx, 10*time.Second)
+	_, b, err := conn.Read(helloCtx)
+	helloCancel()
 	if err != nil {
 		return
 	}
@@ -816,24 +777,26 @@ func (h *Hub) node(w http.ResponseWriter, r *http.Request, id protocol.Identity)
 	if json.Unmarshal(hello.Payload, &d) != nil || d.ID != id.DeviceID {
 		return
 	}
+	if slices.Contains(d.Roles, "coordinator") || d.ID == h.coordinatorID {
+		return
+	}
 	d.Online = true
 	d.LastSeen = protocol.Now()
-	p := &peer{ctx: ctx, conn: conn, device: d, cancel: cancel, identityID: id.ID}
-	h.mu.Lock()
-	prior := h.peers[d.ID]
-	h.peers[d.ID] = p
-	h.mu.Unlock()
-	if prior != nil {
-		prior.cancel()
-		_ = prior.conn.CloseNow()
+	p := &peer{conn: conn, device: d, cancel: cancel, identityID: id.ID, instanceID: hello.ID}
+	if err = h.admitNode(p); err != nil {
+		_ = p.send(ctx, protocol.Frame{Version: protocol.Version, Type: "error", Payload: protocol.JSON(map[string]string{"error": err.Error()})})
+		return
 	}
-	_ = h.Device(d)
+	h.notify()
 	defer func() {
+		h.nodeMu.Lock()
 		h.mu.Lock()
 		if h.peers[d.ID] == p {
 			delete(h.peers, d.ID)
 		}
 		h.mu.Unlock()
+		h.nodeMu.Unlock()
+		h.notify()
 	}()
 	if err = p.send(ctx, protocol.Frame{Version: protocol.Version, Type: "hello.accepted"}); err != nil {
 		return
@@ -845,39 +808,88 @@ func (h *Hub) node(w http.ResponseWriter, r *http.Request, id protocol.Identity)
 		if err != nil {
 			return
 		}
-		if _, err = h.store.Identity(id.ID); err != nil {
-			return
-		}
 		var f protocol.Frame
 		if json.Unmarshal(b, &f) != nil || f.Version != protocol.Version {
 			return
 		}
-		switch f.Type {
-		case "gateway.error":
-			h.failGatewayRelay(p, f.ID)
-		case "event":
-			var e protocol.Event
-			if json.Unmarshal(f.Payload, &e) != nil || e.DeviceID != d.ID {
-				return
-			}
-			if _, err = h.Ingest(e); err != nil {
-				return
-			}
-			if err = p.send(ctx, protocol.Frame{Version: protocol.Version, Type: "event.ack", ID: e.ID}); err != nil {
-				return
-			}
-		case "heartbeat":
-			var current protocol.Device
-			if h.store.Get("devices", d.ID, &current) == nil {
-				d.Projects = current.Projects
-			}
-			d.LastSeen = protocol.Now()
-			_ = h.Device(d)
-			if err = p.send(ctx, protocol.Frame{Version: protocol.Version, Type: "heartbeat.ack"}); err != nil {
-				return
-			}
-		default:
-			_ = p.send(ctx, protocol.Frame{Version: protocol.Version, Type: "error", Payload: protocol.JSON(map[string]string{"error": fmt.Sprintf("unknown frame %s", f.Type)})})
+		response, frameErr := h.nodeFrame(p, f)
+		if frameErr != nil || p.send(ctx, response) != nil {
+			return
 		}
 	}
+}
+
+// Admission and frame writes share one fence. A replaced socket cannot publish
+// metadata or events after its successor has become the current peer.
+func (h *Hub) admitNode(p *peer) error {
+	h.nodeMu.Lock()
+	defer h.nodeMu.Unlock()
+	if h.config.HostID != "" && p.instanceID == "" {
+		return errors.New("execution service instance identity is required; update this execution service")
+	}
+	if p.device.HostID != "" || h.config.HostID != "" {
+		if err := h.store.BindExecutorHost(p.identityID, p.device.ID, p.device.HostID); err != nil {
+			return err
+		}
+		if h.local != nil && p.device.HostID == h.config.HostID {
+			return errors.New("this Hub already provides execution on this host")
+		}
+	}
+	h.mu.Lock()
+	prior := h.peers[p.device.ID]
+	h.mu.Unlock()
+	if prior != nil && prior.instanceID != p.instanceID {
+		return errors.New("this device already has a live execution service; stop its existing service before starting another")
+	}
+	if err := h.Device(p.device); err != nil {
+		return err
+	}
+	h.mu.Lock()
+	h.peers[p.device.ID] = p
+	h.mu.Unlock()
+	if prior != nil {
+		prior.cancel()
+		_ = prior.conn.CloseNow()
+	}
+	return nil
+}
+
+func (h *Hub) nodeFrame(p *peer, f protocol.Frame) (protocol.Frame, error) {
+	h.nodeMu.Lock()
+	defer h.nodeMu.Unlock()
+	h.mu.Lock()
+	current := h.peers[p.device.ID] == p
+	h.mu.Unlock()
+	if !current {
+		return protocol.Frame{}, errors.New("execution connection was replaced")
+	}
+	if _, err := h.store.Identity(p.identityID); err != nil {
+		return protocol.Frame{}, err
+	}
+	response := protocol.Frame{Version: protocol.Version}
+	switch f.Type {
+	case "event":
+		var event protocol.Event
+		if json.Unmarshal(f.Payload, &event) != nil || event.DeviceID != p.device.ID {
+			return response, errors.New("event does not match the connected device")
+		}
+		if _, err := h.Ingest(event); err != nil {
+			return response, err
+		}
+		response.Type, response.ID = "event.ack", event.ID
+	case "heartbeat":
+		device := p.device
+		var stored protocol.Device
+		if h.store.Get("devices", device.ID, &stored) == nil {
+			device.Projects = stored.Projects
+		}
+		if err := h.Device(device); err != nil {
+			return response, err
+		}
+		response.Type = "heartbeat.ack"
+	default:
+		response.Type = "error"
+		response.Payload = protocol.JSON(map[string]string{"error": fmt.Sprintf("unknown frame %s", f.Type)})
+	}
+	return response, nil
 }

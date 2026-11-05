@@ -62,6 +62,36 @@ func TestInstallerStartupChoiceIsDeferredAndDesktopCanDisableIt(t *testing.T) {
 	}
 }
 
+func TestRunningHubIsIdentifiedAfterItsProfileBecomesExecutionOnly(t *testing.T) {
+	m := testManager(t)
+	ctx := context.Background()
+	if _, err := m.Handle(ctx, Request{Operation: "setup", Setup: &Setup{Hub: true}}); err != nil {
+		t.Fatal(err)
+	}
+	c, err := config.Read(m.profile())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = os.MkdirAll(c.DataDir, 0700); err != nil {
+		t.Fatal(err)
+	}
+	control, err := lifecycle.Start(c.DataDir, c.DeviceID, func() {})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer control.Close()
+	control.Ready("http://127.0.0.1:47830")
+	c.Hub, c.Executor = false, true
+	c.HubURL = "https://hub.example.com"
+	if err = replaceJSON(m.profile(), c); err != nil {
+		t.Fatal(err)
+	}
+	status, err := m.Handle(ctx, Request{Operation: "status"})
+	if err != nil || !status.Snapshot.Hub || !status.Snapshot.Ready {
+		t.Fatal("the running Hub was hidden by its changed profile", status, err)
+	}
+}
+
 func TestLegacyProxyMigrationRemovesItsOwnEntryAndIsIdempotent(t *testing.T) {
 	m := testManager(t)
 	backend := &startupBackendFixture{}

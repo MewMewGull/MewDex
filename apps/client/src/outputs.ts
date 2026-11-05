@@ -1,3 +1,4 @@
+import { t } from "./localization.ts";
 import type { Event } from "@mewdex/sdk";
 
 export interface CommandOutput {
@@ -71,7 +72,7 @@ export function combinedCommandOutput(commands: CommandOutput[]): string {
   return commands
     .map(
       (command) =>
-        `${command.command ? "$ " + command.command : "[历史输出片段]"}\n${command.output}`,
+        `${command.command ? "$ " + command.command : t("[历史输出片段]")}\n${command.output}`,
     )
     .join("\n\n");
 }

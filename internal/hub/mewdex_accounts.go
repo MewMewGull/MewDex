@@ -3,15 +3,20 @@ package hub
 import (
 	"errors"
 	"mewdex/internal/protocol"
-	"mewdex/internal/webui"
 	"net"
 	"net/http"
+	"runtime"
 	"time"
 )
 
 type loginWindow struct {
 	Started time.Time
 	Count   int
+}
+
+// The serving device owns browser input. This does not register another executor.
+func (h *Hub) inputProxy() *protocol.Device {
+	return &protocol.Device{ID: h.config.DeviceID, HostID: h.config.HostID, Name: h.config.Name, Platform: runtime.GOOS + "/" + runtime.GOARCH, Roles: []string{"input-proxy"}, Projects: []protocol.Project{}, Online: true, ProtocolVersion: protocol.Version}
 }
 
 func (h *Hub) serverInfo(w http.ResponseWriter, r *http.Request) {
@@ -25,14 +30,12 @@ func (h *Hub) serverInfo(w http.ResponseWriter, r *http.Request) {
 		auth.Methods = []string{"key", "pair"}
 		auth.DefaultMethod = "key"
 	}
-	capabilities := []string{"mewdex-accounts", "central-projects"}
-	if webui.Available() {
-		capabilities = append(capabilities, "web-ui")
-		if h.webEnabled != nil && h.webEnabled() {
-			capabilities = append(capabilities, "web-ui-enabled")
-		}
+	capabilities := []string{"mewdex-accounts", "central-projects", "host-identity", "input-proxy"}
+	if h.coordinator != nil {
+		capabilities = append(capabilities, "hub-projects", "hub-model-account")
 	}
-	reply(w, 200, protocol.ServerInfo{Name: "MewDex", ProtocolVersion: protocol.Version, Capabilities: capabilities, Authentication: auth})
+	capabilities = append(capabilities, "app-messaging-bridge")
+	reply(w, 200, protocol.ServerInfo{HubDeviceID: h.config.DeviceID, Name: "MewDex", ProtocolVersion: protocol.Version, Capabilities: capabilities, Authentication: auth, InputProxy: h.inputProxy()})
 }
 
 func (h *Hub) login(w http.ResponseWriter, r *http.Request) {
@@ -71,7 +74,7 @@ func (h *Hub) login(w http.ResponseWriter, r *http.Request) {
 		problem(w, 401, errors.New("MewDex 用户名或密码不正确"))
 		return
 	}
-	reply(w, 200, map[string]any{"token": token, "identity": id, "protocolVersion": protocol.Version})
+	reply(w, 200, map[string]any{"token": token, "identity": id, "protocolVersion": protocol.Version, "hubDeviceId": h.config.DeviceID, "inputProxy": h.inputProxy()})
 }
 
 func (h *Hub) mewdexAccount(w http.ResponseWriter, r *http.Request) {

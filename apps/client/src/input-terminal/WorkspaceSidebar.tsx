@@ -1,3 +1,4 @@
+import { getLanguage, t } from "../localization.ts";
 import {
   useMemo,
   useRef,
@@ -144,17 +145,29 @@ export function WorkspaceSidebar({
             Number(!!b.pinned) - Number(!!a.pinned) ||
             b.updatedAt.localeCompare(a.updatedAt),
         ),
-    [sessions, devicesById, deviceId, sessionId, scope, search, unreadSessions],
+    [
+      sessions,
+      devicesById,
+      deviceId,
+      sessionId,
+      scope,
+      search,
+      unreadSessions,
+      getLanguage(),
+    ],
   );
   const groups = useMemo(() => {
-    const result = devices
+    const central = devices.find((device) =>
+      device.roles.includes("coordinator"),
+    );
+    const result = (central ? [central] : devices)
       .flatMap((device) =>
         device.projects.map((project) => ({
           key: `${device.id}:${project.id}`,
           device,
           projectId: project.id,
           name: project.name,
-          category: project.category || "项目",
+          category: project.category || t("项目"),
           path: project.path,
           sessions: visible.filter(
             (session) =>
@@ -189,8 +202,11 @@ export function WorkspaceSidebar({
             key: `${device.id}:${session.projectId}`,
             device,
             projectId: session.projectId,
-            name: session.projectId,
-            category: "未关联目录",
+            name:
+              device.projects.find(
+                (project) => project.id === session.projectId,
+              )?.name ?? session.projectId,
+            category: central ? t("旧设备对话") : t("未关联目录"),
             path: "",
             sessions: visible.filter(
               (s) =>
@@ -204,71 +220,71 @@ export function WorkspaceSidebar({
       (a, b) =>
         a.category.localeCompare(b.category) || a.name.localeCompare(b.name),
     );
-  }, [devices, visible, scope, deviceId, search]);
+  }, [devices, visible, scope, deviceId, search, getLanguage()]);
   return (
     <>
       <aside
         ref={sidebar}
         style={{ "--sidebar-width": `${width}px` } as CSSProperties}
         className={`sidebar ${open ? "open" : ""}`}
-        aria-label="对话导航"
+        aria-label={t("对话导航")}
       >
         <div className="sidebar-top">
           {brand}
           <button
             className="icon-button mobile-only"
-            aria-label="关闭对话导航"
+            aria-label={t("关闭对话导航")}
             onClick={onClose}
           >
             <X size={18} />
           </button>
         </div>
-        <nav className="workspace-navigation" aria-label="工作台入口">
+        <nav className="workspace-navigation" aria-label={t("工作台入口")}>
           <button className="new-chat" onClick={onNew}>
             <Plus size={17} />
-            <span>新对话</span>
+            <span>{t("新对话")}</span>
           </button>
           <button
             className="workspace-nav-item"
             onClick={onSearch}
-            title="搜索设备、项目与对话"
+            title={t("搜索设备、项目与对话")}
           >
             <Search size={16} />
-            <span>搜索工作台</span>
+            <span>{t("搜索工作台")}</span>
             <kbd>{modifier} K</kbd>
           </button>
           <button
             className={`workspace-nav-item network-activity-entry ${attentionTasks ? "needs-attention" : ""}`}
             onClick={onActivity}
-            title="正在执行的对话和等待你回复的请求 · Ctrl+Shift+J"
+            title={t("正在执行的对话和等待你回复的请求 · Ctrl+Shift+J")}
           >
             <Activity size={16} />
-            <span>任务与请求</span>
+            <span>{t("任务与请求")}</span>
             {activeTasks > 0 && (
               <small>
                 {attentionTasks
-                  ? `${attentionTasks} 项待处理`
-                  : `${activeTasks} 项进行中`}
+                  ? t("{0} 项待处理", attentionTasks)
+                  : t("{0} 项进行中", activeTasks)}
               </small>
             )}
           </button>
         </nav>
         <div className="conversation-nav-heading">
-          <strong>项目</strong>
-          <div className="conversation-scopes" aria-label="对话范围">
+          <strong>{t("项目")}</strong>
+          <div className="conversation-scopes" aria-label={t("对话范围")}>
             <button
               aria-pressed={scope === "all"}
               onClick={() => setScope("all")}
             >
-              全部
+              {t("全部")}
             </button>
             <button
               aria-pressed={scope === "unread"}
-              aria-label={`未读对话，${unreadCount} 个`}
-              title="所有设备中有新回复的对话"
+              aria-label={t("未读对话，{0} 个", unreadCount)}
+              title={t("所有设备中有新回复的对话")}
               onClick={() => setScope("unread")}
             >
-              未读
+              {t("未读")}
               {unreadCount > 0 && (
                 <span className="conversation-unread-count">{unreadCount}</span>
               )}
@@ -276,9 +292,9 @@ export function WorkspaceSidebar({
           </div>
           <button
             className="icon-button"
-            aria-label="创建项目"
+            aria-label={t("创建项目")}
             onClick={onWorkspaces}
-            title="选择机器和文件夹，创建项目"
+            title={t("选择机器和文件夹，创建项目")}
           >
             <FolderPlus size={15} />
           </button>
@@ -286,18 +302,18 @@ export function WorkspaceSidebar({
         <label className="search-field conversation-search">
           <Search size={14} />
           <input
-            aria-label="搜索对话、设备或项目"
-            placeholder="筛选项目和对话"
+            aria-label={t("搜索对话、设备或项目")}
+            placeholder={t("筛选项目和对话")}
             value={search}
             onChange={(event) => setSearch(event.target.value)}
           />
           {search && (
-            <button aria-label="清除搜索" onClick={() => setSearch("")}>
+            <button aria-label={t("清除搜索")} onClick={() => setSearch("")}>
               <X size={13} />
             </button>
           )}
         </label>
-        <nav className="session-list" aria-label="历史对话">
+        <nav className="session-list" aria-label={t("历史对话")}>
           {groups.map((group, index) => (
             <section className="workspace-group" key={group.key}>
               {(index === 0 ||
@@ -337,7 +353,9 @@ export function WorkspaceSidebar({
                       name: group.name,
                       path: group.path,
                       category:
-                        group.category === "项目" ? undefined : group.category,
+                        group.category === t("项目")
+                          ? undefined
+                          : group.category,
                     }}
                     categories={categories}
                     conversationCount={
@@ -356,7 +374,7 @@ export function WorkspaceSidebar({
                           name: group.name,
                           path: group.path,
                           category:
-                            group.category === "项目"
+                            group.category === t("项目")
                               ? undefined
                               : group.category,
                         },
@@ -386,7 +404,7 @@ export function WorkspaceSidebar({
                             ? "is-current-project"
                             : ""
                         }
-                        title={`${group.name}\n${group.device.name} · ${group.device.online ? "已连接" : "未连接"}\n${group.path}`}
+                        title={`${group.name}\n${group.device.name} · ${group.device.online ? t("已连接") : t("未连接")}\n${group.path}`}
                         onClick={() =>
                           setCollapsed((previous) => {
                             const next = new Set(previous);
@@ -417,14 +435,14 @@ export function WorkspaceSidebar({
                       </button>
                       <button
                         className="icon-button"
-                        aria-label={`${group.name} 项目设置`}
+                        aria-label={t("{0} 项目设置", group.name)}
                         onClick={() =>
                           onEditProject(group.device, {
                             id: group.projectId,
                             name: group.name,
                             path: group.path,
                             category:
-                              group.category === "项目"
+                              group.category === t("项目")
                                 ? undefined
                                 : group.category,
                           })
@@ -434,7 +452,7 @@ export function WorkspaceSidebar({
                       </button>
                       <button
                         className="icon-button"
-                        aria-label={`在 ${group.name} 新建对话`}
+                        aria-label={t("在 {0} 新建对话", group.name)}
                         onClick={() => onProject(group.device, group.projectId)}
                       >
                         <Plus size={14} />
@@ -465,16 +483,21 @@ export function WorkspaceSidebar({
                               aria-current={
                                 session.id === sessionId ? "page" : undefined
                               }
-                              title={`${session.title}\n${context.deviceName} · ${context.projectName}\n右键或菜单键整理对话`}
+                              title={t(
+                                "{0}\n{1} · {2}\n右键或菜单键整理对话",
+                                session.title,
+                                context.deviceName,
+                                context.projectName,
+                              )}
                               onClick={() => onSession(session)}
                             >
                               {session.archived ? (
-                                <Archive size={15} aria-label="已归档" />
+                                <Archive size={15} aria-label={t("已归档")} />
                               ) : session.pinned ? (
                                 <Pin
                                   size={15}
                                   className="session-pin"
-                                  aria-label="已置顶"
+                                  aria-label={t("已置顶")}
                                 />
                               ) : (
                                 <MessageSquare size={15} />
@@ -484,14 +507,16 @@ export function WorkspaceSidebar({
                                 {showContext && <small>{label}</small>}
                               </span>
                               {draftSessions.has(session.id) && (
-                                <span className="session-draft">草稿</span>
+                                <span className="session-draft">
+                                  {t("草稿")}
+                                </span>
                               )}
                               {unreadSessions.has(session.id) && (
                                 <span
                                   className="session-unread-dot"
                                   role="img"
-                                  aria-label="有新回复"
-                                  title="有新回复"
+                                  aria-label={t("有新回复")}
+                                  title={t("有新回复")}
                                 />
                               )}
                               {session.state === "running" && (
@@ -499,8 +524,8 @@ export function WorkspaceSidebar({
                                   className={`running-dot ${connected === "connected" ? "" : "is-stale"}`}
                                   aria-label={
                                     connected === "connected"
-                                      ? "执行中"
-                                      : "上次执行中"
+                                      ? t("执行中")
+                                      : t("上次执行中")
                                   }
                                 />
                               )}
@@ -515,7 +540,7 @@ export function WorkspaceSidebar({
                             onProject(group.device, group.projectId)
                           }
                         >
-                          新建对话
+                          {t("新建对话")}
                         </button>
                       )}
                     </div>
@@ -527,16 +552,16 @@ export function WorkspaceSidebar({
           {!groups.length && (
             <p className="empty-list">
               {search
-                ? "没有找到匹配对话"
+                ? t("没有找到匹配对话")
                 : scope === "unread"
-                  ? "没有未读回复"
-                  : "从新对话开始"}
+                  ? t("没有未读回复")
+                  : t("从新对话开始")}
             </p>
           )}
         </nav>
         <div className="sidebar-bottom">
           <div className="sidebar-device">
-            <span className="sidebar-section-label">执行设备</span>
+            <span className="sidebar-section-label">{t("执行设备")}</span>
             <DevicePicker
               devices={devices}
               selectedId={deviceId}
@@ -548,12 +573,12 @@ export function WorkspaceSidebar({
             {onLocalDevice && (
               <button onClick={onLocalDevice}>
                 <Monitor size={15} />
-                <span>本机设备</span>
+                <span>{t("连接与服务")}</span>
               </button>
             )}
             <button onClick={onSettings}>
               <Settings size={15} />
-              <span>设置</span>
+              <span>{t("设置")}</span>
               <kbd>{modifier} ,</kbd>
             </button>
           </div>

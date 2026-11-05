@@ -47,7 +47,7 @@ func (m *Manager) backup(ctx context.Context, request *BackupRequest) (*BackupIn
 		return nil, err
 	}
 	engineVersion := engine.CompatibleVersion
-	if c.Executor && c.Engine.Home != "" {
+	if (c.Hub || c.Executor) && c.Engine.Home != "" {
 		engineVersion, err = runtimefiles.EngineVersion(c.Engine.Executable)
 		if err != nil {
 			return nil, errors.New("owned engine history requires its verified runtime version before export")
@@ -109,7 +109,7 @@ func (m *Manager) backup(ctx context.Context, request *BackupRequest) (*BackupIn
 		c.NodeTokenFile = "node-token"
 	}
 	history := false
-	if c.Executor && c.Engine.Home != "" {
+	if (c.Hub || c.Executor) && c.Engine.Home != "" {
 		home, err := m.ownedRelative(c.Engine.Home)
 		if err != nil {
 			return nil, err
@@ -121,7 +121,7 @@ func (m *Manager) backup(ctx context.Context, request *BackupRequest) (*BackupIn
 		}
 		c.Engine.Home = "engine-home"
 		history = true
-	} else if !c.Executor {
+	} else if !c.Executor && !c.Hub {
 		c.Engine.Home = ""
 	}
 	metadata, err := json.Marshal(backupProfile{Format: 1, ProtocolVersion: protocol.Version, EngineVersion: engineVersion, EngineHistoryIncluded: history, Config: c})

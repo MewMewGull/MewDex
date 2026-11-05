@@ -1,9 +1,8 @@
-// Package webui serves the same built input UI embedded in the desktop app.
+// Package webui serves the separately deployed input terminal assets.
 package webui
 
 import (
 	"bytes"
-	"embed"
 	"encoding/json"
 	"io/fs"
 	"net/http"
@@ -11,9 +10,6 @@ import (
 	"path/filepath"
 	"strings"
 )
-
-//go:embed all:static
-var bundled embed.FS
 
 type WebWorkbenchSettings struct {
 	Enabled bool `json:"enabled"`
@@ -27,15 +23,7 @@ func Enabled(root string) bool {
 	return err == nil && json.Unmarshal(raw, &settings) == nil && settings.Enabled
 }
 
-func Handler() http.Handler {
-	files, _ := fs.Sub(bundled, "static")
-	return handler(files)
-}
-
-func Available() bool {
-	_, err := bundled.ReadFile("static/index.html")
-	return err == nil
-}
+func Handler(directory string) http.Handler { return handler(os.DirFS(directory)) }
 
 func handler(files fs.FS) http.Handler {
 	assets := http.FileServerFS(files)
@@ -51,7 +39,7 @@ func handler(files fs.FS) http.Handler {
 		if r.URL.Path == "/" || r.URL.Path == "/index.html" {
 			index, err := fs.ReadFile(files, "index.html")
 			if err != nil {
-				http.Error(w, "此版本未包含网页界面，请安装完整的 MewDex 应用。", http.StatusServiceUnavailable)
+				http.Error(w, "网页资源不可用，请检查独立网页端的 ui 目录。", http.StatusServiceUnavailable)
 				return
 			}
 			index = bytes.Replace(index, []byte("</head>"), []byte(`<meta name="mewdex-hub" content="same-origin"></head>`), 1)

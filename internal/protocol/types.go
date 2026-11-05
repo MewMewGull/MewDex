@@ -27,10 +27,12 @@ func JSON(v any) json.RawMessage {
 }
 
 type Project struct {
-	ID       string `json:"id"`
-	Name     string `json:"name"`
-	Path     string `json:"path"`
-	Category string `json:"category,omitempty"`
+	ID          string             `json:"id"`
+	Name        string             `json:"name"`
+	Path        string             `json:"path"`
+	Category    string             `json:"category,omitempty"`
+	Directories []ProjectDirectory `json:"directories,omitempty"`
+	Revision    int64              `json:"revision,omitempty"`
 }
 
 type WorkspaceRequest struct {
@@ -52,6 +54,7 @@ type WorkspaceListing struct {
 
 type Device struct {
 	ID              string    `json:"id"`
+	HostID          string    `json:"hostId,omitempty"`
 	Name            string    `json:"name"`
 	Platform        string    `json:"platform"`
 	Roles           []string  `json:"roles"`
@@ -141,6 +144,7 @@ type Input struct {
 }
 
 type Command struct {
+	Terminal              *TerminalRequest  `json:"terminal,omitempty"`
 	Workspace             *WorkspaceRequest `json:"workspace,omitempty"`
 	Models                *ModelListRequest `json:"models,omitempty"`
 	File                  *FileRequest      `json:"file,omitempty"`
@@ -248,12 +252,13 @@ type Identity struct {
 	Name      string `json:"name"`
 	Role      string `json:"role"`
 	DeviceID  string `json:"deviceId,omitempty"`
+	HostID    string `json:"hostId,omitempty"`
 	CreatedAt string `json:"createdAt"`
 	Access    Access `json:"access"`
 	AccountID string `json:"accountId,omitempty"`
 }
 
-// MewDexAccount authenticates a user of the Hub. ModelAccount belongs to an executor.
+// MewDexAccount authenticates a user of the Hub. ModelAccount belongs to its coordinator.
 type MewDexAccount struct {
 	ID        string `json:"id"`
 	Username  string `json:"username"`
@@ -273,10 +278,12 @@ type ServerAuthentication struct {
 }
 
 type ServerInfo struct {
+	HubDeviceID     string               `json:"hubDeviceId,omitempty"`
 	Name            string               `json:"name"`
 	ProtocolVersion int                  `json:"protocolVersion"`
 	Capabilities    []string             `json:"capabilities"`
 	Authentication  ServerAuthentication `json:"authentication"`
+	InputProxy      *Device              `json:"inputProxy,omitempty"`
 }
 
 // Access is a network grant, independent of the execution sandbox and model account.

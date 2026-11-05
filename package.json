@@ -1,6 +1,6 @@
 {
   "name": "mewdex",
-  "version": "0.1.1-preview.20261104",
+  "version": "0.1.2-preview.20261106",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -20,7 +20,13 @@
     "test:client": "npm run test --workspace @mewdex/client",
     "test:release": "node --test scripts/test/release.test.mjs",
     "release:prepare": "node scripts/prepare-release.mjs",
-    "version:app": "node scripts/set-app-version.mjs"
+    "version:app": "node scripts/set-app-version.mjs",
+    "package:services": "node scripts/package-components.mjs",
+    "package:hub": "node scripts/package-components.mjs --component=hub",
+    "package:executor": "node scripts/package-components.mjs --component=executor",
+    "package:web": "node scripts/package-components.mjs --component=web",
+    "build:app:windows": "powershell -NoProfile -File scripts/build-desktop-development.ps1",
+    "package:app:windows": "python scripts/export-windows-development.py"
   },
   "devDependencies": {
     "prettier": "3.5.3"

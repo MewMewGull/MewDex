@@ -33,11 +33,13 @@ import {
   type WorkspaceListing,
   type WorkspaceRequest,
   type Project,
+  type HubProjectRequest,
   type MewDexAccount,
   type ServerInfo,
   type MessagingChannel,
   type MessagingUpdate,
   type MessagingLogin,
+  type InputBridge,
 } from "./protocol.ts";
 
 export class MewDexError extends Error {
@@ -68,11 +70,16 @@ export interface Credentials {
   token: string;
   identity: Identity;
   protocolVersion: number;
+  hubDeviceId?: string;
+  inputProxy?: Device | null;
 }
 export interface SDKOptions {
   baseURL: string;
   allowPrivateHTTP?: boolean;
   token?: string;
+  expectedHubDeviceId?: string;
+  expectedIdentityId?: string;
+  expectedInputProxyHostId?: string;
   fetch?: typeof globalThis.fetch;
   createWebSocket?: (url: string) => WebSocket;
 }
@@ -83,6 +90,9 @@ export class MewDexClient {
   private readonly fetcher: typeof globalThis.fetch;
   private readonly socket: (url: string) => WebSocket;
   private token: string;
+  private readonly expectedHubDeviceId?: string;
+  private readonly expectedIdentityId?: string;
+  private readonly expectedInputProxyHostId?: string;
 
   constructor(options: SDKOptions) {
     const parsed = new URL(options.baseURL);
@@ -117,6 +127,9 @@ export class MewDexClient {
       throw new Error("Hub 地址需要 HTTPS；局域网 HTTP 仅可显式启用调试选项。");
     this.base = parsed.toString().replace(/\/$/, "");
     this.token = options.token ?? "";
+    this.expectedHubDeviceId = options.expectedHubDeviceId;
+    this.expectedIdentityId = options.expectedIdentityId;
+    this.expectedInputProxyHostId = options.expectedInputProxyHostId;
     this.fetcher = options.fetch ?? globalThis.fetch.bind(globalThis);
     this.socket = options.createWebSocket ?? ((url) => new WebSocket(url));
   }
@@ -126,7 +139,8 @@ export class MewDexClient {
     init: RequestInit = {},
   ): Promise<Response> {
     const headers = new Headers(init.headers);
-    if (this.token) headers.set("Authorization", `Bearer ${this.token}`);
+    if (this.token && !headers.has("Authorization"))
+      headers.set("Authorization", `Bearer ${this.token}`);
     if (init.body && !headers.has("Content-Type"))
       headers.set("Content-Type", "application/json");
     const response = await this.fetcher(this.base + path, {
@@ -153,60 +167,161 @@ export class MewDexClient {
     return (await this.response(path, init)).json() as Promise<T>;
   }
 
-  messagingChannels(signal?: AbortSignal): Promise<MessagingChannel[]> {
-    return this.request("/v1/messaging", { signal });
+  inputBridges(signal?: AbortSignal): Promise<InputBridge[]> {
+    return this.request("/v1/input-bridges", { signal });
+  }
+
+  private messagingPath(path: string, bridgeId?: string): string {
+    return path + (bridgeId ? `?${new URLSearchParams({ bridgeId })}` : "");
+  }
+
+  messagingChannels(
+    signal?: AbortSignal,
+    bridgeId?: string,
+  ): Promise<MessagingChannel[]> {
+    return this.request(this.messagingPath("/v1/messaging", bridgeId), {
+      signal,
+    });
   }
 
   updateMessagingChannel(
     platform: string,
     update: MessagingUpdate,
+    bridgeId?: string,
   ): Promise<MessagingChannel[]> {
-    return this.request(`/v1/messaging/${encodeURIComponent(platform)}`, {
-      method: "PUT",
-      body: JSON.stringify(update),
-    });
+    return this.request(
+      this.messagingPath(
+        `/v1/messaging/${encodeURIComponent(platform)}`,
+        bridgeId,
+      ),
+      {
+        method: "PUT",
+        body: JSON.stringify(update),
+      },
+    );
   }
 
-  beginWeixinLogin(signal?: AbortSignal): Promise<MessagingLogin> {
-    return this.request("/v1/messaging/weixin/login", {
-      method: "POST",
-      signal,
-    });
+  beginWeixinLogin(
+    signal?: AbortSignal,
+    bridgeId?: string,
+  ): Promise<MessagingLogin> {
+    return this.request(
+      this.messagingPath("/v1/messaging/weixin/login", bridgeId),
+      {
+        method: "POST",
+        signal,
+      },
+    );
   }
 
-  pollWeixinLogin(signal?: AbortSignal): Promise<MessagingLogin> {
-    return this.request("/v1/messaging/weixin/login/poll", {
-      method: "POST",
-      signal,
-    });
+  pollWeixinLogin(
+    signal?: AbortSignal,
+    bridgeId?: string,
+  ): Promise<MessagingLogin> {
+    return this.request(
+      this.messagingPath("/v1/messaging/weixin/login/poll", bridgeId),
+      {
+        method: "POST",
+        signal,
+      },
+    );
   }
 
   async pair(
     code: string,
     name: string,
     deviceId?: string,
+    hostId?: string,
   ): Promise<Credentials> {
+    const server = await this.checkServer();
     const result = await this.request<Credentials>("/v1/pair", {
       method: "POST",
-      body: JSON.stringify({ code, name, deviceId }),
+      body: JSON.stringify({ code, name, deviceId, hostId }),
     });
-    if (result.protocolVersion !== PROTOCOL_VERSION)
-      throw new Error("Hub protocol version is not supported");
-    this.token = result.token;
-    return result;
+    if (deviceId && result.identity?.deviceId !== deviceId)
+      throw new Error("Hub returned another device's pairing identity");
+    return this.acceptCredentials(result, server);
   }
   /** Reuse an existing input identity without consuming a pairing invitation. */
   async loginWithKey(signal?: AbortSignal): Promise<Credentials> {
     if (!this.token.trim()) throw new Error("请输入登录密钥。");
+    const server = await this.checkServer(signal);
     const identity = await this.identity(signal);
     if (identity.role !== "client" && identity.role !== "admin")
       throw new Error("此密钥不是输入端登录密钥。");
-    return { token: this.token, identity, protocolVersion: PROTOCOL_VERSION };
+    this.verifyInputIdentity(identity);
+    return {
+      token: this.token,
+      identity,
+      protocolVersion: PROTOCOL_VERSION,
+      hubDeviceId: server.hubDeviceId,
+      inputProxy: server.inputProxy,
+    };
   }
+
+  private verifyInputIdentity(identity: Identity) {
+    if (this.expectedIdentityId && identity.id !== this.expectedIdentityId)
+      throw new Error("登录身份与保存的账号不一致，请重新登录。");
+  }
+
+  private async acceptCredentials(
+    result: Credentials,
+    server: ServerInfo,
+    signal?: AbortSignal,
+  ): Promise<Credentials> {
+    if (
+      result.protocolVersion !== PROTOCOL_VERSION ||
+      !result.token ||
+      !result.identity?.id
+    )
+      throw new Error("Hub returned invalid login credentials");
+    if (
+      (result.hubDeviceId && result.hubDeviceId !== server.hubDeviceId) ||
+      (result.inputProxy &&
+        (result.inputProxy.id !== server.inputProxy?.id ||
+          result.inputProxy.hostId !== server.inputProxy?.hostId))
+    )
+      throw new Error(
+        "登录响应的 Hub 或代理设备与连接入口不一致，请重新连接。",
+      );
+    const verified = await this.request<Identity>("/v1/me", {
+      headers: { Authorization: `Bearer ${result.token}` },
+      signal,
+    });
+    if (
+      verified.id !== result.identity.id ||
+      verified.role !== result.identity.role ||
+      verified.deviceId !== result.identity.deviceId ||
+      verified.hostId !== result.identity.hostId ||
+      verified.accountId !== result.identity.accountId
+    )
+      throw new Error("登录密钥与返回的账号或设备不一致，请重新登录。");
+    this.verifyInputIdentity(verified);
+    this.token = result.token;
+    return {
+      ...result,
+      identity: verified,
+      hubDeviceId: server.hubDeviceId,
+      inputProxy: server.inputProxy,
+    };
+  }
+
   async checkServer(signal?: AbortSignal): Promise<ServerInfo> {
     const info = await this.request<ServerInfo>("/health", { signal });
     if (info.name !== "MewDex" || info.protocolVersion !== PROTOCOL_VERSION)
       throw new Error("此地址不是兼容的 MewDex 中央后端。");
+    if (
+      this.expectedHubDeviceId &&
+      info.hubDeviceId !== this.expectedHubDeviceId
+    )
+      throw new Error("此地址的 Hub 身份已变化，请核对服务设备后重新登录。");
+    if (
+      this.expectedInputProxyHostId &&
+      info.inputProxy?.hostId !== this.expectedInputProxyHostId
+    )
+      throw new Error("提供代理服务的设备已变化，请核对后重新登录。");
+    if (info.inputProxy && info.inputProxy.id !== info.hubDeviceId)
+      throw new Error("代理设备与 Hub 身份不一致。");
     if (!info.authentication)
       return {
         ...info,
@@ -238,6 +353,7 @@ export class MewDexClient {
     password: string,
     signal?: AbortSignal,
   ): Promise<Credentials> {
+    const server = await this.checkServer(signal);
     const result = await this.request<Credentials>("/v1/login", {
       method: "POST",
       body: JSON.stringify({ username, password }),
@@ -250,8 +366,7 @@ export class MewDexClient {
       !result.identity.accountId
     )
       throw new Error("中央后端没有返回有效的 MewDex 账号登录信息。");
-    this.token = result.token;
-    return result;
+    return this.acceptCredentials(result, server, signal);
   }
   mewdexAccount(): Promise<MewDexAccount | null> {
     return this.request("/v1/mewdex/account");
@@ -333,6 +448,17 @@ export class MewDexClient {
   identity(signal?: AbortSignal): Promise<Identity> {
     return this.request("/v1/me", { signal });
   }
+
+  hubProjects(signal?: AbortSignal): Promise<Project[]> {
+    return this.request("/v1/projects", { signal });
+  }
+
+  saveHubProject(id: string, input: HubProjectRequest): Promise<Project> {
+    return this.request(`/v1/projects/${encodeURIComponent(id)}`, {
+      method: "PUT",
+      body: JSON.stringify(input),
+    });
+  }
   sessions(deviceId?: string): Promise<Session[]> {
     return this.request(
       "/v1/sessions" +
@@ -346,13 +472,14 @@ export class MewDexClient {
     session: Pick<Session, "id" | "deviceId">,
     path = ".",
     after = "",
+    directory?: number,
   ): Promise<FileListing> {
     const result = await this.run({
       id: commandID(),
       deviceId: session.deviceId,
       sessionId: session.id,
       kind: "file.list",
-      file: { path, after },
+      file: { path, after, directory },
     });
     return result.data as FileListing;
   }
@@ -360,13 +487,14 @@ export class MewDexClient {
     session: Pick<Session, "id" | "deviceId">,
     path: string,
     id = commandID(),
+    directory?: number,
   ): Promise<OutputFile> {
     const result = await this.run({
       id,
       deviceId: session.deviceId,
       sessionId: session.id,
       kind: "file.export",
-      file: { path },
+      file: { path, directory },
     });
     return result.data as OutputFile;
   }

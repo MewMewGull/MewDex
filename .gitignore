@@ -1,5 +1,6 @@
 node_modules/
 dist/
+apps/client/dist-app/
 internal/webui/static/*
 !internal/webui/static/.keep
 target/

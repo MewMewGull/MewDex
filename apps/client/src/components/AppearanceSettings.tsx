@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import {
   useEffect,
   useId,
@@ -69,8 +70,8 @@ function ThemeCard({
         {selected && <Check size={15} />}
       </span>
       <small>
-        {theme.type === "dark" ? "深色" : "浅色"}
-        {Object.keys(overrides).length > 0 ? " · 已自定义" : ""}
+        {theme.type === "dark" ? t("深色") : t("浅色")}
+        {Object.keys(overrides).length > 0 ? t(" · 已自定义") : ""}
       </small>
     </button>
   );
@@ -114,14 +115,14 @@ function ColorSetting({
       <div className="appearance-color-controls">
         <input
           type="color"
-          aria-label={`${definition.label}取色`}
+          aria-label={t("{0}取色", definition.label)}
           value={value.slice(0, 7)}
           onChange={(event) => onChange(event.target.value)}
         />
         <input
           id={id}
           className="appearance-color-hex"
-          aria-label={`${definition.label}颜色值`}
+          aria-label={t("{0}颜色值", definition.label)}
           aria-invalid={invalid}
           aria-describedby={invalid ? `${id}-error` : undefined}
           spellCheck={false}
@@ -143,8 +144,8 @@ function ColorSetting({
           type="button"
           className="icon-button"
           disabled={!customized}
-          aria-label={`重置${definition.label}`}
-          title={`重置${definition.label}`}
+          aria-label={t("重置{0}", definition.label)}
+          title={t("重置{0}", definition.label)}
           onClick={onReset}
         >
           <RotateCcw size={14} />
@@ -156,7 +157,7 @@ function ColorSetting({
           className="appearance-color-error"
           role="alert"
         >
-          请输入 #RGB、#RGBA、#RRGGBB 或 #RRGGBBAA。
+          {t("请输入 #RGB、#RGBA、#RRGGBB 或 #RRGGBBAA。")}
         </small>
       )}
     </div>
@@ -206,12 +207,12 @@ export function AppearanceSettings() {
     setNotice("");
     try {
       if (file.size > maxThemeFileBytes)
-        throw new Error("主题文件不能超过 256 KiB。");
+        throw new Error(t("主题文件不能超过 256 KiB。"));
       const theme = importTheme(await file.text());
-      setNotice(`已导入并应用“${theme.name}”。`);
+      setNotice(t("已导入并应用“{0}”。", theme.name));
     } catch (cause) {
       setFileError(
-        cause instanceof Error ? cause.message : "无法读取主题文件。",
+        cause instanceof Error ? cause.message : t("无法读取主题文件。"),
       );
     } finally {
       setBusy(false);
@@ -230,8 +231,8 @@ export function AppearanceSettings() {
       if (result !== "cancelled")
         setNotice(
           result === "saved"
-            ? "主题文件已保存，可以分享给其他用户。"
-            : "主题文件已开始下载，可以分享给其他用户。",
+            ? t("主题文件已保存，可以分享给其他用户。")
+            : t("主题文件已开始下载，可以分享给其他用户。"),
         );
     } catch (cause) {
       setFileError(
@@ -239,7 +240,7 @@ export function AppearanceSettings() {
           ? cause
           : cause instanceof Error
             ? cause.message
-            : "无法导出主题文件。",
+            : t("无法导出主题文件。"),
       );
     } finally {
       setBusy(false);
@@ -247,9 +248,9 @@ export function AppearanceSettings() {
   }
   return (
     <section className="network-section appearance-settings">
-      <h3>颜色主题</h3>
+      <h3>{t("颜色主题")}</h3>
       <p className="muted">
-        选择主题后即时生效。每个主题的自定义颜色分别保存在这台设备上。
+        {t("选择主题后即时生效。每个主题的自定义颜色分别保存在这台设备上。")}
       </p>
       <label className="checkbox appearance-system-toggle">
         <input
@@ -259,14 +260,15 @@ export function AppearanceSettings() {
             update({ theme: event.target.checked ? "system" : activeTheme.id })
           }
         />
-        <Monitor size={16} /> 跟随系统外观
+        <Monitor size={16} />
+        {t(" 跟随系统外观")}
       </label>
       {value.theme === "system" && (
         <div className="appearance-system-preferences">
           <label>
-            系统深色时使用
+            {t("系统深色时使用")}
             <select
-              aria-label="系统深色主题"
+              aria-label={t("系统深色主题")}
               value={value.preferredDarkTheme}
               onChange={(event) =>
                 update({ preferredDarkTheme: event.target.value })
@@ -282,9 +284,9 @@ export function AppearanceSettings() {
             </select>
           </label>
           <label>
-            系统浅色时使用
+            {t("系统浅色时使用")}
             <select
-              aria-label="系统浅色主题"
+              aria-label={t("系统浅色主题")}
               value={value.preferredLightTheme}
               onChange={(event) =>
                 update({ preferredLightTheme: event.target.value })
@@ -301,7 +303,11 @@ export function AppearanceSettings() {
           </label>
         </div>
       )}
-      <div className="appearance-theme-grid" role="group" aria-label="颜色主题">
+      <div
+        className="appearance-theme-grid"
+        role="group"
+        aria-label={t("颜色主题")}
+      >
         {themes.map((theme) => (
           <ThemeCard
             key={theme.id}
@@ -314,9 +320,12 @@ export function AppearanceSettings() {
       </div>
       <div className="appearance-section-heading">
         <div>
-          <h3>自定义颜色</h3>
+          <h3>{t("自定义颜色")}</h3>
           <p className="muted">
-            正在编辑 {activeTheme.name}。支持取色器和带透明度的十六进制颜色。
+            {t(
+              "正在编辑 {0}。支持取色器和带透明度的十六进制颜色。",
+              activeTheme.name,
+            )}
           </p>
         </div>
         <button
@@ -326,59 +335,64 @@ export function AppearanceSettings() {
           onClick={resetColors}
         >
           <RotateCcw size={14} />
-          重置颜色
+          {t("重置颜色")}
         </button>
       </div>
-      {["基础", "输入与对话", "标题栏与终端", "状态"].map((group) => (
-        <details
-          key={group}
-          className="appearance-color-group"
-          open={group === "基础" ? true : undefined}
-        >
-          <summary>{group}</summary>
-          <div className="appearance-color-grid">
-            {(Object.keys(themeColorRegistry) as ThemeColorId[])
-              .filter((id) => themeColorRegistry[id].group === group)
-              .map((id) => (
-                <ColorSetting
-                  key={`${activeTheme.id}-${id}`}
-                  colorId={id}
-                  value={colors[id]}
-                  customized={overrides[id] !== undefined}
-                  onChange={(color) => setColor(id, color)}
-                  onReset={() => setColor(id)}
-                />
-              ))}
-          </div>
-        </details>
-      ))}
-      <div className="appearance-preview" aria-label="主题实时预览">
+      {[t("基础"), t("输入与对话"), t("标题栏与终端"), t("状态")].map(
+        (group) => (
+          <details
+            key={group}
+            className="appearance-color-group"
+            open={group === t("基础") ? true : undefined}
+          >
+            <summary>{group}</summary>
+            <div className="appearance-color-grid">
+              {(Object.keys(themeColorRegistry) as ThemeColorId[])
+                .filter((id) => themeColorRegistry[id].group === group)
+                .map((id) => (
+                  <ColorSetting
+                    key={`${activeTheme.id}-${id}`}
+                    colorId={id}
+                    value={colors[id]}
+                    customized={overrides[id] !== undefined}
+                    onChange={(color) => setColor(id, color)}
+                    onReset={() => setColor(id)}
+                  />
+                ))}
+            </div>
+          </details>
+        ),
+      )}
+      <div className="appearance-preview" aria-label={t("主题实时预览")}>
         <div className="appearance-preview-sidebar">
           <strong>MewDex</strong>
-          <span>我的项目</span>
-          <span>当前对话</span>
+          <span>{t("我的项目")}</span>
+          <span>{t("当前对话")}</span>
         </div>
         <div className="appearance-preview-main">
-          <strong>让想法开始执行</strong>
-          <p>工作区、对话和执行设备保持清晰。</p>
+          <strong>{t("让想法开始执行")}</strong>
+          <p>{t("工作区、对话和执行设备保持清晰。")}</p>
           <code>const workspace = "MewDex";</code>
           <div className="appearance-preview-composer">
-            发送一条消息…<span>↑</span>
+            {t("发送一条消息…")}
+            <span>↑</span>
           </div>
         </div>
       </div>
       <div className="appearance-section-heading">
         <div>
-          <h3>分享主题</h3>
+          <h3>{t("分享主题")}</h3>
           <p className="muted">
-            导出当前主题的完整配色。其他用户可导入 .mewdex-theme.json 文件使用。
+            {t(
+              "导出当前主题的完整配色。其他用户可导入 .mewdex-theme.json 文件使用。",
+            )}
           </p>
         </div>
       </div>
       <label>
-        主题名称
+        {t("主题名称")}
         <input
-          aria-label="主题名称"
+          aria-label={t("主题名称")}
           value={name}
           maxLength={80}
           onChange={(event) => setName(event.target.value)}
@@ -392,7 +406,7 @@ export function AppearanceSettings() {
           onClick={() => void exportCurrent()}
         >
           <Download size={15} />
-          导出主题
+          {t("导出主题")}
         </button>
         <button
           type="button"
@@ -401,14 +415,14 @@ export function AppearanceSettings() {
           onClick={() => fileInput.current?.click()}
         >
           <Upload size={15} />
-          导入主题
+          {t("导入主题")}
         </button>
         <input
           ref={fileInput}
           className="appearance-file-input"
           type="file"
           accept=".json,application/json"
-          aria-label="导入主题文件"
+          aria-label={t("导入主题文件")}
           disabled={busy}
           onChange={(event) => void readFile(event)}
         />
@@ -419,7 +433,7 @@ export function AppearanceSettings() {
             disabled={busy}
             onClick={() => removeTheme(activeTheme.id)}
           >
-            移除当前导入主题
+            {t("移除当前导入主题")}
           </button>
         )}
       </div>
@@ -434,28 +448,29 @@ export function AppearanceSettings() {
         </p>
       )}
       <div className="appearance-section-heading">
-        <h3>字体与动效</h3>
+        <h3>{t("字体与动效")}</h3>
       </div>
       <label>
-        界面字体
+        {t("界面字体")}
         <select
-          aria-label="界面字体"
+          aria-label={t("界面字体")}
           value={value.font}
           onChange={(event) =>
             update({ font: event.target.value as typeof value.font })
           }
         >
-          <option value="system">系统默认</option>
-          <option value="yahei">微软雅黑 / 苹方</option>
+          <option value="system">{t("系统默认")}</option>
+          <option value="yahei">{t("微软雅黑 / 苹方")}</option>
           <option value="segoe">Segoe UI</option>
-          <option value="mono">等宽字体</option>
+          <option value="mono">{t("等宽字体")}</option>
         </select>
       </label>
       <label>
-        界面字号 <output>{value.fontSize}px</output>
+        {t("界面字号 ")}
+        <output>{value.fontSize}px</output>
         <input
           type="range"
-          aria-label="界面字号"
+          aria-label={t("界面字号")}
           min={12}
           max={20}
           value={value.fontSize}
@@ -463,10 +478,11 @@ export function AppearanceSettings() {
         />
       </label>
       <label>
-        对话字号 <output>{value.messageSize}px</output>
+        {t("对话字号 ")}
+        <output>{value.messageSize}px</output>
         <input
           type="range"
-          aria-label="对话字号"
+          aria-label={t("对话字号")}
           min={13}
           max={24}
           value={value.messageSize}
@@ -481,7 +497,7 @@ export function AppearanceSettings() {
           checked={value.motion}
           onChange={(event) => update({ motion: event.target.checked })}
         />
-        启用界面动效
+        {t("启用界面动效")}
       </label>
       {error && (
         <p className="error" role="alert">

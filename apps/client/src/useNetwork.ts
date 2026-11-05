@@ -1,3 +1,4 @@
+import { t } from "./localization.ts";
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -71,6 +72,11 @@ export function useNetwork(
       restore.current?.(snapshot);
     }
     const current = useWorkspace.getState();
+    const hub = snapshot.devices.find((device) =>
+      device.roles.includes("coordinator"),
+    );
+    if (hub && !current.sessionId && current.deviceId !== hub.id)
+      current.selectDevice(hub.id);
     if (!snapshot.devices.some((device) => device.id === current.deviceId))
       current.selectDevice(orderedDevices(snapshot.devices)[0]?.id ?? "");
     if (
@@ -86,7 +92,7 @@ export function useNetwork(
       setUnauthorized(true);
       setReady(false);
     }
-    setError(value instanceof Error ? value.message : "连接暂时不可用");
+    setError(value instanceof Error ? value.message : t("连接暂时不可用"));
   }
   useEffect(() => {
     const controller = new AbortController();
@@ -212,7 +218,10 @@ export function useNetwork(
             void cache.invalidateQueries({ queryKey: ["sessions"] });
           if (event.kind === "command.result")
             void cache.invalidateQueries({ queryKey: ["pending-commands"] });
-          if (event.kind === "workspace.catalog.updated")
+          if (
+            event.kind === "workspace.catalog.updated" ||
+            event.kind === "project.catalog.updated"
+          )
             void cache.invalidateQueries({ queryKey: ["devices"] });
           if (event.kind === "engine.account/rateLimits/updated")
             void cache.invalidateQueries({

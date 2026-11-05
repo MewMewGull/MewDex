@@ -87,7 +87,7 @@ func updateIdle(c config.Config) error {
 		name     string
 		enabled  bool
 		executor bool
-	}{{"executor.db", c.Executor, true}, {"hub.db", c.Hub, false}} {
+	}{{"executor.db", c.Executor, true}, {"hub.db", c.Hub, false}, {"coordinator/coordinator.db", c.Hub, true}} {
 		if !target.enabled {
 			continue
 		}
@@ -102,9 +102,18 @@ func updateIdle(c config.Config) error {
 			return err
 		}
 		sessions, err := store.List[protocol.Session](database, "sessions")
+		jobs, jobErr := store.List[protocol.TerminalJob](database, "terminal_jobs")
 		database.Close()
 		if err != nil {
 			return err
+		}
+		if jobErr != nil {
+			return jobErr
+		}
+		for _, job := range jobs {
+			if job.State == "running" || job.State == "unknown" {
+				return errors.New("执行端仍有运行中或结果未确认的指令，请处理后更新")
+			}
 		}
 		for _, session := range sessions {
 			if session.ExecutionRecovery != nil && session.ExecutionRecovery.State == "retired" {

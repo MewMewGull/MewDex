@@ -1,9 +1,10 @@
+import { t } from "../localization.ts";
 import { useEffect, useRef, useState } from "react";
 import { Check, Copy } from "lucide-react";
 
 export function CopyButton({
   text,
-  label = "复制",
+  label = t("复制"),
 }: {
   text: string | (() => string);
   label?: string;
@@ -32,9 +33,9 @@ export function CopyButton({
       {status === "copied" ? <Check size={13} /> : <Copy size={13} />}
       <span role="status">
         {status === "copied"
-          ? "已复制"
+          ? t("已复制")
           : status === "failed"
-            ? "复制失败，重试"
+            ? t("复制失败，重试")
             : label}
       </span>
     </button>

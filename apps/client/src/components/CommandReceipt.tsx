@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { useState } from "react";
 import { ArrowUpRight, RefreshCw } from "lucide-react";
 import { MewDexClient, type CommandResult } from "@mewdex/sdk";
@@ -22,7 +23,7 @@ export function CommandReceipt({
 }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [status, setStatus] = useState("指令结果尚未确认");
+  const [status, setStatus] = useState(t("指令结果尚未确认"));
   async function observe() {
     setBusy(true);
     setError("");
@@ -33,8 +34,8 @@ export function CommandReceipt({
       else
         setStatus(
           result.state === "accepted"
-            ? "执行端仍在处理指令"
-            : (result.error ?? "执行端仍无法确认结果"),
+            ? t("执行端仍在处理指令")
+            : (result.error ?? t("执行端仍无法确认结果")),
         );
     } catch (e) {
       setError((e as Error).message);
@@ -44,40 +45,40 @@ export function CommandReceipt({
   }
   const message = ["start", "steer", "enqueue"].includes(pending.command.kind);
   const labels: Record<string, string> = {
-    create: "创建对话",
-    start: "发送消息",
-    steer: "追加消息",
-    enqueue: "加入队列",
-    stop: "停止任务",
-    interrupt: "中断回合",
-    resume: "恢复任务",
-    "queue.cancel": "取消队列项",
-    reconcile: "核实执行状态",
-    "execution.retire": "结束旧执行",
-    respond: "回复请求",
-    "file.export": "回传文件快照",
+    create: t("创建对话"),
+    start: t("发送消息"),
+    steer: t("追加消息"),
+    enqueue: t("加入队列"),
+    stop: t("停止任务"),
+    interrupt: t("中断回合"),
+    resume: t("恢复任务"),
+    "queue.cancel": t("取消队列项"),
+    reconcile: t("核实执行状态"),
+    "execution.retire": t("结束旧执行"),
+    respond: t("回复请求"),
+    "file.export": t("回传文件快照"),
   };
   return (
-    <section className="command-receipt" aria-label="待确认指令">
+    <section className="command-receipt" aria-label={t("待确认指令")}>
       <header>
         <div>
-          <small>{labels[pending.command.kind] ?? "控制指令"}</small>
+          <small>{labels[pending.command.kind] ?? t("控制指令")}</small>
           <strong>{targetLabel}</strong>
         </div>
         {onOpen && (
           <button
             className="receipt-open-target"
             onClick={onOpen}
-            aria-label={`打开对话：${targetLabel}`}
+            aria-label={t("打开对话：{0}", targetLabel)}
           >
             <ArrowUpRight size={15} />
-            打开对话
+            {t("打开对话")}
           </button>
         )}
       </header>
       <p role="status">{status}</p>
       <details className="receipt-technical-details">
-        <summary>操作编号</summary>
+        <summary>{t("操作编号")}</summary>
         <code>{pending.command.id}</code>
       </details>
       {error && (
@@ -88,12 +89,12 @@ export function CommandReceipt({
       <div className="receipt-card-actions">
         <button disabled={!canQuery || busy} onClick={() => void observe()}>
           <RefreshCw size={13} />
-          {busy ? "正在查询…" : "查询回执"}
+          {busy ? t("正在查询…") : t("查询回执")}
         </button>
         <button onClick={onDismiss}>
           {message && pending.draftKey
-            ? "清除本次已发送内容并关闭提示"
-            : "关闭状态提示"}
+            ? t("清除本次已发送内容并关闭提示")
+            : t("关闭状态提示")}
         </button>
       </div>
     </section>

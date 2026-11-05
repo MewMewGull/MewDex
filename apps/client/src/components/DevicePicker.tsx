@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { useMemo, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Check, ChevronDown, Search, X } from "lucide-react";
@@ -31,12 +32,32 @@ export function DevicePicker({
     [devices, selectedId, search],
   );
   const navigation = useKeyboardList(matches, open, choose);
+  const hub = devices.find((device) => device.roles.includes("coordinator"));
+  const displayed = selectedId ? selected : hub;
   function choose(device: Device) {
     chosen.current = true;
     onSelect(device.id);
     setOpen(false);
     setSearch("");
   }
+  if (hub && displayed)
+    return (
+      <div className="device-picker-trigger hub-network-summary">
+        <span className="device-picker-icon">
+          <DeviceIcon platform={displayed.platform} />
+        </span>
+        <span className="device-picker-current">
+          <small>
+            {displayed.id === hub.id ? t("当前 Hub") : t("对话所属设备")}
+          </small>
+          <strong>{displayed.name}</strong>
+        </span>
+        <i
+          className={devicePresence(displayed.online, connected).dot}
+          title={devicePresence(displayed.online, connected).label}
+        />
+      </div>
+    );
   return (
     <Dialog.Root
       open={open}
@@ -47,15 +68,20 @@ export function DevicePicker({
     >
       <Dialog.Trigger
         className="device-picker-trigger"
-        aria-label={`选择执行设备${selected ? `，当前为 ${selected.name}` : ""}`}
-        title={selected ? deviceDescription(selected, connected) : "选择设备"}
+        aria-label={t(
+          "选择执行设备{0}",
+          selected ? t("，当前为 {0}", selected.name) : "",
+        )}
+        title={
+          selected ? deviceDescription(selected, connected) : t("选择设备")
+        }
       >
         <span className="device-picker-icon">
           <DeviceIcon platform={selected?.platform ?? ""} />
         </span>
         <span className="device-picker-current">
-          <small>当前设备</small>
-          <strong>{selected?.name ?? "选择设备"}</strong>
+          <small>{t("当前设备")}</small>
+          <strong>{selected?.name ?? t("选择设备")}</strong>
         </span>
         <i
           className={devicePresence(selected?.online, connected).dot}
@@ -77,20 +103,23 @@ export function DevicePicker({
           }}
         >
           <div className="dialog-heading">
-            <Dialog.Title>选择设备</Dialog.Title>
-            <Dialog.Close className="icon-button" aria-label="关闭设备选择">
+            <Dialog.Title>{t("选择设备")}</Dialog.Title>
+            <Dialog.Close
+              className="icon-button"
+              aria-label={t("关闭设备选择")}
+            >
               <X size={18} />
             </Dialog.Close>
           </div>
           <Dialog.Description>
-            切换设备查看对话；新任务需要已开启执行能力并有可用项目。
+            {t("切换设备查看对话；新任务需要已开启执行能力并有可用项目。")}
           </Dialog.Description>
           <label className="search-field">
             <Search size={16} />
             <input
               ref={input}
-              aria-label="搜索设备"
-              placeholder="搜索设备名称或系统…"
+              aria-label={t("搜索设备")}
+              placeholder={t("搜索设备名称或系统…")}
               value={search}
               onChange={(event) => {
                 setSearch(event.target.value);
@@ -109,7 +138,7 @@ export function DevicePicker({
             />
             {search && (
               <button
-                aria-label="清除设备搜索"
+                aria-label={t("清除设备搜索")}
                 onClick={() => {
                   setSearch("");
                   navigation.setSelectedId("");
@@ -124,7 +153,7 @@ export function DevicePicker({
             className="device-picker-list"
             role="listbox"
             id={navigation.listboxId}
-            aria-label="设备列表"
+            aria-label={t("设备列表")}
           >
             {matches.map((device) => (
               <button
@@ -152,14 +181,14 @@ export function DevicePicker({
             ))}
             {!matches.length && (
               <p className="empty-list">
-                {search.trim() ? "没有找到匹配设备" : "当前没有可见设备"}
+                {search.trim() ? t("没有找到匹配设备") : t("当前没有可见设备")}
               </p>
             )}
           </div>
           <div className="quick-switcher-caption device-picker-caption">
-            <span className="keyboard-only-hint">↑ ↓ 选择</span>
-            <span className="keyboard-only-hint">Enter 打开</span>
-            <span className="keyboard-only-hint">Esc 关闭</span>
+            <span className="keyboard-only-hint">{t("↑ ↓ 选择")}</span>
+            <span className="keyboard-only-hint">{t("Enter 打开")}</span>
+            <span className="keyboard-only-hint">{t("Esc 关闭")}</span>
           </div>
         </Dialog.Content>
       </Dialog.Portal>

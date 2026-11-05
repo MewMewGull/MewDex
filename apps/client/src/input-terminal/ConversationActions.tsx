@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useRef } from "react";
 import {
@@ -71,7 +72,7 @@ export function ConversationActions({
       <Dialog.Trigger
         ref={trigger}
         className="icon-button"
-        aria-label="对话选项"
+        aria-label={t("对话选项")}
       >
         <MoreHorizontal size={20} />
       </Dialog.Trigger>
@@ -83,20 +84,24 @@ export function ConversationActions({
           onCloseAutoFocus={returnFocus.restore}
         >
           <div className="dialog-heading">
-            <Dialog.Title>对话选项</Dialog.Title>
-            <Dialog.Close className="icon-button" aria-label="关闭对话选项">
+            <Dialog.Title>{t("对话选项")}</Dialog.Title>
+            <Dialog.Close
+              className="icon-button"
+              aria-label={t("关闭对话选项")}
+            >
               <X size={18} />
             </Dialog.Close>
           </div>
           <Dialog.Description>
-            整理对话，查看输出与执行方式。
+            {t("整理对话，查看输出与执行方式。")}
           </Dialog.Description>
           <div className="conversation-action-list">
             {session && (
               <button onClick={() => choose(onSearch)}>
                 <Search size={18} />
                 <span>
-                  查找对话内容<small>Ctrl+F</small>
+                  {t("查找对话内容")}
+                  <small>Ctrl+F</small>
                 </span>
               </button>
             )}
@@ -123,7 +128,8 @@ export function ConversationActions({
             <button onClick={() => choose(onPolicy)}>
               <Settings2 size={18} />
               <span>
-                执行策略<small>工作范围、提示词与版本历史</small>
+                {t("执行策略")}
+                <small>{t("工作范围、提示词与版本历史")}</small>
               </span>
             </button>
             <button
@@ -131,12 +137,13 @@ export function ConversationActions({
               onClick={() => choose(() => onOutput("terminal"))}
             >
               <Terminal size={18} />
-              <span>终端输出</span>
+              <span>{t("终端输出")}</span>
             </button>
             <button disabled={!session} onClick={() => choose(onFiles)}>
               <FolderOpen size={18} />
               <span>
-                项目文件<small>浏览目录与已接收文件</small>
+                {t("项目文件")}
+                <small>{t("浏览目录与已接收文件")}</small>
               </span>
             </button>
             <button
@@ -144,32 +151,33 @@ export function ConversationActions({
               onClick={() => choose(() => onOutput("diff"))}
             >
               <FileDiff size={18} />
-              <span>代码差异</span>
+              <span>{t("代码差异")}</span>
             </button>
             <button disabled={!session} onClick={() => choose(onQueue)}>
               <ListOrdered size={18} />
-              <span>排队与执行记录</span>
+              <span>{t("排队与执行记录")}</span>
             </button>
             {canStop && (
               <button className="danger-action" onClick={() => choose(onStop)}>
                 <Square size={16} />
-                <span>停止任务与后台进程</span>
+                <span>{t("停止任务与后台进程")}</span>
               </button>
             )}
             <div className="conversation-action-divider" />
             <button onClick={() => choose(onActivity)}>
               <Activity size={18} />
-              <span>任务与请求</span>
+              <span>{t("任务与请求")}</span>
             </button>
             <button onClick={() => choose(onReceipts)}>
               <FileClock size={18} />
               <span>
-                待确认操作<small>查询发送与控制操作的回执</small>
+                {t("待确认操作")}
+                <small>{t("查询发送与控制操作的回执")}</small>
               </span>
             </button>
             <button onClick={() => choose(onLibrary)}>
               <Archive size={18} />
-              <span>已归档对话</span>
+              <span>{t("已归档对话")}</span>
             </button>
           </div>
         </Dialog.Content>

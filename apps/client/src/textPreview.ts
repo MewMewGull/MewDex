@@ -1,5 +1,11 @@
+import { t } from "./localization.ts";
 export const textPreviewEncodings = [
-  { value: "auto", label: "自动" },
+  {
+    value: "auto",
+    get label() {
+      return t("自动");
+    },
+  },
   { value: "utf-8", label: "UTF-8" },
   { value: "utf-16le", label: "UTF-16 LE" },
   { value: "utf-16be", label: "UTF-16 BE" },

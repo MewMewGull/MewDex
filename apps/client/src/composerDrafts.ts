@@ -1,3 +1,4 @@
+import { getLanguage, t } from "./localization.ts";
 import type { Attachment, Device, Session } from "@mewdex/sdk";
 import type { AttachmentUpload } from "./attachmentUploads";
 
@@ -72,19 +73,19 @@ export function draftDestination(
     canOpen: !!device && (sessionId ? !!session : !!project),
     canEdit: !!device && !!project && (!sessionId || !!session) && !retired,
     notice: !device
-      ? "原设备暂不可用，草稿仍保留在本机。"
+      ? t("原设备暂不可用，草稿仍保留在本机。")
       : sessionId && !session
-        ? "原对话暂不可用，可复制草稿内容。"
+        ? t("原对话暂不可用，可复制草稿内容。")
         : !project
           ? session
-            ? "原项目暂不可用，可查看对话或复制草稿内容。"
-            : "原项目暂不可用，可复制草稿内容。"
+            ? t("原项目暂不可用，可查看对话或复制草稿内容。")
+            : t("原项目暂不可用，可复制草稿内容。")
           : retired
-            ? "原执行已结束，可查看对话或复制草稿内容。"
+            ? t("原执行已结束，可查看对话或复制草稿内容。")
             : session?.archived
-              ? "对话已归档，恢复后可发送。"
+              ? t("对话已归档，恢复后可发送。")
               : !device.online
-                ? "设备离线，可以继续编辑草稿。"
+                ? t("设备离线，可以继续编辑草稿。")
                 : "",
   };
 }
@@ -114,11 +115,11 @@ export function draftEntries(
         deviceId: target.deviceId,
         sessionId: target.sessionId,
         projectId: target.projectId,
-        deviceName: target.device?.name ?? "设备暂不可用",
-        projectName: target.project?.name ?? "项目暂不可用",
+        deviceName: target.device?.name ?? t("设备暂不可用"),
+        projectName: target.project?.name ?? t("项目暂不可用"),
         title:
           target.session?.title ??
-          (target.sessionId ? "原对话草稿" : "新对话草稿"),
+          (target.sessionId ? t("原对话草稿") : t("新对话草稿")),
         text: draft?.text ?? "",
         attachmentNames: [
           ...(draft?.uploads.map((file) => file.name) ?? []),
@@ -134,9 +135,9 @@ export function draftEntries(
     })
     .sort(
       (a, b) =>
-        a.deviceName.localeCompare(b.deviceName, "zh-CN") ||
-        a.projectName.localeCompare(b.projectName, "zh-CN") ||
-        a.title.localeCompare(b.title, "zh-CN"),
+        a.deviceName.localeCompare(b.deviceName, getLanguage()) ||
+        a.projectName.localeCompare(b.projectName, getLanguage()) ||
+        a.title.localeCompare(b.title, getLanguage()),
     );
 }
 

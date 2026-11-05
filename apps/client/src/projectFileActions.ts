@@ -1,3 +1,4 @@
+import { t } from "./localization.ts";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import type { MewDexClient, OutputFile, Session } from "@mewdex/sdk";
 import { deviceRequest, inputCapabilities } from "./localDevice";
@@ -31,7 +32,7 @@ export async function openLocalProjectFile(
       action,
     });
   } catch (cause) {
-    throw new Error(typeof cause === "string" ? cause : "无法打开文件");
+    throw new Error(typeof cause === "string" ? cause : t("无法打开文件"));
   }
 }
 export async function openReceivedFile(
@@ -55,7 +56,7 @@ export async function openReceivedFile(
       },
     );
   } catch (cause) {
-    throw new Error(typeof cause === "string" ? cause : "无法打开本机副本");
+    throw new Error(typeof cause === "string" ? cause : t("无法打开本机副本"));
   }
 }
 const defaultKey = "mewdex.file-openers.v1";

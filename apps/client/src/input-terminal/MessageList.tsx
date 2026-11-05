@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { Command, Layers3, Terminal, ChevronRight } from "lucide-react";
 import { memo } from "react";
 import type { Message } from "../messages";
@@ -7,10 +8,18 @@ import type { MewDexClient } from "@mewdex/sdk";
 import { AttachmentList } from "../components/AttachmentList";
 
 const toolStatus: Record<string, string> = {
-  inProgress: "执行中",
-  completed: "已完成",
-  failed: "失败",
-  declined: "已拒绝",
+  get inProgress() {
+    return t("执行中");
+  },
+  get completed() {
+    return t("已完成");
+  },
+  get failed() {
+    return t("失败");
+  },
+  get declined() {
+    return t("已拒绝");
+  },
 };
 
 const MessageItem = memo(
@@ -49,16 +58,16 @@ const MessageItem = memo(
         <div className="message-content">
           <div className="message-label">
             {message.role === "user"
-              ? "你"
+              ? t("你")
               : message.role === "tool"
-                ? "工具"
+                ? t("工具")
                 : message.role === "system"
-                  ? "状态"
+                  ? t("状态")
                   : "MewDex"}
             {message.status && (
               <small>
                 {historical && message.status === "inProgress"
-                  ? "当时执行中"
+                  ? t("当时执行中")
                   : (toolStatus[message.status] ?? message.status)}
               </small>
             )}
@@ -70,12 +79,13 @@ const MessageItem = memo(
                 onFileReference={onFileReference}
               />
             ) : (
-              message.text || (message.attachmentIds?.length ? "" : "正在处理…")
+              message.text ||
+              (message.attachmentIds?.length ? "" : t("正在处理…"))
             )}
           </div>
           {historical && message.role === "assistant" && message.partial && (
             <p className="message-fragment-note">
-              当前页只包含回复片段，可查看相邻记录。
+              {t("当前页只包含回复片段，可查看相邻记录。")}
             </p>
           )}
           {!!message.attachmentIds?.length && (
@@ -88,7 +98,9 @@ const MessageItem = memo(
             <div className="message-actions">
               <CopyButton
                 text={message.text}
-                label={historical && message.partial ? "复制片段" : "复制消息"}
+                label={
+                  historical && message.partial ? t("复制片段") : t("复制消息")
+                }
               />
             </div>
           )}
@@ -99,7 +111,7 @@ const MessageItem = memo(
                 onClick={() => onCommandOutput(message.id)}
               >
                 <Terminal size={13} />
-                查看输出
+                {t("查看输出")}
               </button>
             </div>
           )}
@@ -180,13 +192,13 @@ export function MessageList({
               <span>
                 {running
                   ? historical
-                    ? "当时的工具活动"
-                    : "正在使用工具"
+                    ? t("当时的工具活动")
+                    : t("正在使用工具")
                   : failed
-                    ? "工具执行有错误"
-                    : "工具活动"}
+                    ? t("工具执行有错误")
+                    : t("工具活动")}
               </span>
-              <small>{group.length} 项</small>
+              <small>{t("{0} 项", group.length)}</small>
               <ChevronRight size={14} />
             </summary>
             <div>

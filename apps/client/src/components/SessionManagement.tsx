@@ -1,3 +1,4 @@
+import { getLanguage, t } from "../localization.ts";
 import { useMemo, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { Archive, ArchiveRestore, ArrowUpRight, Search, X } from "lucide-react";
@@ -53,13 +54,13 @@ export function RenameSessionDialog({
           }}
         >
           <div className="dialog-heading">
-            <Dialog.Title>重命名对话</Dialog.Title>
-            <Dialog.Close className="icon-button" aria-label="关闭重命名">
+            <Dialog.Title>{t("重命名对话")}</Dialog.Title>
+            <Dialog.Close className="icon-button" aria-label={t("关闭重命名")}>
               <X size={18} />
             </Dialog.Close>
           </div>
           <Dialog.Description>
-            新名称会同步到有权访问此对话的输入端。
+            {t("新名称会同步到有权访问此对话的输入端。")}
           </Dialog.Description>
           <form
             onSubmit={(event) => {
@@ -70,7 +71,7 @@ export function RenameSessionDialog({
                 .catch((error: Error) => setError(error.message));
             }}
           >
-            <label htmlFor="session-title">对话名称</label>
+            <label htmlFor="session-title">{t("对话名称")}</label>
             <input
               id="session-title"
               ref={input}
@@ -94,7 +95,7 @@ export function RenameSessionDialog({
               </p>
             )}
             <div className="session-dialog-actions">
-              <Dialog.Close className="secondary">取消</Dialog.Close>
+              <Dialog.Close className="secondary">{t("取消")}</Dialog.Close>
               <button
                 className="primary"
                 disabled={
@@ -104,7 +105,7 @@ export function RenameSessionDialog({
                   title.trim() === session.title
                 }
               >
-                {busy ? "正在保存…" : "保存名称"}
+                {busy ? t("正在保存…") : t("保存名称")}
               </button>
             </div>
           </form>
@@ -153,7 +154,7 @@ export function ArchivedSessionsDialog({
             ),
         )
         .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
-    [sessions, devicesById, search],
+    [sessions, devicesById, search, getLanguage()],
   );
   function changeOpen(value: boolean) {
     onOpenChange(value);
@@ -172,19 +173,22 @@ export function ArchivedSessionsDialog({
           onCloseAutoFocus={focusReturn.restore}
         >
           <div className="dialog-heading">
-            <Dialog.Title>已归档对话</Dialog.Title>
-            <Dialog.Close className="icon-button" aria-label="关闭已归档对话">
+            <Dialog.Title>{t("已归档对话")}</Dialog.Title>
+            <Dialog.Close
+              className="icon-button"
+              aria-label={t("关闭已归档对话")}
+            >
               <X size={18} />
             </Dialog.Close>
           </div>
           <Dialog.Description>
-            查看网络内的归档内容，或恢复到对话列表。
+            {t("查看网络内的归档内容，或恢复到对话列表。")}
           </Dialog.Description>
           <label className="search-field">
             <Search size={16} />
             <input
-              aria-label="搜索已归档对话"
-              placeholder="搜索名称、设备或项目…"
+              aria-label={t("搜索已归档对话")}
+              placeholder={t("搜索名称、设备或项目…")}
               value={search}
               onChange={(event) => setSearch(event.target.value)}
             />
@@ -215,8 +219,10 @@ export function ArchivedSessionsDialog({
                         ),
                       ).join(" · ")}{" "}
                       ·{" "}
-                      {new Date(session.updatedAt).toLocaleDateString("zh-CN")}
-                      {session.state === "running" ? " · 正在执行" : ""}
+                      {new Date(session.updatedAt).toLocaleDateString(
+                        getLanguage(),
+                      )}
+                      {session.state === "running" ? t(" · 正在执行") : ""}
                     </small>
                   </span>
                   <ArrowUpRight size={15} />
@@ -232,7 +238,7 @@ export function ArchivedSessionsDialog({
                   }}
                 >
                   <ArchiveRestore size={16} />
-                  恢复
+                  {t("恢复")}
                 </button>
               </div>
             ))}
@@ -240,12 +246,12 @@ export function ArchivedSessionsDialog({
               <div className="archived-sessions-empty">
                 <Archive size={30} />
                 <strong>
-                  {search ? "没有匹配的归档对话" : "还没有归档对话"}
+                  {search ? t("没有匹配的归档对话") : t("还没有归档对话")}
                 </strong>
                 <p>
                   {search
-                    ? "试试其他名称、设备或项目。"
-                    : "在对话选项中归档，内容会保留在这里。"}
+                    ? t("试试其他名称、设备或项目。")
+                    : t("在对话选项中归档，内容会保留在这里。")}
                 </p>
               </div>
             )}

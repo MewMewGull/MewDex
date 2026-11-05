@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { useMemo, useRef, useState, type ReactNode } from "react";
 import Markdown, { defaultUrlTransform, type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -12,10 +13,10 @@ function CodeBlock({ children }: { children?: ReactNode }) {
   return (
     <div className="code-block">
       <div className="code-block-toolbar">
-        <span>代码</span>
+        <span>{t("代码")}</span>
         <CopyButton
           text={() => code.current!.textContent ?? ""}
-          label="复制代码"
+          label={t("复制代码")}
         />
       </div>
       <pre ref={code}>{children}</pre>
@@ -40,7 +41,11 @@ function MessageLink({
         <ContextMenu.Trigger asChild>
           <a
             href={href}
-            title={`打开项目文件：${reference.path}${reference.line ? ` · 第 ${reference.line} 行` : ""}；右键选择打开方式`}
+            title={t(
+              "打开项目文件：{0}{1}；右键选择打开方式",
+              reference.path,
+              reference.line ? t(" · 第 {0} 行", reference.line) : "",
+            )}
             onClick={(event) => {
               event.preventDefault();
               onFileReference(href!);
@@ -64,25 +69,25 @@ function MessageLink({
               className="session-context-item"
               onSelect={() => onFileReference(href!)}
             >
-              使用默认应用打开
+              {t("使用默认应用打开")}
             </ContextMenu.Item>
             <ContextMenu.Item
               className="session-context-item"
               onSelect={() => onFileReference(href!, "open-with")}
             >
-              选择打开方式…
+              {t("选择打开方式…")}
             </ContextMenu.Item>
             <ContextMenu.Item
               className="session-context-item"
               onSelect={() => onFileReference(href!, "reveal")}
             >
-              在资源管理器中显示
+              {t("在资源管理器中显示")}
             </ContextMenu.Item>
             <ContextMenu.Item
               className="session-context-item"
               onSelect={() => onFileReference(href!, "panel")}
             >
-              在项目文件中查看
+              {t("在项目文件中查看")}
             </ContextMenu.Item>
             <ContextMenu.Item
               className="session-context-item"
@@ -90,7 +95,7 @@ function MessageLink({
                 void navigator.clipboard.writeText(reference.path);
               }}
             >
-              复制路径
+              {t("复制路径")}
             </ContextMenu.Item>
           </ContextMenu.Content>
         </ContextMenu.Portal>
@@ -133,7 +138,7 @@ const components: Components = {
     <MessageLink href={typeof src === "string" ? src : undefined}>
       <span className="message-image-reference">
         <ImageIcon size={14} />
-        {alt || "查看图片"}
+        {alt || t("查看图片")}
       </span>
     </MessageLink>
   ),
@@ -162,7 +167,7 @@ export function MarkdownBody({
         >
           <span className="message-image-reference">
             <ImageIcon size={14} />
-            {alt || "查看图片"}
+            {alt || t("查看图片")}
           </span>
         </MessageLink>
       ),

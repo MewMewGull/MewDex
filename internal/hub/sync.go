@@ -47,7 +47,13 @@ func (h *Hub) visibleDevices(id protocol.Identity) ([]protocol.Device, error) {
 		if !id.Access.Allows(device.ID, "") {
 			continue
 		}
-		device.Online = device.ID == h.config.DeviceID && h.local != nil || h.peers[device.ID] != nil
+		device.Online = device.ID == h.coordinatorID && h.coordinator != nil || device.ID == h.config.DeviceID && h.local != nil || h.peers[device.ID] != nil
+		if device.ID == h.coordinatorID {
+			device.Projects, err = h.store.HubProjects()
+			if err != nil {
+				return nil, err
+			}
+		}
 		projects := []protocol.Project{}
 		for _, project := range device.Projects {
 			if id.Access.Allows(device.ID, project.ID) {
@@ -108,7 +114,11 @@ func (h *Hub) bootstrap(w http.ResponseWriter, r *http.Request) {
 			conversationUpdates = append(conversationUpdates, update)
 		}
 	}
-	reply(w, 200, protocol.NetworkSnapshot{Cursor: cursor, Identity: id, Devices: devices, Sessions: sessions, ConversationUpdates: conversationUpdates, Capabilities: []string{"task-plans", "collaboration-modes", "mewdex-accounts", "central-projects"}})
+	capabilities := []string{"task-plans", "collaboration-modes", "mewdex-accounts", "central-projects"}
+	if h.coordinator != nil {
+		capabilities = append(capabilities, "hub-projects", "hub-model-account")
+	}
+	reply(w, 200, protocol.NetworkSnapshot{Cursor: cursor, Identity: id, Devices: devices, Sessions: sessions, ConversationUpdates: conversationUpdates, Capabilities: capabilities})
 }
 
 func (h *Hub) historyPage(w http.ResponseWriter, r *http.Request) {

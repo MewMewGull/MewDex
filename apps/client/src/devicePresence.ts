@@ -1,3 +1,4 @@
+import { t } from "./localization.ts";
 import type { Device } from "@mewdex/sdk";
 
 // A device snapshot remains useful during reconnection, but cannot describe
@@ -9,14 +10,14 @@ export function devicePresence(
   return {
     label:
       online === undefined
-        ? "等待同步"
+        ? t("等待同步")
         : connected
           ? online
-            ? "在线"
-            : "离线"
+            ? t("在线")
+            : t("离线")
           : online
-            ? "上次在线"
-            : "上次离线",
+            ? t("上次在线")
+            : t("上次离线"),
     dot: connected && online ? "online" : "offline",
   };
 }
@@ -34,10 +35,10 @@ export function deviceDescription(device: Device, connected: boolean) {
     devicePresence(device.online, connected).label,
     devicePlatform(device.platform),
     !device.roles.includes("executor")
-      ? "未开启执行能力"
+      ? t("未开启执行能力")
       : device.projects.length
-        ? `${device.projects.length} 个项目`
-        : "暂无可用项目",
+        ? t("{0} 个项目", device.projects.length)
+        : t("暂无可用项目"),
   ]
     .filter(Boolean)
     .join(" · ");

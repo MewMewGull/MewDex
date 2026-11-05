@@ -14,7 +14,8 @@
     ]
   },
   "bundle": {
-    "externalBin": ["binaries/mewdex-node"],
-    "resources": { "engine/": "engine/" }
+    "externalBin": [
+      "binaries/mewdex-input-bridge"
+    ]
   }
 }

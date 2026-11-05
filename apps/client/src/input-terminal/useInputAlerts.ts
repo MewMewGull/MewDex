@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { MewDexError, type MewDexClient } from "@mewdex/sdk";
 import { InputAlertLedger, alertScope } from "../inputAlerts";
@@ -84,7 +85,7 @@ export function useInputAlerts(
         request === openRequest.current &&
         sameSelection(selection, useWorkspace.getState())
       )
-        setError("暂时无法打开该提醒的对话，请刷新连接后查看。");
+        setError(t("暂时无法打开该提醒的对话，请刷新连接后查看。"));
     }
   }
 
@@ -107,7 +108,7 @@ export function useInputAlerts(
       } catch {
         if (!disposed && epoch === permissionEpoch.current) {
           setPermission("unsupported");
-          setError("当前输入端暂时无法使用系统提醒。");
+          setError(t("当前输入端暂时无法使用系统提醒。"));
         }
         return "unsupported" as const;
       }
@@ -124,7 +125,7 @@ export function useInputAlerts(
         if (disposed) unlisten();
         else off = unlisten;
       } catch {
-        if (!disposed) setError("系统提醒的对话入口暂时不可用。");
+        if (!disposed) setError(t("系统提醒的对话入口暂时不可用。"));
       }
     });
     // OS settings can change while the app is suspended. Reading permission on
@@ -207,7 +208,7 @@ export function useInputAlerts(
               return;
             const failed = () => {
               if (current())
-                setError("系统未能显示提醒，请检查此输入端的通知设置。");
+                setError(t("系统未能显示提醒，请检查此输入端的通知设置。"));
             };
             void notificationAdapter
               .send(
@@ -230,7 +231,7 @@ export function useInputAlerts(
           clear();
           return;
         }
-        setError("提醒同步暂时不可用，正在重新连接。");
+        setError(t("提醒同步暂时不可用，正在重新连接。"));
         timer = setTimeout(() => {
           if (current()) setRetry((value) => value + 1);
         }, 3000);
@@ -257,7 +258,7 @@ export function useInputAlerts(
         permissionEpoch.current++;
         setPermission(value);
         if (value !== "granted") {
-          setError("系统提醒未开启。允许通知后，可以再次开启工作台提醒。");
+          setError(t("系统提醒未开启。允许通知后，可以再次开启工作台提醒。"));
           return;
         }
         const snapshot = await client.bootstrap();
@@ -269,7 +270,7 @@ export function useInputAlerts(
       setEnabled(next);
     } catch {
       if (alive.current && revision === generation.current)
-        setError("提醒设置未能保存，请重试。");
+        setError(t("提醒设置未能保存，请重试。"));
     } finally {
       if (alive.current && revision === generation.current) setBusy(false);
     }

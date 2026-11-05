@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import {
   Fragment,
   useId,
@@ -22,9 +23,9 @@ export function SettingsFrame<T extends string>({
   children,
   className = "",
   closeDisabled = false,
-  closeLabel = "关闭设置",
+  closeLabel = t("关闭设置"),
   navigation = "sidebar",
-  navigationLabel = "设置分类",
+  navigationLabel = t("设置分类"),
   footer,
   sizeKey = "settings",
 }: {
@@ -55,8 +56,8 @@ export function SettingsFrame<T extends string>({
   const body = useRef<HTMLDivElement>(null);
   const tabbed = navigation === "tabs";
   useLayoutEffect(() => {
-    if (tabbed && open) body.current?.scrollTo({ top: 0 });
-  }, [tabbed, selected, open]);
+    if (open) body.current?.scrollTo({ top: 0 });
+  }, [selected, open]);
   function moveTab(event: KeyboardEvent<HTMLButtonElement>, section: T) {
     if (
       !tabbed ||

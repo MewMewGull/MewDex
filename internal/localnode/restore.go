@@ -180,7 +180,7 @@ func restoreFiles(ctx context.Context, directory string) ([]backup.File, error) 
 
 func dataSelections(root *os.Root, relative string) ([]backup.Selection, error) {
 	selected := []backup.Selection{}
-	for _, name := range []string{"hub.db", "hub.db-wal", "hub.db-shm", "executor.db", "executor.db-wal", "executor.db-shm", "attachments"} {
+	for _, name := range []string{"hub.db", "hub.db-wal", "hub.db-shm", "executor.db", "executor.db-wal", "executor.db-shm", "attachments", "terminal-attachments", "coordinator/coordinator.db", "coordinator/coordinator.db-wal", "coordinator/coordinator.db-shm", "coordinator/attachments"} {
 		path := filepath.Join(relative, name)
 		if _, err := root.Lstat(path); errors.Is(err, os.ErrNotExist) {
 			continue
@@ -255,7 +255,7 @@ func validateBackupProfile(manifest backup.Manifest) (backupProfile, error) {
 	if c.DeviceID == "" || len(c.DeviceID) > 128 || strings.TrimSpace(c.Name) == "" || c.DataDir != "data" || (!c.Hub && !c.Executor && c.Gateway == nil) || c.Engine.Executable != "" || len(c.Engine.Args) != 0 || c.Engine.ProxyURL != "" || c.Engine.ProxyTokenFile != "" || (c.Engine.Home != "" && c.Engine.Home != "engine-home") || (c.NodeTokenFile != "" && c.NodeTokenFile != "node-token") {
 		return profile, errors.New("backup profile contains invalid roles, host paths or executable settings")
 	}
-	if profile.EngineHistoryIncluded != (c.Executor && c.Engine.Home == "engine-home") {
+	if profile.EngineHistoryIncluded != ((c.Hub || c.Executor) && c.Engine.Home == "engine-home") {
 		return profile, errors.New("backup history scope does not match its device profile")
 	}
 	if c.Gateway != nil && (c.Gateway.TLSCertFile != "" || c.Gateway.TLSKeyFile != "") {
@@ -275,7 +275,17 @@ func validateBackupProfile(manifest backup.Manifest) (backupProfile, error) {
 		if strings.HasPrefix(name, "data/attachments/") {
 			continue
 		}
+		if c.Hub && strings.HasPrefix(name, "data/coordinator/attachments/") {
+			continue
+		}
+		if c.Executor && strings.HasPrefix(name, "data/terminal-attachments/") {
+			continue
+		}
 		switch name {
+		case "data/coordinator/coordinator.db", "data/coordinator/coordinator.db-wal", "data/coordinator/coordinator.db-shm":
+			if !c.Hub {
+				return profile, errors.New("unexpected Hub conversation database")
+			}
 		case "data/hub.db", "data/hub.db-wal", "data/hub.db-shm":
 			if !c.Hub {
 				return profile, errors.New("unexpected Hub database")
@@ -388,7 +398,7 @@ func (m *Manager) prepareRestore(ctx context.Context, request *RestoreRequest) (
 	if err = os.MkdirAll(c.DataDir, 0700); err != nil {
 		return nil, err
 	}
-	if c.Executor {
+	if c.Executor || c.Hub {
 		m.report("preparing-engine")
 		c.Engine.Executable, err = runtimefiles.Engine(m.options.Root, m.options.Engine, engine.CompatibleVersion)
 		if err != nil {
@@ -424,7 +434,7 @@ func (m *Manager) prepareRestore(ctx context.Context, request *RestoreRequest) (
 		return nil, err
 	}
 	m.report("preparing-state")
-	for _, name := range []string{"hub.db", "executor.db"} {
+	for _, name := range []string{"hub.db", "executor.db", "coordinator/coordinator.db"} {
 		path := filepath.Join(c.DataDir, name)
 		if _, err = os.Stat(path); errors.Is(err, os.ErrNotExist) {
 			continue
@@ -442,7 +452,14 @@ func (m *Manager) prepareRestore(ctx context.Context, request *RestoreRequest) (
 			err = executor.ValidateWorkspaceConfiguration(c, s)
 		}
 		if err == nil {
-			err = s.PrepareRestore(ctx, c.DeviceID, name == "executor.db")
+			device := c.DeviceID
+			if name == "coordinator/coordinator.db" {
+				device += ".hub"
+				err = s.ResetCoordinatorWorkspaces()
+			}
+			if err == nil {
+				err = s.PrepareRestore(ctx, device, name != "hub.db")
+			}
 		}
 		closeErr := s.Close()
 		if err != nil {
@@ -468,7 +485,7 @@ func (m *Manager) prepareRestore(ctx context.Context, request *RestoreRequest) (
 	if err != nil {
 		return nil, err
 	}
-	info := RestoreInfo{ID: id, DeviceID: c.DeviceID, Name: c.Name, CreatedAt: protocol.Now(), Hub: c.Hub, Executor: c.Executor, Gateway: c.Gateway != nil, Projects: append([]protocol.Project{}, c.Projects...), RequiresPairing: true, RequiresModelLogin: c.Executor && c.Engine.Home != "", PreviousStatePreserved: raw != nil}
+	info := RestoreInfo{ID: id, DeviceID: c.DeviceID, Name: c.Name, CreatedAt: protocol.Now(), Hub: c.Hub, Executor: c.Executor, Projects: append([]protocol.Project{}, c.Projects...), RequiresPairing: true, RequiresModelLogin: c.Hub && c.Engine.Home != "", PreviousStatePreserved: raw != nil}
 	record := restoreRecord{Format: 1, Info: info, BeforeProfile: before, BeforeData: beforeData, PreparedProfile: hashBytes(prepared), Files: files, ArchiveSHA256: archiveSHA, EngineVersion: engine.CompatibleVersion}
 	if err = m.ensureRestoreArea("restore-plans"); err != nil {
 		return nil, err
@@ -501,7 +518,7 @@ func (m *Manager) applyPreparedState(ctx context.Context, record restoreRecord, 
 		info.Applied = true
 		return &info, nil
 	}
-	if record.Info.Executor && record.EngineVersion != engine.CompatibleVersion {
+	if (record.Info.Executor || record.Info.Hub) && record.EngineVersion != engine.CompatibleVersion {
 		return nil, errors.New("prepared restore belongs to another engine version; prepare a new restore ID with this application")
 	}
 	if digest != record.BeforeProfile {

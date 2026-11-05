@@ -1,13 +1,28 @@
+import { t } from "./localization.ts";
 import type { ModelOption, Policy } from "@mewdex/sdk";
 
 const effortNames: Record<string, string> = {
-  none: "关闭推理",
-  minimal: "极低",
-  low: "低",
-  medium: "中",
-  high: "高",
-  xhigh: "很高",
-  max: "最高",
+  get none() {
+    return t("关闭推理");
+  },
+  get minimal() {
+    return t("极低");
+  },
+  get low() {
+    return t("低");
+  },
+  get medium() {
+    return t("中");
+  },
+  get high() {
+    return t("高");
+  },
+  get xhigh() {
+    return t("很高");
+  },
+  get max() {
+    return t("最高");
+  },
   ultra: "Ultra",
 };
 

@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -22,7 +21,7 @@ import (
 	"mewdex/internal/config"
 	"mewdex/internal/engine"
 	"mewdex/internal/executor"
-	"mewdex/internal/gateway"
+	"mewdex/internal/hostidentity"
 	"mewdex/internal/hub"
 	"mewdex/internal/hubproxy"
 	"mewdex/internal/hubtray"
@@ -32,7 +31,6 @@ import (
 	"mewdex/internal/serviceport"
 	"mewdex/internal/store"
 	"mewdex/internal/transport"
-	"mewdex/internal/webui"
 )
 
 func main() {
@@ -41,11 +39,18 @@ func main() {
 		os.Exit(1)
 	}
 }
+
+// Set by the component packager. Existing combined installations keep their CLI.
+var distributionRole = "combined"
+
 func run() error {
 	if len(os.Args) < 2 {
 		return errors.New("usage: mewdex init|account|serve|stop|status|invite|doctor -config path")
 	}
 	mode := os.Args[1]
+	if mode == "panel" {
+		return panel(os.Args[2:])
+	}
 	if mode == "process-owner" || mode == "process-child" {
 		return serviceguard.Dispatch(os.Args[1:])
 	}
@@ -62,7 +67,13 @@ func run() error {
 		return install(os.Args[2:])
 	}
 	flags := flag.NewFlagSet(mode, flag.ContinueOnError)
-	path := flags.String("config", ".local/device.json", "device config path")
+	defaultPath := ".local/device.json"
+	if distributionRole != "combined" {
+		defaultPath = ".local/" + distributionRole + "/device.json"
+	}
+	path := flags.String("config", defaultPath, "device config path")
+	hubURL := flags.String("hub-url", "", "Hub endpoint for executor setup")
+	invitation := flags.String("invitation", "", "executor invitation for setup")
 	role := flags.String("role", "client", "pairing identity role")
 	probe := flags.Bool("engine", false, "perform a Codex stdio handshake without inference")
 	probeGateway := flags.Bool("gateway", false, "probe the official service through the configured proxy without model credentials")
@@ -71,6 +82,9 @@ func run() error {
 		return err
 	}
 	if mode == "init" {
+		if distributionRole == "executor" {
+			return initializeExecutor(*path, *hubURL, *invitation)
+		}
 		return initialize(*path)
 	}
 	var c config.Config
@@ -81,6 +95,9 @@ func run() error {
 		c, err = config.Load(*path)
 	}
 	if err != nil {
+		return err
+	}
+	if err = validateDistribution(c); err != nil {
 		return err
 	}
 	if mode == "account" {
@@ -119,14 +136,9 @@ func run() error {
 	if mode == "doctor" {
 		exe, args, resolveErr := engine.Resolve(c.Engine)
 		report := map[string]any{"platform": runtime.GOOS + "/" + runtime.GOARCH, "deviceId": c.DeviceID, "hub": c.Hub, "executor": c.Executor, "projects": len(c.Projects), "engineExecutable": exe, "engineArgs": args, "engineResolved": resolveErr == nil, "inferenceRun": false}
-		if *probeGateway {
+		if *probeGateway && c.Hub {
 			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-			engineConfig, closeForwarder, err := forwardedEngine(ctx, c)
-			var result map[string]any
-			if err == nil {
-				result, err = gateway.Probe(ctx, engineConfig)
-				closeForwarder()
-			}
+			result, err := engine.ProbeProxy(ctx, c.HubModelEngine())
 			cancel()
 			if err != nil {
 				report["gatewayError"] = err.Error()
@@ -134,15 +146,10 @@ func run() error {
 				report["gateway"] = result
 			}
 		}
-		if *probe {
+		if *probe && c.Hub {
 			ctx, cancel := context.WithTimeout(context.Background(), 25*time.Second)
 			defer cancel()
-			engineConfig, closeForwarder, err := forwardedEngine(ctx, c)
-			if err != nil {
-				return err
-			}
-			defer closeForwarder()
-			e, err := engine.Start(ctx, engineConfig)
+			e, err := engine.Start(ctx, c.HubModelEngine())
 			if err != nil {
 				report["handshakeError"] = err.Error()
 			} else {
@@ -213,6 +220,11 @@ func initialize(path string) error {
 	}
 	name, _ := os.Hostname()
 	c := config.Config{DeviceID: protocol.ID(), Name: name, DataDir: "data", Listen: "127.0.0.1:47830", Hub: true, Executor: true, Projects: []protocol.Project{{ID: "mewdex", Name: filepath.Base(cwd), Path: cwd}}, AllowedOrigins: []string{"http://localhost:1420", "http://127.0.0.1:1420", "tauri://localhost", "http://tauri.localhost", "https://tauri.localhost"}}
+	if distributionRole == "hub" {
+		c.Executor, c.Projects = false, []protocol.Project{}
+		c.Engine = config.Engine{Executable: packagedEngine(), Home: "engine-home"}
+		c.AllowedOrigins = append(c.AllowedOrigins, "http://127.0.0.1:47831", "http://localhost:47831")
+	}
 	if err = os.MkdirAll(filepath.Dir(abs), 0700); err != nil {
 		return err
 	}
@@ -250,6 +262,9 @@ func initialize(path string) error {
 }
 
 func serve(ctx context.Context, c config.Config) error {
+	if err := validateDistribution(c); err != nil {
+		return err
+	}
 	var installation *lifecycle.Lock
 	if c.InstallationRoot != "" {
 		var err error
@@ -259,10 +274,25 @@ func serve(ctx context.Context, c config.Config) error {
 		}
 		defer installation.Close()
 	}
-	return serviceguard.Run(ctx, c.DataDir, installation, c.Executor, func(ctx context.Context) error { return serveOwned(ctx, c) })
+	return serviceguard.Run(ctx, c.DataDir, installation, c.Executor || c.Hub, func(ctx context.Context) error { return serveOwned(ctx, c) })
+}
+
+func validateDistribution(c config.Config) error {
+	if distributionRole == "hub" && (!c.Hub || c.Executor) {
+		return errors.New("the Hub package requires a Hub-only profile")
+	}
+	if distributionRole == "executor" && (c.Hub || !c.Executor) {
+		return errors.New("the executor package requires an executor-only profile")
+	}
+	return nil
 }
 
 func serveOwned(ctx context.Context, c config.Config) error {
+	hostID, err := hostidentity.ID(ctx)
+	if err != nil {
+		return fmt.Errorf("verify service host identity: %w", err)
+	}
+	c.HostID = hostID
 	ctx, stop := context.WithCancel(ctx)
 	defer stop()
 	// Reserve the configured port before opening databases or starting an engine.
@@ -295,29 +325,11 @@ func serveOwned(ctx context.Context, c config.Config) error {
 		}
 		h = hub.New(c, hs)
 		h.SetContext(ctx)
-		if c.ProfilePath != "" {
-			h.SetWebUI(func() bool { return webui.Enabled(filepath.Dir(c.ProfilePath)) })
-		}
 		assets, err := attachments.New(filepath.Join(c.DataDir, "attachments"))
 		if err != nil {
 			return err
 		}
 		h.SetAttachments(assets)
-	}
-	var g *gateway.Gateway
-	if c.Gateway != nil {
-		authorize := gateway.RemoteAuthorizer(c.HubURL)
-		if h != nil {
-			authorize = h.AuthorizeGateway
-		}
-		g, err = gateway.New(*c.Gateway, authorize)
-		if err != nil {
-			return err
-		}
-		defer g.Close()
-		if h != nil {
-			h.SetModelGateway(g)
-		}
 	}
 	roles := []string{}
 	if c.Hub {
@@ -326,15 +338,9 @@ func serveOwned(ctx context.Context, c config.Config) error {
 	if c.Executor {
 		roles = append(roles, "executor")
 	}
-	if c.Gateway != nil {
-		roles = append(roles, "gateway")
-	}
-	d := protocol.Device{ID: c.DeviceID, Name: c.Name, Platform: runtime.GOOS + "/" + runtime.GOARCH, Roles: roles, Projects: c.Projects, Online: true, ProtocolVersion: protocol.Version}
+	d := protocol.Device{ID: c.DeviceID, HostID: c.HostID, Name: c.Name, Platform: runtime.GOOS + "/" + runtime.GOARCH, Roles: roles, Projects: c.Projects, Online: true, ProtocolVersion: protocol.Version}
 	if c.Executor {
-		d.Capabilities = []string{"project-files", "model-catalog", "reasoning-policy", "collaboration-modes", "workspace-management", "account-limits", "access-modes"}
-	}
-	if g != nil && !c.Hub {
-		d.Capabilities = append(d.Capabilities, "model-gateway-relay")
+		d.Capabilities = []string{"workspace-management", "hub-execution"}
 	}
 	if c.Executor {
 		s, err := store.Open(filepath.Join(c.DataDir, "executor.db"))
@@ -342,25 +348,6 @@ func serveOwned(ctx context.Context, c config.Config) error {
 			return err
 		}
 		defer s.Close()
-		engineConfig, closeForwarder, err := forwardedEngine(ctx, c)
-		if err != nil {
-			return err
-		}
-		defer closeForwarder()
-		e, err := engine.Start(ctx, engineConfig)
-		if err != nil {
-			return err
-		}
-		defer e.Close()
-		go func() {
-			select {
-			case <-ctx.Done():
-			case <-e.Done():
-				if ctx.Err() == nil {
-					errorsCh <- errors.New("execution engine exited unexpectedly; task outcomes require confirmation")
-				}
-			}
-		}()
 		var emit func(protocol.Event)
 		if h != nil {
 			emit = func(ev protocol.Event) {
@@ -369,7 +356,7 @@ func serveOwned(ctx context.Context, c config.Config) error {
 				}
 			}
 		}
-		x, err := executor.New(c, s, e, nil)
+		x, err := executor.NewTerminal(ctx, c, s)
 		if err != nil {
 			return err
 		}
@@ -400,9 +387,8 @@ func serveOwned(ctx context.Context, c config.Config) error {
 			}
 			x.SetNotifier(emit)
 		} else {
-			x.SetAttachmentFetcher(transport.AttachmentFetcher(c))
 			x.SetFilePublisher(transport.FilePublisher(c))
-			n := &transport.Node{Config: c, Store: s, Device: d, Executor: x, Gateway: g}
+			n := &transport.Node{Config: c, Store: s, Device: d, Executor: x}
 			go func() {
 				if err := n.Run(ctx); err != nil && ctx.Err() == nil {
 					fmt.Fprintln(os.Stderr, "node connection:", err)
@@ -410,16 +396,19 @@ func serveOwned(ctx context.Context, c config.Config) error {
 			}()
 		}
 	}
-	if !c.Hub && !c.Executor && g != nil {
-		s, err := store.Open(filepath.Join(c.DataDir, "gateway.db"))
+	if h != nil {
+		coordinator, err := h.StartCoordinator(ctx)
 		if err != nil {
 			return err
 		}
-		defer s.Close()
-		n := &transport.Node{Config: c, Store: s, Device: d, Gateway: g}
+		defer coordinator.Close()
 		go func() {
-			if err := n.Run(ctx); err != nil && ctx.Err() == nil {
-				fmt.Fprintln(os.Stderr, "gateway connection:", err)
+			select {
+			case <-ctx.Done():
+			case <-coordinator.Done():
+				if ctx.Err() == nil {
+					errorsCh <- errors.New("Hub model engine exited unexpectedly; task outcomes require confirmation")
+				}
 			}
 		}()
 	}
@@ -458,42 +447,8 @@ func serveOwned(ctx context.Context, c config.Config) error {
 		}()
 		fmt.Println("MewDex Hub listening:", listener.Addr().String())
 	}
-	if g != nil && c.Gateway.Listen != "" {
-		listener, err := net.Listen("tcp", c.Gateway.Listen)
-		if err != nil {
-			return err
-		}
-		server := &http.Server{Addr: c.Gateway.Listen, Handler: g, ReadHeaderTimeout: 10 * time.Second}
-		if c.Gateway.TLSCertFile != "" {
-			certificate, err := tls.LoadX509KeyPair(c.Gateway.TLSCertFile, c.Gateway.TLSKeyFile)
-			if err != nil {
-				listener.Close()
-				return err
-			}
-			server.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12, Certificates: []tls.Certificate{certificate}}
-		}
-		go func() {
-			var err error
-			if c.Gateway.TLSCertFile != "" {
-				err = server.ServeTLS(listener, "", "")
-			} else {
-				err = server.Serve(listener)
-			}
-			if !errors.Is(err, http.ErrServerClosed) {
-				errorsCh <- err
-			}
-		}()
-		defer server.Close()
-	}
 	if ctx.Err() != nil {
 		return nil
-	}
-	if h != nil {
-		closeMessaging, err := h.StartMessaging(ctx)
-		if err != nil {
-			return err
-		}
-		defer closeMessaging()
 	}
 	control.Ready(localHubURL)
 	if c.Hub && c.ProfilePath != "" {
@@ -509,15 +464,4 @@ func serveOwned(ctx context.Context, c config.Config) error {
 	case err := <-errorsCh:
 		return err
 	}
-}
-
-func forwardedEngine(ctx context.Context, c config.Config) (config.Engine, func(), error) {
-	if !c.Engine.UseHubGateway {
-		return c.Engine, func() {}, nil
-	}
-	f, err := gateway.StartForwarder(ctx, c)
-	if err != nil {
-		return c.Engine, nil, err
-	}
-	return f.EngineConfig(c.Engine), f.Close, nil
 }

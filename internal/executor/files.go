@@ -40,6 +40,10 @@ func (x *Executor) fileCommand(ctx context.Context, c protocol.Command) protocol
 	if c.Kind != "file.export" {
 		return commandFailure(errors.New("unsupported file operation"))
 	}
+	return x.exportProjectSnapshot(ctx, c, session, root)
+}
+
+func (x *Executor) exportProjectSnapshot(ctx context.Context, c protocol.Command, session protocol.Session, root *projectfiles.Root) protocol.CommandResult {
 	if x.filePublisher == nil {
 		return commandFailure(errors.New("this executor has no file return connection"))
 	}

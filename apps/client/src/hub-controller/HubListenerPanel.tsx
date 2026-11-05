@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { useEffect, useState } from "react";
 import type { Result, Snapshot } from "./localProtocol";
 import { useSettingAutosave } from "../useSettingAutosave";
@@ -30,11 +31,13 @@ export function HubListenerPanel({
   return (
     <section
       className="device-data hub-listener-settings"
-      aria-label="Hub 监听端口设置"
+      aria-label={t("Hub 监听端口设置")}
     >
-      <h3>Hub 监听端口</h3>
+      <h3>{t("Hub 监听端口")}</h3>
       <p className="muted">
-        默认端口为 47830，修改后自动保存。该端口已有 Hub 时可直接连接并登录。
+        {t(
+          "默认端口为 47830，修改后自动保存。该端口已有 Hub 时可直接连接并登录。",
+        )}
       </p>
       {state.error && (
         <p className="error" role="alert">
@@ -43,7 +46,7 @@ export function HubListenerPanel({
       )}
       <div className="local-setup-form">
         <label>
-          端口
+          {t("端口")}
           <input
             type="number"
             min={1}
@@ -69,20 +72,22 @@ export function HubListenerPanel({
         </label>
         <p role="status">
           {state.pending
-            ? "正在自动保存…"
+            ? t("正在自动保存…")
             : state.phase === "saved"
-              ? "已自动保存"
+              ? t("已自动保存")
               : state.phase === "invalid"
-                ? "请输入 1–65535 之间的整数；未完成的输入不会保存。"
-                : "设置会自动保存。"}
+                ? t("请输入 1–65535 之间的整数；未完成的输入不会保存。")
+                : t("设置会自动保存。")}
         </p>
       </div>
-      {!stopped && <p className="muted">先停止本机服务，再修改监听端口。</p>}
+      {!stopped && (
+        <p className="muted">{t("先停止本机服务，再修改监听端口。")}</p>
+      )}
       {!supported && (
-        <p className="muted">请先更新本机组件，以便修改监听端口。</p>
+        <p className="muted">{t("请先更新本机组件，以便修改监听端口。")}</p>
       )}
       <p className="muted">
-        直接连接本机端口的客户端或外部代理，需要同步更新其地址。
+        {t("直接连接本机端口的客户端或外部代理，需要同步更新其地址。")}
       </p>
     </section>
   );

@@ -42,17 +42,29 @@ def remove_directory(path):
 
 
 def package_payload(source, stage, report):
-    for name in ["mewdex-client.exe", "mewdex-node.exe"]:
+    for name in ["mewdex-client.exe", "mewdex-input-bridge.exe"]:
         copy_file(source / name, stage / name)
     if digest(stage / "mewdex-client.exe") != report["sha256"] or digest(
-        stage / "mewdex-node.exe"
+        stage / "mewdex-input-bridge.exe"
     ) != report["helperSha256"]:
         raise RuntimeError("Packaged binaries do not match the build report")
-    for item in (source / "engine").rglob("*"):
-        if item.is_file():
-            copy_file(item, stage / "engine" / item.relative_to(source / "engine"))
     for item in source.glob("*.dll"):
         copy_file(item, stage / item.name)
+    product = json.loads((ROOT / "mewdex.product.json").read_text(encoding="utf-8"))
+    version = json.loads((ROOT / "package.json").read_text(encoding="utf-8"))["version"]
+    manifest = {
+        "schemaVersion": 1,
+        "distribution": "app",
+        "components": product["distributions"]["app"]["components"],
+        "version": version,
+        "os": "windows",
+        "arch": "x64",
+        "configuration": "Debug",
+    }
+    (stage / "component.json").write_text(
+        json.dumps(manifest, indent=2) + "\n",
+        encoding="utf-8",
+    )
     for name in [
         "LICENSE",
         "NOTICE",
@@ -60,6 +72,8 @@ def package_payload(source, stage, report):
         "README.zh-CN.md",
         "mewdex.product.json",
         "docs/releases.md",
+        "docs/architecture.md",
+        "docs/protocol.md",
         "THIRD_PARTY_NOTICES.md",
         "docs/messaging.md",
         "docs/hub-startup-20261102.md",
@@ -100,13 +114,11 @@ def package_payload(source, stage, report):
     (stage / "START-HERE.txt").write_text(
         "MewDex Windows x64 Debug 开发测试包\n\n"
         "解压后启动 mewdex-client.exe。\n"
-        "桌面 APP 会启动已配置的本机 Hub，首次使用请完成本机设备配置。\n"
-        "网页版为可选功能，在设置 → 连接与服务，或本机设备 → 概览中启动。\n"
-        "使用此 Hub 的 MewDex 账号或登录密钥登录网页版。\n"
-        "退出桌面 APP 后，中央后端与已启用的网页版继续后台运行。\n"
-        "执行端没有项目时，会在其数据目录同级 workspaces/default 中准备默认工作区。\n"
-        "已有后台服务请在本机设备 → 数据与更新中更新组件。\n"
-        "设置弹窗支持调整大小，外观设置可调整主题和强调色。\n"
+        "APP 是输入终端，连接独立部署的 Hub。\n"
+        "QQ、微信和飞书由本 APP 的消息连接器接入，使用时保持 APP 运行。\n"
+        "在设置中的消息渠道选择本 APP，保存平台凭据、允许用户和 Hub 项目。\n"
+        "Hub、网页输入端和执行端分别使用独立发布包部署。\n"
+        "执行端通过 WebSocket 连接 Hub，并提供独立网页控制面板。\n"
         "此轮交由用户人工验收。\n",
         encoding="utf-8",
     )
@@ -121,7 +133,7 @@ def output_path(name):
 
 def main():
     report = json.loads(REPORT.read_text(encoding="utf-8-sig"))
-    if report["state"] != "succeeded" or report["configuration"] != "Debug":
+    if report["state"] != "succeeded" or report["configuration"] != "Debug" or report.get("component") != "app":
         raise RuntimeError("Expected a completed Windows x64 Debug build")
     state = (ROOT / ".state").resolve()
     if not state.is_relative_to(ROOT):
@@ -130,6 +142,7 @@ def main():
     directory = output_path(PACKAGE_NAME)
     archive = output_path(PACKAGE_NAME + ".zip")
     removed = []
+    previous = None
 
     with tempfile.TemporaryDirectory(prefix="windows-package-", dir=state) as temporary:
         scratch = Path(temporary)
@@ -142,18 +155,68 @@ def main():
             for item in files:
                 output.write(item, PACKAGE_NAME + "/" + item.relative_to(stage).as_posix())
 
-        previous = scratch / "previous"
-        if directory.exists():
-            directory.rename(previous)
+        with zipfile.ZipFile(staged_archive) as output:
+            if output.testzip() is not None:
+                raise RuntimeError("Package archive failed CRC validation")
+
+        directory.mkdir(exist_ok=True)
+        previous = Path(tempfile.mkdtemp(prefix="windows-package-previous-", dir=state))
+        replaced = []
+        legacy = []
         try:
-            stage.rename(directory)
+            for item in files:
+                relative = item.relative_to(stage)
+                target = directory / relative
+                if not target.resolve().is_relative_to(directory.resolve()):
+                    raise RuntimeError("Package file escapes the output directory")
+                if target.exists():
+                    if target.is_symlink() or not target.is_file():
+                        raise RuntimeError("Unexpected existing package file: " + str(target))
+                    if digest(target) == digest(item):
+                        continue
+                    copy_file(target, previous / relative)
+                target.parent.mkdir(parents=True, exist_ok=True)
+                try:
+                    item.replace(target)
+                except PermissionError:
+                    retained = previous / "in-use" / relative
+                    retained.parent.mkdir(parents=True, exist_ok=True)
+                    target.rename(retained)
+                    try:
+                        item.replace(target)
+                    except OSError:
+                        retained.rename(target)
+                        raise
+                replaced.append(relative)
+            # Retire only the bundled service resources owned by the old APP export.
+            for name in ["mewdex-node.exe", "engine"]:
+                target = directory / name
+                if target.exists():
+                    if target.is_symlink() or not target.resolve().is_relative_to(directory.resolve()):
+                        raise RuntimeError("Unexpected legacy service resource")
+                    saved = previous / "legacy" / name
+                    saved.parent.mkdir(parents=True, exist_ok=True)
+                    target.rename(saved)
+                    legacy.append((target, saved))
             staged_archive.replace(archive)
-        except OSError:
-            if directory.exists():
-                remove_directory(directory)
-            if previous.exists():
-                previous.rename(directory)
+        except BaseException:
+            for target, saved in reversed(legacy):
+                saved.rename(target)
+            for relative in reversed(replaced):
+                target = directory / relative
+                saved = previous / relative
+                if saved.exists():
+                    restore = scratch / "restore" / relative
+                    copy_file(saved, restore)
+                    restore.replace(target)
+                else:
+                    target.unlink()
             raise
+
+        try:
+            remove_directory(previous)
+        except PermissionError:
+            pass  # A running client can still hold the retained executable.
 
         for candidate in OUTPUT.glob(PACKAGE_NAME + "-*"):
             candidate = output_path(candidate.name)
@@ -172,9 +235,10 @@ def main():
         "configuration": "Windows/x64/Debug",
         "clientSha256": report["sha256"],
         "helperSha256": report["helperSha256"],
-        "engineVersion": report["engineVersion"],
+        "component": "app",
         "removedOldPackages": removed,
-        "crcValidated": False,
+        "crcValidated": True,
+        "previousDirectoryBackup": str(previous) if previous.exists() else None,
         "installed": False,
         "manualAcceptancePending": True,
     }

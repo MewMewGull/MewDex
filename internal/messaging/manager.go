@@ -22,6 +22,7 @@ type running struct {
 
 type Manager struct {
 	store       *store.Store
+	backend     Backend
 	submit      Submit
 	factory     factory
 	ctx         context.Context
@@ -39,7 +40,11 @@ type Manager struct {
 }
 
 func New(s *store.Store, submit Submit) (*Manager, error) {
-	m := &Manager{store: s, submit: submit, configs: map[string]channel{}, status: map[string]protocol.MessagingChannel{}, runs: map[string]*running{}, active: map[string]bool{}}
+	return NewWithBackend(s, storeBackend{s}, submit)
+}
+
+func NewWithBackend(s *store.Store, backend Backend, submit Submit) (*Manager, error) {
+	m := &Manager{store: s, backend: backend, submit: submit, configs: map[string]channel{}, status: map[string]protocol.MessagingChannel{}, runs: map[string]*running{}, active: map[string]bool{}}
 	m.loginClient = newHTTPClient()
 	m.factory = func(c channel) adapter {
 		switch c.Platform {
@@ -78,6 +83,20 @@ func (m *Manager) Close() {
 	}
 	m.saveMu.Unlock()
 	m.wg.Wait()
+}
+
+// Reconnect retries channels whose Hub authorization could not be read at startup.
+func (m *Manager) Reconnect() {
+	m.saveMu.Lock()
+	defer m.saveMu.Unlock()
+	for _, platform := range platforms {
+		m.mu.Lock()
+		missing := m.runs[platform] == nil
+		m.mu.Unlock()
+		if missing && m.ctx.Err() == nil {
+			m.restart(platform)
+		}
+	}
 }
 
 func (m *Manager) config(platform string) (channel, bool) {
@@ -145,7 +164,7 @@ func (m *Manager) Update(platform string, update protocol.MessagingUpdate) error
 	}
 	if c.Enabled {
 		var device protocol.Device
-		if err = m.store.Get("devices", c.DeviceID, &device); err != nil {
+		if err = m.backend.Get("devices", c.DeviceID, &device); err != nil {
 			return errors.New("请选择可用的执行设备")
 		}
 		found := false
@@ -160,30 +179,9 @@ func (m *Manager) Update(platform string, update protocol.MessagingUpdate) error
 			return errors.New("请选择此执行设备上的项目")
 		}
 	}
-	access := protocol.Access{Targets: []protocol.TargetAccess{}}
-	if c.Enabled {
-		access.Targets = append(access.Targets, protocol.TargetAccess{DeviceID: c.DeviceID, ProjectIDs: []string{c.ProjectID}})
-	}
-	if c.IdentityID != "" {
-		if _, err = m.store.Identity(c.IdentityID); err == nil {
-			err = m.store.UpdateAccess(c.IdentityID, access)
-		} else if c.Enabled {
-			c.IdentityID = ""
-		}
-		if err != nil && c.IdentityID != "" && !errors.Is(err, store.ErrNotFound) {
-			return err
-		}
-	}
-	if c.Enabled && c.IdentityID == "" {
-		code, err := m.store.InviteWithAccess("client", access, time.Minute)
-		if err != nil {
-			return err
-		}
-		_, identity, err := m.store.Pair(code, "消息渠道 / "+platform, "")
-		if err != nil {
-			return err
-		}
-		c.IdentityID = identity.ID
+	c.IdentityID, err = m.backend.Configure(c.DeviceID, c.ProjectID, c.IdentityID, c.Enabled)
+	if err != nil {
+		return err
 	}
 	return m.save(c)
 }
@@ -216,7 +214,7 @@ func (m *Manager) restart(platform string) {
 		m.setStatus(platform, "disabled", "渠道已关闭")
 		return
 	}
-	identity, err := m.store.Identity(c.IdentityID)
+	identity, err := m.backend.Identity(c.IdentityID)
 	if err != nil || identity.Role != "client" || !identity.Access.Allows(c.DeviceID, c.ProjectID) {
 		m.setStatus(platform, "needs_authorization", "消息输入身份已撤销；请保存渠道设置以重新授权")
 		return
@@ -283,6 +281,9 @@ func (m *Manager) receive(source channel, e Envelope) error {
 	}
 	if _, err := m.authorize(c, e); err != nil {
 		m.setStatus(c.Platform, "needs_authorization", "消息输入授权不可用；请检查访问权限后保存渠道设置")
+		if errors.Is(err, ErrHubUnavailable) {
+			return err
+		}
 		return nil
 	}
 	id := stable(c.Platform, c.account(), e.Scene, e.ChatID, e.UserID, e.ID)
@@ -295,8 +296,11 @@ func (m *Manager) authorize(c channel, e Envelope) (protocol.Identity, error) {
 	if !exists || current.IdentityID != c.IdentityID || current.account() != c.account() || current.DeviceID != c.DeviceID || current.ProjectID != c.ProjectID || !current.accepts(e) {
 		return protocol.Identity{}, errors.New("消息渠道配置已更改或用户授权已撤销")
 	}
-	identity, err := m.store.Identity(c.IdentityID)
-	if err != nil || identity.Role != "client" || !identity.Access.Allows(c.DeviceID, c.ProjectID) || !c.accepts(e) {
+	identity, err := m.backend.Identity(c.IdentityID)
+	if err != nil {
+		return identity, err
+	}
+	if identity.Role != "client" || !identity.Access.Allows(c.DeviceID, c.ProjectID) || !c.accepts(e) {
 		return identity, errors.New("消息渠道已关闭或访问授权已撤销")
 	}
 	return identity, nil
@@ -339,7 +343,7 @@ func (m *Manager) work(ctx context.Context) {
 }
 
 func (m *Manager) runCommand(ctx context.Context, identityID string, c protocol.Command) (protocol.CommandResult, error) {
-	result, err := m.store.Result(c.ID)
+	result, err := m.backend.Result(c.ID)
 	if errors.Is(err, store.ErrNotFound) {
 		result, err = m.submit(ctx, identityID, c)
 	}
@@ -348,7 +352,7 @@ func (m *Manager) runCommand(ctx context.Context, identityID string, c protocol.
 	}
 	deadline := time.Now().Add(50 * time.Second)
 	for result.State == "accepted" && time.Now().Before(deadline) && pause(ctx, 100*time.Millisecond) {
-		result, err = m.store.Result(c.ID)
+		result, err = m.backend.Result(c.ID)
 		if err != nil {
 			return result, err
 		}

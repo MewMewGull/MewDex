@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { deviceRequest } from "../localDevice";
 import type { HubDiscovery, Request, Setup, Snapshot } from "./localProtocol";
@@ -7,7 +8,7 @@ const initialSetup = (): Setup => ({
   name: "",
   hub: true,
   executor: true,
-  gateway: true,
+  gateway: false,
   listen: "127.0.0.1:47830",
   hubUrl: "",
   invitation: "",
@@ -22,6 +23,7 @@ export function useLocalDevice(
   onConnect: (connection: Connection) => Promise<void>,
   onClose: () => void,
   onExistingHub?: (url: string) => void,
+  preferredHubURL?: string,
 ) {
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [setup, setSetup] = useState<Setup>(initialSetup);
@@ -39,24 +41,33 @@ export function useLocalDevice(
     null,
   );
 
-  const receive = useCallback((value: Snapshot) => {
-    setSnapshot(value);
-    if (!initialized.current) {
-      initialized.current = true;
-      if (value.configured || value.setupPending)
-        setSetup({
-          name: value.name ?? "我的电脑",
-          hub: value.hub,
-          executor: value.executor,
-          gateway: value.gateway,
-          listen: value.listen ?? "127.0.0.1:47830",
-          hubUrl: value.hubUrl ?? "",
-          useHubGateway: value.useHubGateway,
-          projects: value.projects,
-          invitation: "",
-        });
-    }
-  }, []);
+  const receive = useCallback(
+    (value: Snapshot) => {
+      setSnapshot(value);
+      if (!initialized.current) {
+        initialized.current = true;
+        if (value.configured || value.setupPending)
+          setSetup({
+            name: value.name ?? t("我的电脑"),
+            hub: value.hub,
+            executor: value.executor,
+            gateway: false,
+            listen: value.listen ?? "127.0.0.1:47830",
+            hubUrl: value.hubUrl ?? "",
+            useHubGateway: false,
+            projects: value.projects,
+            invitation: "",
+          });
+        else
+          setSetup({
+            ...initialSetup(),
+            hub: !preferredHubURL,
+            hubUrl: preferredHubURL ?? "",
+          });
+      }
+    },
+    [preferredHubURL],
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -111,7 +122,11 @@ export function useLocalDevice(
     return value;
   }
   async function apply(request: Request) {
-    if (["service.port", "proxy.apply"].includes(request.operation))
+    if (
+      ["service.port", "proxy.apply", "model-routing.apply"].includes(
+        request.operation,
+      )
+    )
       setError("");
     try {
       const value = await deviceRequest(request);
@@ -121,7 +136,12 @@ export function useLocalDevice(
         setExistingHub(null);
       }
       if (
-        ["setup", "repair.executor", "service.port"].includes(request.operation)
+        [
+          "setup",
+          "repair.executor",
+          "service.port",
+          "model-routing.apply",
+        ].includes(request.operation)
       )
         setRevision((value) => value + 1);
       return value;
@@ -150,23 +170,24 @@ export function useLocalDevice(
     setSetup((old) => ({ ...old, ...value }));
   }
   async function enter(current: Snapshot) {
-    setPhase("正在连接工作台…");
+    setPhase(t("正在连接工作台…"));
     let connection = paired.current?.connection;
     if (connection) {
       const now = await refresh();
       if (paired.current!.deviceId !== now.deviceId) {
         paired.current = null;
-        throw new Error("本机设备已变化，请重新连接。");
+        throw new Error(t("本机设备已变化，请重新连接。"));
       }
       if (!now.ready || !now.baseUrl)
-        throw new Error("本机网络尚未就绪，请启动服务后继续。");
+        throw new Error(t("本机网络尚未就绪，请启动服务后继续。"));
       connection = { ...connection, baseURL: now.baseUrl };
     } else {
       const result = await apply({
         operation: "connect",
         expectedDeviceId: current.deviceId,
       });
-      if (!result.connection) throw new Error("本机服务没有返回输入端连接。");
+      if (!result.connection)
+        throw new Error(t("本机服务没有返回输入端连接。"));
       connection = result.connection;
       paired.current = { deviceId: result.snapshot.deviceId!, connection };
     }
@@ -177,12 +198,14 @@ export function useLocalDevice(
   async function startAndEnter(current: Snapshot) {
     if (!current.ready && existingHub) {
       if (!onExistingHub)
-        throw new Error(`已发现 Hub，请连接 ${existingHub.baseUrl} 并登录。`);
+        throw new Error(
+          t("已发现 Hub，请连接 {0} 并登录。", existingHub.baseUrl),
+        );
       onExistingHub(existingHub.baseUrl);
       return;
     }
     if (!current.ready) {
-      setPhase("正在启动本机服务…");
+      setPhase(t("正在启动本机服务…"));
       const result = await apply({
         operation: "start",
         expectedDeviceId: current.deviceId,
@@ -191,7 +214,7 @@ export function useLocalDevice(
         setExistingHub(result.existingHub);
         if (!onExistingHub)
           throw new Error(
-            `已发现 Hub，请连接 ${result.existingHub.baseUrl} 并登录。`,
+            t("已发现 Hub，请连接 {0} 并登录。", result.existingHub.baseUrl),
           );
         onExistingHub(result.existingHub.baseUrl);
         return;
@@ -202,14 +225,14 @@ export function useLocalDevice(
   }
   async function saveSetup(launch: boolean) {
     await work(async () => {
-      setPhase("正在保存本机配置…");
+      setPhase(t("正在保存本机配置…"));
       const value = await apply({
         operation: "setup",
         setup: {
           ...setup,
-          gateway: setup.hub && setup.gateway,
+          gateway: false,
           hubUrl: setup.hub ? "" : setup.hubUrl,
-          useHubGateway: !setup.hub && setup.executor && setup.useHubGateway,
+          useHubGateway: false,
           projects: setup.executor ? setup.projects : [],
           account: setup.hub ? setup.account : undefined,
         },
@@ -227,7 +250,7 @@ export function useLocalDevice(
         expectedDeviceId: snapshot?.deviceId,
         pairing: { invitation },
       });
-      setPairingMessage("本机执行已连接到设备网络，可以启动服务。");
+      setPairingMessage(t("本机执行已连接到设备网络，可以启动服务。"));
     });
   }
   const restored = useCallback(() => {
@@ -263,7 +286,7 @@ export function useLocalDevice(
     upgraded,
     start: () =>
       work(async () => {
-        setPhase("正在启动本机服务…");
+        setPhase(t("正在启动本机服务…"));
         await apply({
           operation: "start",
           expectedDeviceId: snapshot?.deviceId,
@@ -272,7 +295,7 @@ export function useLocalDevice(
     enter: () => snapshot && work(() => startAndEnter(snapshot)),
     stop: () =>
       work(async () => {
-        setPhase("正在停止本机服务…");
+        setPhase(t("正在停止本机服务…"));
         await apply({
           operation: "stop",
           expectedDeviceId: snapshot?.deviceId,

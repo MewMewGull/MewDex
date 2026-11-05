@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Monitor } from "lucide-react";
 import { MewDexClient, MewDexError, type ServerInfo } from "@mewdex/sdk";
@@ -102,6 +103,8 @@ export function ConnectScreen({
       const client = new MewDexClient({
         baseURL: url.trim(),
         token: mode === "key" ? key.trim() : undefined,
+        expectedHubDeviceId: server.hubDeviceId,
+        expectedInputProxyHostId: server.inputProxy?.hostId,
       });
       const value = paired ?? {
         baseURL: url.trim(),
@@ -116,7 +119,7 @@ export function ConnectScreen({
                   (signal) => client.loginWithKey(signal),
                   controller.signal,
                 )
-              : await client.pair(key.trim(), "我的输入端"),
+              : await client.pair(key.trim(), t("我的输入端")),
       };
       if (controller.signal.aborted) return;
       setPaired(value);
@@ -128,8 +131,8 @@ export function ConnectScreen({
       setError(
         cause instanceof MewDexError && [401, 403].includes(cause.status)
           ? mode === "password"
-            ? "MewDex 用户名或密码不正确。"
-            : "登录密钥或配对码无效，或已被撤销。"
+            ? t("MewDex 用户名或密码不正确。")
+            : t("登录密钥或配对码无效，或已被撤销。")
           : cause instanceof Error
             ? cause.message
             : String(cause),
@@ -139,9 +142,9 @@ export function ConnectScreen({
     }
   }
   const labels: Record<string, string> = {
-    password: "账号密码登录",
-    key: "密钥登录",
-    pair: "配对码连接",
+    password: t("账号密码登录"),
+    key: t("密钥登录"),
+    pair: t("配对码连接"),
   };
   return (
     <div className="connect-screen">
@@ -152,14 +155,16 @@ export function ConnectScreen({
         {server && (
           <button className="connection-back" disabled={busy} onClick={reset}>
             <ArrowLeft size={15} />
-            更改中央后端
+            {t("更改 MewDex Hub 地址")}
           </button>
         )}
-        <h1>{server ? "登录 MewDex" : "连接中央后端"}</h1>
+        <h1>{server ? t("登录 MewDex") : t("连接 MewDex 网络")}</h1>
         <p>
           {server
-            ? "使用此中央后端的 MewDex 账号，管理你的执行设备与项目。"
-            : "先检查中央后端是否可用，并获取它支持的登录方式。"}
+            ? t("使用此中央后端的 MewDex 账号，管理你的执行设备与项目。")
+            : t(
+                "输入 MewDex Hub 地址，连接项目与对话。Hub 统一连接 ChatGPT 并调度执行端。",
+              )}
         </p>
         <form
           onSubmit={(event) => {
@@ -171,13 +176,13 @@ export function ConnectScreen({
             <div className="error" role="alert">
               <p>{startupError}</p>
               <button type="button" onClick={onRetryStartup}>
-                重新启动中央后端
+                {t("重新启动中央后端")}
               </button>
             </div>
           )}
           {!server ? (
             <label>
-              中央后端地址
+              {t("MewDex Hub 地址")}
               <input
                 type="url"
                 value={url}
@@ -195,10 +200,12 @@ export function ConnectScreen({
             </label>
           ) : (
             <>
-              <p className="connection-server-address">已连接：{url}</p>
+              <p className="connection-server-address">
+                {t("已连接：{0}", url)}
+              </p>
               {server.authentication.methods.length > 1 && (
                 <label>
-                  登录方式
+                  {t("登录方式")}
                   <select
                     value={mode}
                     disabled={busy || !!paired}
@@ -220,14 +227,15 @@ export function ConnectScreen({
               {server.authentication.accountConfigured === false &&
                 server.capabilities?.includes("mewdex-accounts") && (
                   <p className="muted">
-                    此中央后端尚未设置 MewDex
-                    账号。先使用已有管理员密钥或管理员配对码登录，即可在账号设置中创建用户名和密码。
+                    {t(
+                      "此中央后端尚未设置 MewDex 账号。先使用已有管理员密钥或管理员配对码登录，即可在账号设置中创建用户名和密码。",
+                    )}
                   </p>
                 )}
               {mode === "password" ? (
                 <>
                   <label>
-                    MewDex 用户名
+                    {t("MewDex 用户名")}
                     <input
                       ref={userInput}
                       value={username}
@@ -243,7 +251,7 @@ export function ConnectScreen({
                     />
                   </label>
                   <label>
-                    MewDex 密码
+                    {t("MewDex 密码")}
                     <input
                       type="password"
                       value={password}
@@ -259,7 +267,7 @@ export function ConnectScreen({
                 </>
               ) : (
                 <label>
-                  {mode === "key" ? "登录密钥" : "输入端配对码"}
+                  {mode === "key" ? t("登录密钥") : t("输入端配对码")}
                   <input
                     ref={userInput}
                     type="password"
@@ -276,7 +284,9 @@ export function ConnectScreen({
                   />
                 </label>
               )}
-              <p className="muted">节点的 ChatGPT 订阅在登录后单独管理。</p>
+              <p className="muted">
+                {t("登录后可管理 Hub 的共用 ChatGPT 账号与跨机器项目。")}
+              </p>
             </>
           )}
           {error && (
@@ -287,13 +297,13 @@ export function ConnectScreen({
           <button className="primary connect-button" disabled={busy}>
             {busy
               ? server
-                ? "正在登录…"
-                : "正在检查…"
+                ? t("正在登录…")
+                : t("正在检查…")
               : !server
-                ? "检查并继续"
+                ? t("检查并继续")
                 : paired
-                  ? "保存登录"
-                  : "登录 MewDex"}
+                  ? t("保存登录")
+                  : t("登录 MewDex")}
             <ArrowRight size={17} />
           </button>
           {paired && (
@@ -308,7 +318,7 @@ export function ConnectScreen({
                 setError("");
               }}
             >
-              使用其他登录信息
+              {t("使用其他登录信息")}
             </button>
           )}
         </form>
@@ -319,7 +329,7 @@ export function ConnectScreen({
             onClick={onLocalDevice}
           >
             <Monitor size={15} />
-            在这台电脑开始
+            {t("在这台电脑开始")}
           </button>
         )}
       </main>

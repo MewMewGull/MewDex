@@ -16,7 +16,7 @@ import (
 	"github.com/coder/websocket"
 	"mewdex/internal/attachments"
 	"mewdex/internal/config"
-	"mewdex/internal/gateway"
+	"mewdex/internal/hostidentity"
 	"mewdex/internal/protocol"
 	"mewdex/internal/store"
 )
@@ -94,7 +94,6 @@ type Node struct {
 	Store    *store.Store
 	Device   protocol.Device
 	Executor Handler
-	Gateway  *gateway.Gateway
 }
 
 // Run reconnects the transport only. Commands with unknown outcomes are not resubmitted.
@@ -102,9 +101,17 @@ func (n *Node) Run(ctx context.Context) error {
 	if err := config.ValidateURL(n.Config.HubURL, n.Config.AllowPrivateHTTP); err != nil {
 		return err
 	}
+	if n.Device.HostID == "" {
+		host, err := hostidentity.ID(ctx)
+		if err != nil {
+			return err
+		}
+		n.Device.HostID = host
+	}
+	instanceID := protocol.ID()
 	delay := time.Second
 	for {
-		err := n.connect(ctx)
+		err := n.connect(ctx, instanceID)
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
@@ -120,7 +127,7 @@ func (n *Node) Run(ctx context.Context) error {
 	}
 }
 
-func (n *Node) connect(ctx context.Context) error {
+func (n *Node) connect(ctx context.Context, instanceID string) error {
 	b, err := os.ReadFile(n.Config.NodeTokenFile)
 	if err != nil {
 		return err
@@ -156,7 +163,7 @@ func (n *Node) connect(ctx context.Context) error {
 	if catalog, ok := n.Executor.(interface{ Projects() []protocol.Project }); ok {
 		device.Projects = catalog.Projects()
 	}
-	if err = send(protocol.Frame{Version: protocol.Version, Type: "hello", Payload: protocol.JSON(device)}); err != nil {
+	if err = send(protocol.Frame{Version: protocol.Version, Type: "hello", ID: instanceID, Payload: protocol.JSON(device)}); err != nil {
 		return err
 	}
 	_, hello, err := conn.Read(connectionCtx)
@@ -164,6 +171,14 @@ func (n *Node) connect(ctx context.Context) error {
 		return err
 	}
 	var accepted protocol.Frame
+	if json.Unmarshal(hello, &accepted) == nil && accepted.Type == "error" {
+		var detail struct {
+			Error string `json:"error"`
+		}
+		if json.Unmarshal(accepted.Payload, &detail) == nil && detail.Error != "" {
+			return errors.New(detail.Error)
+		}
+	}
 	if json.Unmarshal(hello, &accepted) != nil || accepted.Type != "hello.accepted" || accepted.Version != protocol.Version {
 		return errors.New("Hub rejected protocol handshake")
 	}
@@ -210,12 +225,6 @@ func (n *Node) connect(ctx context.Context) error {
 			return errors.New("invalid Hub frame")
 		}
 		switch f.Type {
-		case "gateway.open":
-			var request protocol.GatewayTunnelRequest
-			if json.Unmarshal(f.Payload, &request) != nil || request.ID == "" || request.ID != f.ID {
-				return errors.New("invalid gateway request")
-			}
-			go n.relayGateway(connectionCtx, request, token, send)
 		case "event.ack":
 			if err = n.Store.Ack(f.ID); err != nil {
 				return err

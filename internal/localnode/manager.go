@@ -15,7 +15,6 @@ import (
 	"mewdex/internal/protocol"
 	"mewdex/internal/startup"
 	"mewdex/internal/store"
-	"mewdex/internal/webui"
 	"mewdex/internal/workspace"
 )
 
@@ -181,15 +180,21 @@ func (m *Manager) Handle(ctx context.Context, request Request) (Result, error) {
 	if request.Operation == "service.port" && request.ExpectedDeviceID == "" {
 		return Result{}, errors.New("请先刷新当前设备，再修改监听端口")
 	}
+	if request.Operation == "model-routing.apply" && request.ExpectedDeviceID == "" {
+		return Result{}, errors.New("请先刷新当前设备，再修改 GPT 路由")
+	}
 	if (request.Operation == "cleanup.prepare" || request.Operation == "cleanup.apply") && request.ExpectedDeviceID == "" {
 		return Result{}, errors.New("refresh this device before preparing its cleanup recovery")
 	}
 	var installation *lifecycle.Lock
-	if request.Operation == "setup" || request.Operation == "projects" || request.Operation == "service.port" || request.Operation == "backup" || request.Operation == "restore.prepare" || request.Operation == "restore.apply" || request.Operation == "repair.executor" || request.Operation == "upgrade.prepare" || request.Operation == "upgrade.apply" {
+	if request.Operation == "setup" || request.Operation == "projects" || request.Operation == "service.port" || request.Operation == "model-routing.apply" || request.Operation == "backup" || request.Operation == "restore.prepare" || request.Operation == "restore.apply" || request.Operation == "repair.executor" || request.Operation == "upgrade.prepare" || request.Operation == "upgrade.apply" {
 		installation, err = lifecycle.Installation(m.options.Root)
 		if err != nil {
 			if request.Operation == "service.port" {
 				return Result{}, errors.New("请先停止本机服务，再修改监听端口")
+			}
+			if request.Operation == "model-routing.apply" {
+				return Result{}, errors.New("请先停止本机服务，再修改 GPT 路由")
 			}
 			return Result{}, errors.New("stop the local installation before changing its state")
 		}
@@ -235,22 +240,10 @@ func (m *Manager) Handle(ctx context.Context, request Request) (Result, error) {
 		err = m.updateService(ctx, request.ExpectedInstanceID)
 	case "service.port":
 		err = m.applyListener(ctx, request.Listener)
+	case "model-routing.apply":
+		err = m.applyModelRouting(ctx, request.ModelRouting)
 	case "web.apply":
-		if request.ExpectedDeviceID == "" || request.WebWorkbench == nil {
-			return Result{}, errors.New("请先刷新当前 Hub，再更改网页版设置")
-		}
-		c, readErr := config.Read(m.profile())
-		if readErr != nil {
-			return Result{}, readErr
-		}
-		if !c.Hub {
-			return Result{}, errors.New("网页版由中央后端提供")
-		}
-		settingsPath := filepath.Join(m.options.Root, webui.SettingsFile)
-		err = createJSON(settingsPath, request.WebWorkbench)
-		if errors.Is(err, os.ErrExist) {
-			err = replaceJSON(settingsPath, request.WebWorkbench)
-		}
+		return Result{}, errors.New("网页输入端已独立部署，请使用独立网页发布包")
 	case "projects":
 		err = m.projects(request.Projects)
 	case "backup":
@@ -315,7 +308,7 @@ func (m *Manager) archiveProgress(value backup.Progress) {
 func (m *Manager) status(ctx context.Context) (snapshot Snapshot, resultErr error) {
 	defer func() {
 		snapshot.StartupPreference, _ = m.StartupPreference()
-		snapshot.Operations = []string{"service.update", "service.port", "web.apply", "hub.discover", "proxy.status", "proxy.apply", "proxy.import", "proxy.ssh.config", "proxy.test", "backup", "restore.prepare", "restore.apply", "restore.status", "upgrade.prepare", "upgrade.apply", "upgrade.status", "repair.executor", "startup.status", "startup.apply", "job.start", "job.status", "job.cancel", "cleanup.status", "cleanup.prepare", "cleanup.apply"}
+		snapshot.Operations = []string{"service.update", "service.port", "model-routing.apply", "hub.discover", "proxy.status", "proxy.apply", "proxy.import", "proxy.ssh.config", "proxy.test", "backup", "restore.prepare", "restore.apply", "restore.status", "upgrade.prepare", "upgrade.apply", "upgrade.status", "repair.executor", "startup.status", "startup.apply", "job.start", "job.status", "job.cancel", "cleanup.status", "cleanup.prepare", "cleanup.apply"}
 	}()
 	snapshot = Snapshot{State: "unconfigured", Projects: []protocol.Project{}}
 	c, err := config.Read(m.profile())
@@ -356,6 +349,11 @@ func (m *Manager) status(ctx context.Context) (snapshot Snapshot, resultErr erro
 				snapshot.Ready = ready
 			}
 			snapshot.BaseURL, _ = state["hubUrl"].(string)
+			if snapshot.BaseURL != "" {
+				snapshot.Hub = true
+			} else if snapshot.State == "running" {
+				snapshot.Hub = false
+			}
 			if c.Hub && snapshot.BaseURL == "" {
 				snapshot.BaseURL = listenURL(c.Listen)
 			}
@@ -399,7 +397,9 @@ func (m *Manager) describe(c config.Config) Snapshot {
 	if c.Executor && !c.Hub {
 		pairingRequired = m.executorNeedsPairing(c)
 	}
-	snapshot := Snapshot{Configured: true, State: "stopped", DeviceID: c.DeviceID, Name: c.Name, Hub: c.Hub, Executor: c.Executor, Gateway: c.Gateway != nil, HubURL: c.HubURL, Listen: c.Listen, UseHubGateway: c.Engine.UseHubGateway, Projects: projects, EnginePresent: err == nil, ExistingModelAccount: c.Engine.Home == "", PairingRequired: pairingRequired}
+	snapshot := Snapshot{Configured: true, State: "stopped", DeviceID: c.DeviceID, Name: c.Name, Hub: c.Hub, Executor: c.Executor, HubURL: c.HubURL, Listen: c.Listen, Projects: projects, EnginePresent: err == nil, ExistingModelAccount: c.Engine.Home == "", PairingRequired: pairingRequired}
+	routing := modelRouting(c)
+	snapshot.ModelRouting = &routing
 	if c.Hub {
 		snapshot.BaseURL = listenURL(c.Listen)
 	}

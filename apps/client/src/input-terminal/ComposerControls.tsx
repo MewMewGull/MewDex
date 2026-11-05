@@ -1,8 +1,8 @@
+import { t } from "../localization.ts";
 import { useEffect, type ReactNode } from "react";
 import {
   Check,
   ChevronDown,
-  CircleGauge,
   Code2,
   FlaskConical,
   Globe,
@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import type { Device, MewDexClient, Policy, Session } from "@mewdex/sdk";
 import { useModelCatalog } from "../useModelCatalog";
+import { ContextUsageIndicator } from "./ContextUsageIndicator";
 import {
   reasoningLabel,
   selectedModel,
@@ -89,35 +90,28 @@ export function ComposerControls({
     session?.defaultModel || models.find((item) => item.isDefault)?.model;
   const model = selectedModel(models, value.model, inherited);
   const actualModel = value.model || inherited || session?.model;
-  const modelLabel = model?.displayName || actualModel || "默认模型";
+  const modelLabel = model?.displayName || actualModel || t("默认模型");
   const effort = value.reasoningEffort || model?.defaultReasoningEffort;
-  const effortLabel = effort ? reasoningLabel(effort) : "默认强度";
-  const usage = session?.contextUsage;
-  const capacity = usage?.modelContextWindow;
-  const used = usage?.totalTokens;
-  const percent =
-    used != null && capacity && capacity > 0
-      ? Math.min(100, Math.max(0, (used / capacity) * 100))
-      : null;
+  const effortLabel = effort ? reasoningLabel(effort) : t("默认强度");
   const access = value.accessMode || "workspace";
   const accessLabel =
     access === "read-only"
-      ? "只读访问"
+      ? t("只读访问")
       : access === "workspace-network"
-        ? "工作区与网络"
-        : "工作区权限";
+        ? t("工作区与网络")
+        : t("工作区权限");
   const strategy = value.noTests ? "no-tests" : value.mode;
   const strategies = [
-    { id: "edit", label: "直接修改" },
-    { id: "focused", label: "局部验证" },
-    { id: "full", label: "完整验证" },
-    { id: "no-tests", label: "不运行验证" },
+    { id: "edit", label: t("直接修改") },
+    { id: "focused", label: t("局部验证") },
+    { id: "full", label: t("完整验证") },
+    { id: "no-tests", label: t("不运行验证") },
   ];
   const strategyLabel =
-    strategies.find((item) => item.id === strategy)?.label || "任务策略";
+    strategies.find((item) => item.id === strategy)?.label || t("任务策略");
   const running = session?.state === "running";
   const applicationHint =
-    running && dirty ? "；修改用于后续回合，当前执行继续使用原设置" : "";
+    running && dirty ? t("；修改用于后续回合，当前执行继续使用原设置") : "";
   useEffect(() => {
     const pointer = (event: PointerEvent) => {
       for (const menu of document.querySelectorAll<HTMLDetailsElement>(
@@ -146,7 +140,7 @@ export function ComposerControls({
   return (
     <div className="composer-inline-controls">
       <ToolbarMenu
-        label={`访问权限：${accessLabel}${applicationHint}`}
+        label={t("访问权限：{0}{1}", accessLabel, applicationHint)}
         className="composer-labeled-menu"
         disabled={disabled || !device?.capabilities?.includes("access-modes")}
         icon={
@@ -162,18 +156,18 @@ export function ComposerControls({
           </>
         }
       >
-        <strong>访问权限</strong>
+        <strong>{t("访问权限")}</strong>
         {[
-          { id: "read-only", label: "只读访问", note: "查看项目文件" },
+          { id: "read-only", label: t("只读访问"), note: t("查看项目文件") },
           {
             id: "workspace",
-            label: "工作区权限",
-            note: "可修改项目，额外访问需批准",
+            label: t("工作区权限"),
+            note: t("可修改项目，额外访问需批准"),
           },
           {
             id: "workspace-network",
-            label: "工作区与网络",
-            note: "允许项目读写及网络访问",
+            label: t("工作区与网络"),
+            note: t("允许项目读写及网络访问"),
           },
         ].map((item) => (
           <button
@@ -195,7 +189,12 @@ export function ComposerControls({
         ))}
       </ToolbarMenu>
       <ToolbarMenu
-        label={`任务策略：${value.collaborationMode === "plan" ? "方案讨论 · " : ""}${strategyLabel}${applicationHint}`}
+        label={t(
+          "任务策略：{0}{1}{2}",
+          value.collaborationMode === "plan" ? t("方案讨论 · ") : "",
+          strategyLabel,
+          applicationHint,
+        )}
         className="composer-labeled-menu"
         disabled={disabled}
         icon={
@@ -208,12 +207,14 @@ export function ComposerControls({
               <FlaskConical size={16} />
             )}
             <span className="composer-control-label">
-              {value.collaborationMode === "plan" ? "方案讨论" : strategyLabel}
+              {value.collaborationMode === "plan"
+                ? t("方案讨论")
+                : strategyLabel}
             </span>
           </>
         }
       >
-        <strong>任务策略</strong>
+        <strong>{t("任务策略")}</strong>
         {strategies.map((item) => (
           <button
             key={item.id}
@@ -238,47 +239,18 @@ export function ComposerControls({
           }}
         >
           <SlidersHorizontal size={14} />
-          更多任务设置…
+          {t("更多任务设置…")}
         </button>
       </ToolbarMenu>
       <span className="composer-toolbar-space" />
+      <ContextUsageIndicator session={session} />
       <ToolbarMenu
-        label={
-          percent == null
-            ? "上下文使用情况"
-            : `上下文已使用 ${Math.round(percent)}%`
-        }
-        icon={<CircleGauge size={16} />}
-        className="composer-context-menu"
-      >
-        <strong>上下文使用情况</strong>
-        {percent != null ? (
-          <>
-            <progress max={100} value={percent} />
-            <p>
-              已使用 {Math.round(percent)}%，剩余 {Math.round(100 - percent)}%
-            </p>
-            <small>
-              {used?.toLocaleString()} / {capacity?.toLocaleString()} tokens
-            </small>
-          </>
-        ) : (
-          <p>
-            {session?.engineStarted
-              ? "引擎尚未返回上下文用量。"
-              : "发送后显示实际上下文用量。"}
-          </p>
+        label={t(
+          "模型与思考强度：{0} · {1}{2}",
+          modelLabel,
+          effortLabel,
+          applicationHint,
         )}
-        {actualModel && <small>模型：{actualModel}</small>}
-        {usage && (
-          <small>
-            最近请求：输入 {usage.inputTokens.toLocaleString()} · 输出{" "}
-            {usage.outputTokens.toLocaleString()}
-          </small>
-        )}
-      </ToolbarMenu>
-      <ToolbarMenu
-        label={`模型与思考强度：${modelLabel} · ${effortLabel}${applicationHint}`}
         disabled={disabled}
         className="composer-model-menu"
         icon={
@@ -289,11 +261,11 @@ export function ComposerControls({
           </>
         }
       >
-        <strong>模型与思考强度</strong>
+        <strong>{t("模型与思考强度")}</strong>
         <label>
-          模型
+          {t("模型")}
           <select
-            aria-label="模型"
+            aria-label={t("模型")}
             value={value.model ?? ""}
             disabled={disabled}
             onChange={(event) =>
@@ -302,7 +274,7 @@ export function ComposerControls({
               )
             }
           >
-            <option value="">{inherited || "执行端默认模型"}</option>
+            <option value="">{inherited || t("执行端默认模型")}</option>
             {value.model &&
               !models.some((item) => item.model === value.model) && (
                 <option value={value.model}>{value.model}</option>
@@ -315,9 +287,9 @@ export function ComposerControls({
           </select>
         </label>
         <label>
-          思考强度
+          {t("思考强度")}
           <select
-            aria-label="思考强度"
+            aria-label={t("思考强度")}
             value={value.reasoningEffort ?? ""}
             disabled={
               disabled || !device?.capabilities?.includes("reasoning-policy")
@@ -328,8 +300,8 @@ export function ComposerControls({
           >
             <option value="">
               {model?.defaultReasoningEffort
-                ? `${reasoningLabel(model.defaultReasoningEffort)}（默认）`
-                : "执行端默认强度"}
+                ? t("{0}（默认）", reasoningLabel(model.defaultReasoningEffort))
+                : t("执行端默认强度")}
             </option>
             {value.reasoningEffort &&
               !model?.supportedReasoningEfforts.some(
@@ -351,11 +323,11 @@ export function ComposerControls({
             disabled={catalog.isFetching}
             onClick={() => void catalog.fetchNextPage()}
           >
-            加载更多模型
+            {t("加载更多模型")}
           </button>
         )}
         {catalog.error && (
-          <small>模型目录暂不可读，可在任务设置中填写模型。</small>
+          <small>{t("模型目录暂不可读，可在任务设置中填写模型。")}</small>
         )}
       </ToolbarMenu>
     </div>

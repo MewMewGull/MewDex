@@ -12,7 +12,7 @@
 
 ## 包含范围
 
-- MewDex 的 Hub / Executor 数据库及 WAL 文件、附件、设备配置和执行端网络身份。
+- MewDex 的 Hub / Executor 数据库、Hub 的 `coordinator/coordinator.db`、相关 WAL 文件、附件、设备配置和执行端网络身份。
 - 应用自己管理的独立引擎目录中的 `sessions`、`archived_sessions` 对话 rollout 文件。
 - 配置中的项目目录引用；项目工作文件仍由原项目仓库或文件备份管理。
 

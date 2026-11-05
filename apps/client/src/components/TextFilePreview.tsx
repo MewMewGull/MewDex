@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Search, WrapText } from "lucide-react";
 import { OutputFindBar } from "./OutputFindBar";
@@ -68,10 +69,10 @@ export function TextFilePreview({
   return (
     <div className={`text-file-viewer ${wrap ? "wrap-text-file" : ""}`}>
       <div className="text-file-toolbar">
-        <span>{lines.length} 行</span>
+        <span>{t("{0} 行", lines.length)}</span>
         <select
-          aria-label="文本预览编码"
-          title="只改变预览解码，原文件保持不变"
+          aria-label={t("文本预览编码")}
+          title={t("只改变预览解码，原文件保持不变")}
           value={encoding}
           onChange={(event) =>
             onEncodingChange(event.target.value as TextPreviewEncoding)
@@ -80,7 +81,12 @@ export function TextFilePreview({
           {textPreviewEncodings.map((choice) => (
             <option key={choice.value} value={choice.value}>
               {choice.value === "auto"
-                ? `自动 · ${textPreviewEncodings.find((item) => item.value === resolvedEncoding)?.label}`
+                ? t(
+                    "自动 · {0}",
+                    textPreviewEncodings.find(
+                      (item) => item.value === resolvedEncoding,
+                    )?.label,
+                  )
                 : choice.label}
             </option>
           ))}
@@ -91,25 +97,25 @@ export function TextFilePreview({
               className="text-file-reference"
               onClick={() => locate(referenced)}
             >
-              定位第 {initialLine} 行
+              {t("定位第 {0} 行", initialLine)}
             </button>
           ) : (
             <span className="text-file-reference">
-              引用第 {initialLine} 行不在当前预览内
+              {t("引用第 {0} 行不在当前预览内", initialLine)}
             </span>
           ))}
         <button
           className="icon-button"
-          aria-label="查找文件预览"
-          title="查找 · Ctrl+F"
+          aria-label={t("查找文件预览")}
+          title={t("查找 · Ctrl+F")}
           onClick={() => onFindOpen(true)}
         >
           <Search size={15} />
         </button>
         <button
           className="icon-button"
-          aria-label="切换文件自动换行"
-          title="自动换行"
+          aria-label={t("切换文件自动换行")}
+          title={t("自动换行")}
           aria-pressed={wrap}
           onClick={() => setWrap((value) => !value)}
         >
@@ -123,11 +129,15 @@ export function TextFilePreview({
             setQuery(value);
             setIndex(0);
           }}
-          label="查找预览内容"
-          closeLabel="关闭文件查找"
+          label={t("查找预览内容")}
+          closeLabel={t("关闭文件查找")}
           status={
             query
-              ? `${matches.length ? Math.min(index, matches.length - 1) + 1 : 0}/${matches.length} 行`
+              ? t(
+                  "{0}/{1} 行",
+                  matches.length ? Math.min(index, matches.length - 1) + 1 : 0,
+                  matches.length,
+                )
               : ""
           }
           hasResults={matches.length > 0}
@@ -140,7 +150,7 @@ export function TextFilePreview({
         className="text-file-preview"
         ref={viewport}
         tabIndex={0}
-        aria-label="文件文本预览"
+        aria-label={t("文件文本预览")}
       >
         {lines.length ? (
           lines.map((line, index) => (
@@ -164,7 +174,7 @@ export function TextFilePreview({
             </span>
           ))
         ) : (
-          <span className="empty-text-file">空文本文件</span>
+          <span className="empty-text-file">{t("空文本文件")}</span>
         )}
       </pre>
     </div>

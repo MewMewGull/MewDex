@@ -1,13 +1,13 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "MewDex",
-  "version": "0.1.1-preview.20261104",
+  "version": "0.1.2-preview.20261106",
   "identifier": "app.mewdex.client",
   "build": {
     "beforeDevCommand": "npm run dev",
     "devUrl": "http://127.0.0.1:1420",
-    "beforeBuildCommand": "npm run build",
-    "frontendDist": "../dist"
+    "beforeBuildCommand": "npm run build:app",
+    "frontendDist": "../dist-app"
   },
   "app": {
     "windows": [

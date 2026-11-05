@@ -5,7 +5,37 @@ import {
   projectFileLocation,
   relativeProjectPath,
   parentProjectPath,
+  projectFileTarget,
 } from "../src/projectFileLinks.ts";
+
+test("Hub file references select the directory and native path of their owning node", () => {
+  const project = {
+    id: "hp_sott",
+    name: "Sott",
+    path: "",
+    directories: [
+      { deviceId: "win", projectId: "game", path: "D:\\Sott", name: "Windows" },
+      {
+        deviceId: "mac",
+        projectId: "game",
+        path: "/Users/me/Sott",
+        name: "Mac",
+      },
+    ],
+  };
+  assert.deepEqual(projectFileTarget("D:/Sott/Source/a.cpp", project), {
+    path: "Source/a.cpp",
+    directory: 0,
+  });
+  assert.deepEqual(projectFileTarget("/Users/me/Sott/Source/a.cpp", project), {
+    path: "Source/a.cpp",
+    directory: 1,
+  });
+  assert.deepEqual(projectFileTarget("/outside/a.cpp", project), {
+    path: "/outside/a.cpp",
+    directory: undefined,
+  });
+});
 
 test("project links navigate paths without treating executable URL schemes as files", () => {
   assert.equal(

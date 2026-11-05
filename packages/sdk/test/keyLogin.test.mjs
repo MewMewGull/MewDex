@@ -17,6 +17,12 @@ test("a reusable login key reads the same identity without pairing or commands",
       assert.equal(init.headers.get("Authorization"), "Bearer saved-input-key");
       assert.equal(init.redirect, "error");
       assert.equal(init.body, undefined);
+      if (url.endsWith("/health"))
+        return Response.json({
+          name: "MewDex",
+          protocolVersion: 1,
+          hubDeviceId: "hub-device",
+        });
       return Response.json(identity);
     },
   };
@@ -26,7 +32,9 @@ test("a reusable login key reads the same identity without pairing or commands",
     assert.equal(credentials.token, options.token);
   }
   assert.deepEqual(calls, [
+    "https://hub.example/health",
     "https://hub.example/v1/me",
+    "https://hub.example/health",
     "https://hub.example/v1/me",
   ]);
 });
@@ -43,7 +51,13 @@ test("missing, revoked and executor keys cannot create an input connection", asy
     (e) => e.status === 401,
   );
   await assert.rejects(
-    client(async () => Response.json({ role: "executor" })).loginWithKey(),
+    client(async (url) =>
+      Response.json(
+        url.endsWith("/health")
+          ? { name: "MewDex", protocolVersion: 1 }
+          : { role: "executor" },
+      ),
+    ).loginWithKey(),
     /输入端/,
   );
 });

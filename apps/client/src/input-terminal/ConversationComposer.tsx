@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { useId, useRef, type ReactNode, type RefObject } from "react";
 import {
   ArrowUp,
@@ -21,7 +22,7 @@ export function ConversationComposer({
   planMode,
   deviceControl,
   projectControl,
-  projectLabel = "选择项目",
+  projectLabel = t("选择项目"),
   children,
   controls,
 }: {
@@ -66,11 +67,15 @@ export function ConversationComposer({
     sendKey,
     touch,
     undefined,
-    intent.command === "steer" ? "追加" : "发送",
+    intent.command === "steer" ? t("追加") : t("发送"),
   );
   return (
     <>
-      <div className="composer-context" role="group" aria-label="项目与执行设备">
+      <div
+        className="composer-context"
+        role="group"
+        aria-label={t("项目与执行设备")}
+      >
         <div className="composer-project-control" title={context}>
           <FolderOpen size={16} />
           <span className="composer-project-label">{projectLabel}</span>
@@ -83,7 +88,7 @@ export function ConversationComposer({
         <textarea
           ref={editor.ref}
           data-draft-key={editor.draftKey}
-          aria-label="对话输入"
+          aria-label={t("对话输入")}
           aria-describedby={hintId}
           title={context}
           readOnly={editor.readOnly}
@@ -125,9 +130,9 @@ export function ConversationComposer({
             />
             <button
               className="icon-button attachment-button"
-              aria-label="添加附件"
+              aria-label={t("添加附件")}
               disabled={!files.canAdd}
-              title={files.canAdd ? "添加附件" : files.unavailable}
+              title={files.canAdd ? t("添加附件") : files.unavailable}
               onClick={() => fileInput.current?.click()}
             >
               <Plus size={19} />
@@ -156,8 +161,8 @@ export function ConversationComposer({
             {actions.canStop && (
               <button
                 className="stop-button"
-                aria-label="停止任务和后台进程"
-                title="停止当前任务与后台进程，保留未发送输入。"
+                aria-label={t("停止任务和后台进程")}
+                title={t("停止当前任务与后台进程，保留未发送输入。")}
                 onClick={actions.onStop}
               >
                 <Square size={13} fill="currentColor" />
@@ -165,7 +170,7 @@ export function ConversationComposer({
             )}
             <button
               className="send-button"
-              aria-label={actions.busy ? "正在发送消息" : intent.label}
+              aria-label={actions.busy ? t("正在发送消息") : intent.label}
               title={`${intent.description}${intent.command ? ` ${shortcut}` : ""}`}
               disabled={!actions.canSend}
               onClick={() => actions.onSend()}
@@ -182,9 +187,11 @@ export function ConversationComposer({
       <div className="sr-only" id={hintId}>
         <span title={context}>{context}</span>
         <span>
-          {planMode && <span className="composer-plan-mode">方案讨论 · </span>}
+          {planMode && (
+            <span className="composer-plan-mode">{t("方案讨论 · ")}</span>
+          )}
           {actions.busy
-            ? "正在发送…"
+            ? t("正在发送…")
             : status || (!intent.command ? intent.description : shortcut)}
         </span>
       </div>

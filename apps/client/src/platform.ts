@@ -1,3 +1,4 @@
+import { t } from "./localization.ts";
 import type { Credentials } from "@mewdex/sdk";
 import { isTauri, invoke } from "@tauri-apps/api/core";
 
@@ -23,11 +24,18 @@ export interface CredentialStore {
 
 export interface SavedConnection {
   baseURL: string;
-  credentials: Pick<Credentials, "token">;
+  credentials: Pick<Credentials, "token" | "hubDeviceId" | "inputProxy"> & {
+    identityId?: string;
+  };
 }
 const saved = (value: Connection): SavedConnection => ({
   baseURL: value.baseURL,
-  credentials: { token: value.credentials.token },
+  credentials: {
+    token: value.credentials.token,
+    hubDeviceId: value.credentials.hubDeviceId,
+    inputProxy: value.credentials.inputProxy,
+    identityId: value.credentials.identity.id,
+  },
 });
 
 // The web development adapter is deliberately session-scoped. Native vaults implement this interface.
@@ -109,7 +117,7 @@ export async function openOfficialLogin(raw: string): Promise<void> {
       url.hostname !== "openai.com" &&
       !url.hostname.endsWith(".openai.com"))
   )
-    throw new Error("登录地址不是官方 HTTPS 地址");
+    throw new Error(t("登录地址不是官方 HTTPS 地址"));
   await openExternalLink(raw);
 }
 
@@ -121,7 +129,7 @@ export async function openExternalLink(raw: string): Promise<void> {
     url.username ||
     url.password
   )
-    throw new Error("只能打开不含内嵌凭据的 HTTPS 网页");
+    throw new Error(t("只能打开不含内嵌凭据的 HTTPS 网页"));
   await openLink(url);
 }
 
@@ -133,7 +141,7 @@ export async function openWebWorkbench(raw: string): Promise<void> {
     url.password ||
     (url.protocol !== "https:" && !(url.protocol === "http:" && loopback))
   )
-    throw new Error("网页版地址需要使用 HTTPS 或本机回环地址");
+    throw new Error(t("网页版地址需要使用 HTTPS 或本机回环地址"));
   await openLink(url);
 }
 

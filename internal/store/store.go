@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"time"
 
+	"mewdex/internal/hostidentity"
 	"mewdex/internal/protocol"
 	_ "modernc.org/sqlite"
 )
@@ -311,7 +312,18 @@ func (s *Store) InviteWithAccess(role string, access protocol.Access, ttl time.D
 	return code, err
 }
 func (s *Store) Pair(code, name, device string, reservedDevices ...string) (string, protocol.Identity, error) {
+	return s.pair(code, name, device, "", false, reservedDevices...)
+}
+
+func (s *Store) PairWithHost(code, name, device, host string, reservedDevices ...string) (string, protocol.Identity, error) {
+	return s.pair(code, name, device, host, true, reservedDevices...)
+}
+
+func (s *Store) pair(code, name, device, host string, requireHost bool, reservedDevices ...string) (string, protocol.Identity, error) {
 	var id protocol.Identity
+	if host != "" && !hostidentity.Valid(host) {
+		return "", id, errors.New("invalid host identity")
+	}
 	tx, err := s.db.BeginTx(context.Background(), nil)
 	if err != nil {
 		return "", id, err
@@ -333,6 +345,9 @@ func (s *Store) Pair(code, name, device string, reservedDevices ...string) (stri
 		}
 	}
 	if role == "executor" {
+		if requireHost && !hostidentity.Valid(host) {
+			return "", id, errors.New("executor pairing requires a stable host identity; update this execution service")
+		}
 		for _, reserved := range reservedDevices {
 			if device == reserved {
 				return "", id, errors.New("executor deviceId is reserved by the Hub")
@@ -345,11 +360,21 @@ func (s *Store) Pair(code, name, device string, reservedDevices ...string) (stri
 		if count > 0 {
 			return "", id, errors.New("executor deviceId is already paired; revoke its previous identity before pairing again")
 		}
+		if host != "" {
+			if err = tx.QueryRow("SELECT count(*) FROM identities WHERE json_extract(data,'$.role')='executor' AND json_extract(data,'$.hostId')=?", host).Scan(&count); err != nil {
+				return "", id, err
+			}
+			if count > 0 {
+				return "", id, errors.New("this host already has an executor in this Hub; reuse its existing installation")
+			}
+		}
+	} else {
+		host = "" // An input credential belongs to an account, not the browser's host.
 	}
 	if device == "" {
 		device = protocol.ID()
 	}
-	id = protocol.Identity{ID: protocol.ID(), Name: name, Role: role, DeviceID: device, CreatedAt: protocol.Now(), Access: access.Normalized()}
+	id = protocol.Identity{ID: protocol.ID(), Name: name, Role: role, DeviceID: device, HostID: host, CreatedAt: protocol.Now(), Access: access.Normalized()}
 	token := protocol.ID() + protocol.ID()
 	if _, err = tx.Exec("INSERT INTO identities VALUES(?,?)", Hash(token), protocol.JSON(id)); err != nil {
 		return "", id, err

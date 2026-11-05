@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MewDex 执行端</title>
+    <link rel="stylesheet" href="/panel.css" />
+    <script src="/panel.js" defer></script>
+  </head>
+  <body>
+    <main>
+      <header>
+        <span class="eyebrow">MewDex Executor</span>
+        <h1>执行端控制面板</h1>
+        <p>配置这台设备，连接 Hub，管理可执行的项目目录。</p>
+      </header>
+      <section>
+        <h2>面板登录</h2>
+        <form id="login">
+          <label
+            >本机面板密钥<input
+              id="token"
+              type="password"
+              autocomplete="off"
+              required /></label
+          ><button>连接面板</button>
+        </form>
+        <p>密钥保存在启动命令显示的 panel-token 文件中。</p>
+      </section>
+      <p id="feedback" role="status" aria-live="polite"></p>
+      <section id="device" hidden>
+        <div class="heading">
+          <h2>设备状态</h2>
+          <button id="refresh" type="button">刷新</button>
+        </div>
+        <dl id="status"></dl>
+        <div class="actions">
+          <button id="start" type="button">启动执行端</button
+          ><button id="stop" type="button">停止执行端</button>
+        </div>
+        <p>执行端主动通过 WebSocket 连接 Hub。运行日志保存在设备数据目录。</p>
+      </section>
+      <section id="setup-section" hidden>
+        <h2>连接 Hub</h2>
+        <form id="setup">
+          <label>设备名称<input id="name" required /></label
+          ><label
+            >Hub 地址<input
+              id="hub"
+              type="url"
+              placeholder="https://hub.example.com"
+              required /></label
+          ><label
+            >执行端配对码<input
+              id="invitation"
+              type="password"
+              autocomplete="off"
+              required
+          /></label>
+          <p>在输入端的设备配对设置中生成执行端配对码。</p>
+          <button>保存并配对</button>
+        </form>
+      </section>
+      <section id="projects-section" hidden>
+        <h2>项目目录</h2>
+        <form id="projects">
+          <label
+            >每行填写一个本机绝对路径<textarea
+              id="paths"
+              rows="6"
+              spellcheck="false"
+            ></textarea>
+          </label>
+          <p>目录由执行端校验。Hub 可将这些目录绑定组合为项目。</p>
+          <button>保存目录</button>
+        </form>
+      </section>
+      <section id="pairing-section" hidden>
+        <h2>重新配对</h2>
+        <form id="pairing">
+          <label
+            >新的执行端配对码<input
+              id="new-invitation"
+              type="password"
+              autocomplete="off"
+              required /></label
+          ><button>重新配对</button>
+        </form>
+      </section>
+    </main>
+  </body>
+</html>

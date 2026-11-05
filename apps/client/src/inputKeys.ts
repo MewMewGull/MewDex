@@ -1,3 +1,4 @@
+import { t } from "./localization.ts";
 export type SendKey = "enter" | "modifier-enter";
 
 type KeyInput = Pick<
@@ -40,10 +41,10 @@ export function sendKeyHint(
   mode: SendKey,
   touch: boolean,
   modifier = keyboardModifierLabel(),
-  action = "发送",
+  action = t("发送"),
 ) {
-  if (touch) return `点按${action} · Enter 换行`;
+  if (touch) return t("点按{0} · Enter 换行", action);
   return mode === "modifier-enter"
-    ? `${modifier} + Enter ${action} · Enter 换行`
-    : `Enter ${action} · Shift + Enter 换行`;
+    ? t("{0} + Enter {1} · Enter 换行", modifier, action)
+    : t("Enter {0} · Shift + Enter 换行", action);
 }

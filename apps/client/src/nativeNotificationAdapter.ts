@@ -1,3 +1,4 @@
+import { t } from "./localization.ts";
 import type { ActionType, Options } from "@tauri-apps/plugin-notification";
 import type { NotificationAdapter } from "./notificationAdapter";
 
@@ -25,6 +26,20 @@ function notificationId(key: string): number {
 export function createNativeNotificationAdapter(
   runtime: NativeNotificationRuntime,
 ): NotificationAdapter {
+  const registerActions = () =>
+    runtime.registerActions([
+      {
+        id: "mewdex-conversation",
+        actions: [
+          {
+            id: "open",
+            title: t("打开对话"),
+            foreground: true,
+            requiresAuthentication: true,
+          },
+        ],
+      },
+    ]);
   const permission: NotificationAdapter["permission"] = async () => {
     if (!(await runtime.supported())) return "unsupported";
     const value = await runtime.permission();
@@ -45,19 +60,7 @@ export function createNativeNotificationAdapter(
     activate: () => runtime.activate(),
     async listen(scope, open) {
       if (!(await runtime.supported())) return () => {};
-      await runtime.registerActions([
-        {
-          id: "mewdex-conversation",
-          actions: [
-            {
-              id: "open",
-              title: "打开对话",
-              foreground: true,
-              requiresAuthentication: true,
-            },
-          ],
-        },
-      ]);
+      await registerActions();
       const listener = await runtime.onAction((event) => {
         const extra = event.notification?.extra;
         if (
@@ -75,7 +78,9 @@ export function createNativeNotificationAdapter(
     async send(scope, alert, _open, _failed, signal) {
       if (signal.aborted) return;
       if ((await permission()) !== "granted")
-        throw new Error("系统提醒权限尚未开启");
+        throw new Error(t("系统提醒权限尚未开启"));
+      if (signal.aborted) return;
+      await registerActions();
       if (signal.aborted) return;
       await runtime.notify({
         id: notificationId(scope + ":" + alert.key),

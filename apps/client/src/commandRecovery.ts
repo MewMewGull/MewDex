@@ -1,3 +1,4 @@
+import { t } from "./localization.ts";
 import {
   CommandOutcomeError,
   type Command,
@@ -53,7 +54,7 @@ export function commandRecoveryView(
     if (!group) {
       group = {
         deviceId: command.deviceId,
-        deviceName: device?.name ?? "原设备暂不可用",
+        deviceName: device?.name ?? t("原设备暂不可用"),
         current: command.deviceId === deviceId,
         items: [],
       };
@@ -63,12 +64,12 @@ export function commandRecoveryView(
       pending: item,
       session,
       targetLabel: session
-        ? session.title || "未命名对话"
+        ? session.title || t("未命名对话")
         : command.sessionId
-          ? "原对话暂不可用"
+          ? t("原对话暂不可用")
           : project
-            ? `${project.name} · 新对话`
-            : "新对话",
+            ? t("{0} · 新对话", project.name)
+            : t("新对话"),
     });
   }
   const ordered = [...groups.values()].sort(
@@ -79,7 +80,7 @@ export function commandRecoveryView(
     groups: ordered,
     currentCount,
     otherCount: pending.length - currentCount,
-    currentDeviceName: deviceMap.get(deviceId)?.name ?? "当前设备",
+    currentDeviceName: deviceMap.get(deviceId)?.name ?? t("当前设备"),
   };
 }
 

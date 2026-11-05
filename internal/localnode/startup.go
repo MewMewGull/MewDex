@@ -181,5 +181,5 @@ func (m *Manager) RunManaged(ctx context.Context, owner string, serve func(conte
 		}
 	}
 	c.InstallationRoot = "" // This function already owns that lease for the entire callback.
-	return serviceguard.Run(ctx, c.DataDir, lease, c.Executor, func(ctx context.Context) error { return serve(ctx, c) })
+	return serviceguard.Run(ctx, c.DataDir, lease, c.Executor || c.Hub, func(ctx context.Context) error { return serve(ctx, c) })
 }

@@ -197,7 +197,7 @@ func TestExecutorDoesNotReplaceOnUncertainOrUnrelatedAuthorizationFailures(t *te
 				server.Close()
 			}
 			_, err := m.Handle(context.Background(), repairRequest("unused-new-invitation"))
-			if (kind == "valid") != (err == nil) || pairs.Load() != 0 {
+			if (kind == "valid" || kind == "gateway-missing") != (err == nil) || pairs.Load() != 0 {
 				t.Fatal("an unrelated failure or valid identity triggered pairing")
 			}
 			requireFile(t, c.NodeTokenFile, previous)

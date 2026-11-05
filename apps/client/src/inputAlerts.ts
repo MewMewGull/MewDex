@@ -1,3 +1,4 @@
+import { t } from "./localization.ts";
 import type { Event } from "@mewdex/sdk";
 export { inputScope as alertScope } from "./inputScope.ts";
 
@@ -45,10 +46,10 @@ export function inputAlert(event: Event): InputAlert | null {
     reference = ["turn", turn.id];
     body =
       status === "completed"
-        ? "一轮对话已完成。"
+        ? t("一轮对话已完成。")
         : status === "failed"
-          ? "一轮对话未能完成，请查看执行结果。"
-          : "一轮对话已中断。";
+          ? t("一轮对话未能完成，请查看执行结果。")
+          : t("一轮对话已中断。");
   } else if (event.kind === "interaction.updated") {
     if (
       payload.state !== "pending" ||
@@ -58,7 +59,7 @@ export function inputAlert(event: Event): InputAlert | null {
     )
       return null;
     reference = ["request", payload.id];
-    body = "一个对话有待处理请求。";
+    body = t("一个对话有待处理请求。");
   } else return null;
   const key = JSON.stringify([event.deviceId, event.sessionId, ...reference]);
   if (key.length > 512) return null;

@@ -19,7 +19,7 @@ type scope struct {
 
 // Run is shared by OS-managed and direct service entries. A managed callback
 // may enter Run again, but cannot substitute a different data directory or add
-// execution after choosing an unprotected Hub-only service.
+// execution after choosing an unprotected service.
 func Run(ctx context.Context, directory string, installation *lifecycle.Lock, protect bool, action func(context.Context) error) (result error) {
 	directory, err := filepath.Abs(directory)
 	if err != nil {

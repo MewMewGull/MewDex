@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { useEffect, useId, useRef, useState } from "react";
 import { Check, ChevronDown, RefreshCw, Server } from "lucide-react";
 import { deviceRequest } from "../localDevice";
@@ -23,14 +24,30 @@ const defaults: HubProxySettings = {
   remotePort: 47834,
 };
 const states: Record<string, string> = {
-  disabled: "已关闭",
-  waiting: "等待启动",
-  connecting: "连接中",
-  connected: "已连接",
-  verifying: "SSH 已连接",
-  reconnecting: "重连中",
-  stopped: "已停止",
-  error: "配置错误",
+  get disabled() {
+    return t("已关闭");
+  },
+  get waiting() {
+    return t("等待启动");
+  },
+  get connecting() {
+    return t("连接中");
+  },
+  get connected() {
+    return t("已连接");
+  },
+  get verifying() {
+    return t("SSH 已连接");
+  },
+  get reconnecting() {
+    return t("重连中");
+  },
+  get stopped() {
+    return t("已停止");
+  },
+  get error() {
+    return t("配置错误");
+  },
 };
 
 function validSSHSettings(value: HubProxySettings) {
@@ -204,7 +221,7 @@ export function HubProxyPanel({
       });
       if (sshGeneration.current !== current) return;
       if (!result.sshConfig)
-        throw new Error("本机组件未返回 SSH 配置，请更新本机服务组件。");
+        throw new Error(t("本机组件未返回 SSH 配置，请更新本机服务组件。"));
       const config = result.sshConfig;
       setSSHConfig(config);
       setSSHAlias((alias) =>
@@ -271,10 +288,10 @@ export function HubProxyPanel({
       });
       if (current !== testGeneration.current) return;
       if (!result.sshTest)
-        throw new Error("本机组件未返回测试结果，请更新服务组件。");
+        throw new Error(t("本机组件未返回测试结果，请更新服务组件。"));
       setTestResult({
         ok: true,
-        message: `SSH 连接成功 · ${result.sshTest.durationMs} ms`,
+        message: t("SSH 连接成功 · {0} ms", result.sshTest.durationMs),
       });
     } catch (cause) {
       if (current === testGeneration.current)
@@ -311,20 +328,20 @@ export function HubProxyPanel({
   return (
     <section
       className="device-data hub-proxy-settings"
-      aria-label="Hub SSH 反向代理"
+      aria-label={t("Hub SSH 反向代理")}
     >
       <div className="hub-proxy-heading">
         <div className="hub-proxy-heading-text">
-          <h3>SSH 反向代理</h3>
+          <h3>{t("MewDex 网络的 SSH 反向代理")}</h3>
           <span
             className={`hub-proxy-status ${info?.state === "connected" ? "is-connected" : ""}`}
             role="status"
           >
-            {info ? (states[info.state] ?? info.state) : "正在读取…"}
+            {info ? (states[info.state] ?? info.state) : t("正在读取…")}
           </span>
           {saveState.pending && (
             <span className="muted" role="status">
-              保存中…
+              {t("保存中…")}
             </span>
           )}
         </div>
@@ -333,17 +350,22 @@ export function HubProxyPanel({
             <input
               type="checkbox"
               role="switch"
-              aria-label="启用 SSH 反向代理"
+              aria-label={t("启用 SSH 反向代理")}
               checked={draft.enabled}
               disabled={locked || !info}
               onChange={(event) => edit({ enabled: event.target.checked })}
             />
-            启用
+            {t("启用")}
           </label>
         )}
       </div>
+      <p className="muted">
+        {t(
+          "将本机 Hub 的入口转发到服务器，供手机和其他电脑连接 MewDex 网络。GPT 请求的出口设备或 HTTP 代理请在“GPT 路由”中配置。",
+        )}
+      </p>
       {!supported ? (
-        <p className="muted">请在“数据与更新”中更新本机服务组件。</p>
+        <p className="muted">{t("请在“数据与更新”中更新本机服务组件。")}</p>
       ) : (
         <>
           {error && (
@@ -358,7 +380,7 @@ export function HubProxyPanel({
           )}
           {saveState.phase === "invalid" && (
             <p className="error" role="alert">
-              请补全有效的连接参数。
+              {t("请补全有效的连接参数。")}
             </p>
           )}
           <div className="hub-ssh-editor">
@@ -373,15 +395,15 @@ export function HubProxyPanel({
               >
                 <Server size={16} />
                 <span>
-                  {selectedSSH?.alias || draft.host || "选择 SSH 主机"}
+                  {selectedSSH?.alias || draft.host || t("选择 SSH 主机")}
                 </span>
                 <ChevronDown size={14} />
               </button>
               <button
                 className="icon-button"
                 type="button"
-                aria-label="刷新 SSH 主机"
-                title="刷新 SSH 配置"
+                aria-label={t("刷新 SSH 主机")}
+                title={t("刷新 SSH 配置")}
                 disabled={locked || sshReading || !sshSupported}
                 onClick={() => void readSSHConfig()}
               >
@@ -393,7 +415,7 @@ export function HubProxyPanel({
                 disabled={locked || !info}
                 onClick={enterManual}
               >
-                手动填写
+                {t("手动填写")}
               </button>
             </div>
             {sshError && (
@@ -405,10 +427,10 @@ export function HubProxyPanel({
               <div
                 className="hub-ssh-host-list"
                 id={`${fieldId}-hosts`}
-                aria-label="本机 SSH 主机"
+                aria-label={t("本机 SSH 主机")}
               >
                 {sshReading ? (
-                  <p className="muted">正在读取 SSH 配置…</p>
+                  <p className="muted">{t("正在读取 SSH 配置…")}</p>
                 ) : sshConfig?.profiles.length ? (
                   sshConfig.profiles.map((profile) => (
                     <button
@@ -428,7 +450,7 @@ export function HubProxyPanel({
                         </small>
                       </span>
                       {!profile.importable ? (
-                        <small>需手动配置</small>
+                        <small>{t("需手动配置")}</small>
                       ) : (
                         selectedSSH?.alias === profile.alias && (
                           <Check size={17} />
@@ -437,7 +459,9 @@ export function HubProxyPanel({
                     </button>
                   ))
                 ) : (
-                  <p className="muted">没有可用的 SSH 主机，可手动填写。</p>
+                  <p className="muted">
+                    {t("没有可用的 SSH 主机，可手动填写。")}
+                  </p>
                 )}
               </div>
             )}
@@ -454,20 +478,20 @@ export function HubProxyPanel({
               }}
             >
               <div className="hub-ssh-row">
-                <label htmlFor={`${fieldId}-host`}>主机</label>
+                <label htmlFor={`${fieldId}-host`}>{t("主机")}</label>
                 <div className="hub-ssh-host-row">
                   <input
                     ref={hostInput}
                     id={`${fieldId}-host`}
                     required={draft.enabled}
-                    placeholder="服务器域名或 IP"
+                    placeholder={t("服务器域名或 IP")}
                     value={draft.host}
                     onChange={(event) => edit({ host: event.target.value })}
                   />
-                  <label htmlFor={`${fieldId}-port`}>端口</label>
+                  <label htmlFor={`${fieldId}-port`}>{t("端口")}</label>
                   <input
                     id={`${fieldId}-port`}
-                    aria-label="SSH 端口"
+                    aria-label={t("SSH 端口")}
                     type="number"
                     min={1}
                     max={65535}
@@ -479,7 +503,7 @@ export function HubProxyPanel({
                 </div>
               </div>
               <div className="hub-ssh-row">
-                <label htmlFor={`${fieldId}-user`}>用户名</label>
+                <label htmlFor={`${fieldId}-user`}>{t("用户名")}</label>
                 <input
                   id={`${fieldId}-user`}
                   required={draft.enabled}
@@ -489,12 +513,12 @@ export function HubProxyPanel({
                 />
               </div>
               <div className="hub-ssh-row">
-                <label htmlFor={`${fieldId}-key`}>私钥文件</label>
+                <label htmlFor={`${fieldId}-key`}>{t("私钥文件")}</label>
                 <input
                   id={`${fieldId}-key`}
                   required={draft.enabled}
                   autoComplete="off"
-                  placeholder="私钥文件的绝对路径"
+                  placeholder={t("私钥文件的绝对路径")}
                   value={draft.identityFile}
                   onChange={(event) =>
                     edit({ identityFile: event.target.value })
@@ -502,21 +526,21 @@ export function HubProxyPanel({
                 />
               </div>
               <div className="hub-ssh-row">
-                <label htmlFor={`${fieldId}-bind`}>远端监听</label>
+                <label htmlFor={`${fieldId}-bind`}>{t("远端监听")}</label>
                 <div className="hub-ssh-host-row">
                   <input
                     id={`${fieldId}-bind`}
-                    aria-label="远端监听 IP"
+                    aria-label={t("远端监听 IP")}
                     required={draft.enabled}
                     value={draft.remoteBind}
                     onChange={(event) =>
                       edit({ remoteBind: event.target.value })
                     }
                   />
-                  <label htmlFor={`${fieldId}-forward-port`}>端口</label>
+                  <label htmlFor={`${fieldId}-forward-port`}>{t("端口")}</label>
                   <input
                     id={`${fieldId}-forward-port`}
-                    aria-label="远端监听端口"
+                    aria-label={t("远端监听端口")}
                     type="number"
                     min={1}
                     max={65535}
@@ -528,15 +552,17 @@ export function HubProxyPanel({
                 </div>
               </div>
               <small className="hub-ssh-target muted">
-                → 本机 Hub {localTarget}
+                {t("→ 本机 Hub {0}", localTarget)}
               </small>
               <details className="hub-ssh-advanced">
-                <summary>更多选项</summary>
+                <summary>{t("更多选项")}</summary>
                 <div className="hub-ssh-row">
-                  <label htmlFor={`${fieldId}-known-hosts`}>主机密钥</label>
+                  <label htmlFor={`${fieldId}-known-hosts`}>
+                    {t("主机密钥")}
+                  </label>
                   <input
                     id={`${fieldId}-known-hosts`}
-                    placeholder="known_hosts 文件的绝对路径"
+                    placeholder={t("known_hosts 文件的绝对路径")}
                     value={draft.knownHostsFile}
                     onChange={(event) =>
                       edit({ knownHostsFile: event.target.value })
@@ -544,7 +570,7 @@ export function HubProxyPanel({
                   />
                 </div>
                 <p className="muted">
-                  服务器反向代理的上游应填写远端监听地址。
+                  {t("服务器反向代理的上游应填写远端监听地址。")}
                 </p>
                 {info?.legacyAvailable && (
                   <button
@@ -557,7 +583,7 @@ export function HubProxyPanel({
                     }
                     onClick={() => void importLegacy()}
                   >
-                    接管旧 SSH 代理
+                    {t("接管旧 SSH 代理")}
                   </button>
                 )}
               </details>
@@ -569,12 +595,12 @@ export function HubProxyPanel({
                 aria-busy={testing}
                 title={
                   testSupported
-                    ? "验证 SSH 服务器和私钥认证"
-                    : "更新本机服务组件以使用测试连接"
+                    ? t("验证 SSH 服务器和私钥认证")
+                    : t("更新本机服务组件以使用测试连接")
                 }
                 onClick={() => void testConnection()}
               >
-                {testing ? "测试中…" : "测试连接"}
+                {testing ? t("测试中…") : t("测试连接")}
               </button>
               {testResult && (
                 <span

@@ -103,14 +103,11 @@ func (m *Manager) connect(ctx context.Context) (Result, error) {
 	if u.Scheme != "http" || (u.Hostname() != "localhost" && (ip == nil || !ip.IsLoopback())) {
 		return Result{}, errors.New("automatic local pairing requires a loopback Hub")
 	}
-	var health struct {
-		Name    string `json:"name"`
-		Version int    `json:"protocolVersion"`
-	}
+	var health protocol.ServerInfo
 	if err = m.api(ctx, snapshot.BaseURL, "/health", nil, "", &health); err != nil {
 		return Result{}, err
 	}
-	if health.Name != "MewDex" || health.Version != protocol.Version {
+	if health.Name != "MewDex" || health.ProtocolVersion != protocol.Version || health.HubDeviceID != c.DeviceID {
 		return Result{}, errors.New("local endpoint does not match the MewDex protocol")
 	}
 	s, err := store.Open(filepath.Join(c.DataDir, "hub.db"))
@@ -126,22 +123,23 @@ func (m *Manager) connect(ctx context.Context) (Result, error) {
 		if verified.ID != actor.ID {
 			return Result{}, errors.New("local MewDex account changed")
 		}
-		return Result{Snapshot: snapshot, Connection: &Connection{BaseURL: snapshot.BaseURL, Credentials: Credentials{Token: token, Identity: verified, ProtocolVersion: protocol.Version}}}, nil
+		return Result{Snapshot: snapshot, Connection: &Connection{BaseURL: snapshot.BaseURL, Credentials: Credentials{Token: token, Identity: verified, ProtocolVersion: protocol.Version, HubDeviceID: health.HubDeviceID, InputProxy: health.InputProxy}}}, nil
 	} else if !errors.Is(accountErr, store.ErrNotFound) {
 		s.Close()
 		return Result{}, accountErr
 	}
-	code, err := s.Invite("admin", time.Minute)
+	token, actor, err := s.LocalInputKey(c.DeviceID, c.Name+" · 输入端")
 	s.Close()
 	if err != nil {
 		return Result{}, err
 	}
-	var credentials Credentials
-	if err = m.api(ctx, snapshot.BaseURL, "/v1/pair", map[string]string{"code": code, "name": c.Name + " · 输入端"}, "", &credentials); err != nil {
+	var verified protocol.Identity
+	if err = m.api(ctx, snapshot.BaseURL, "/v1/me", nil, token, &verified); err != nil {
 		return Result{}, err
 	}
-	if credentials.ProtocolVersion != protocol.Version || credentials.Identity.Role != "admin" || credentials.Token == "" {
+	if verified.ID != actor.ID || verified.Role != "admin" {
 		return Result{}, errors.New("local Hub did not return its administrator input identity")
 	}
+	credentials := Credentials{Token: token, Identity: verified, ProtocolVersion: protocol.Version, HubDeviceID: health.HubDeviceID, InputProxy: health.InputProxy}
 	return Result{Snapshot: snapshot, Connection: &Connection{BaseURL: snapshot.BaseURL, Credentials: credentials}}, nil
 }

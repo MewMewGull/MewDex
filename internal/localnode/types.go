@@ -30,6 +30,7 @@ type Setup struct {
 }
 
 type Request struct {
+	ModelRouting       *ModelRoutingSettings `json:"modelRouting,omitempty"`
 	WebWorkbench       *WebWorkbenchSettings `json:"webWorkbench,omitempty"`
 	ProjectID          string                `json:"projectId,omitempty"`
 	Operation          string                `json:"operation"`
@@ -154,33 +155,36 @@ type BackupInfo struct {
 }
 
 type Snapshot struct {
-	StartupPreference    *bool              `json:"startupPreference,omitempty"`
-	Operations           []string           `json:"operations,omitempty"`
-	Configured           bool               `json:"configured"`
-	SetupPending         bool               `json:"setupPending"`
-	State                string             `json:"state"`
-	Ready                bool               `json:"ready"`
-	DeviceID             string             `json:"deviceId,omitempty"`
-	InstanceID           string             `json:"instanceId,omitempty"`
-	Name                 string             `json:"name,omitempty"`
-	Hub                  bool               `json:"hub"`
-	Executor             bool               `json:"executor"`
-	Gateway              bool               `json:"gateway"`
-	BaseURL              string             `json:"baseUrl,omitempty"`
-	HubURL               string             `json:"hubUrl,omitempty"`
-	Listen               string             `json:"listen,omitempty"`
-	UseHubGateway        bool               `json:"useHubGateway"`
-	Projects             []protocol.Project `json:"projects"`
-	EnginePresent        bool               `json:"enginePresent"`
-	ExistingModelAccount bool               `json:"existingModelAccount"`
-	PairingRequired      bool               `json:"pairingRequired"`
-	Message              string             `json:"message,omitempty"`
+	ModelRouting         *ModelRoutingSettings `json:"modelRouting,omitempty"`
+	StartupPreference    *bool                 `json:"startupPreference,omitempty"`
+	Operations           []string              `json:"operations,omitempty"`
+	Configured           bool                  `json:"configured"`
+	SetupPending         bool                  `json:"setupPending"`
+	State                string                `json:"state"`
+	Ready                bool                  `json:"ready"`
+	DeviceID             string                `json:"deviceId,omitempty"`
+	InstanceID           string                `json:"instanceId,omitempty"`
+	Name                 string                `json:"name,omitempty"`
+	Hub                  bool                  `json:"hub"`
+	Executor             bool                  `json:"executor"`
+	Gateway              bool                  `json:"gateway"`
+	BaseURL              string                `json:"baseUrl,omitempty"`
+	HubURL               string                `json:"hubUrl,omitempty"`
+	Listen               string                `json:"listen,omitempty"`
+	UseHubGateway        bool                  `json:"useHubGateway"`
+	Projects             []protocol.Project    `json:"projects"`
+	EnginePresent        bool                  `json:"enginePresent"`
+	ExistingModelAccount bool                  `json:"existingModelAccount"`
+	PairingRequired      bool                  `json:"pairingRequired"`
+	Message              string                `json:"message,omitempty"`
 }
 
 type Credentials struct {
 	Token           string            `json:"token"`
 	Identity        protocol.Identity `json:"identity"`
 	ProtocolVersion int               `json:"protocolVersion"`
+	HubDeviceID     string            `json:"hubDeviceId,omitempty"`
+	InputProxy      *protocol.Device  `json:"inputProxy,omitempty"`
 }
 
 type Connection struct {

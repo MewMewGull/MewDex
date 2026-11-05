@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -6,6 +7,7 @@ import { inputCapabilities } from "../localDevice";
 
 interface Preferences {
   closeToTray: boolean;
+  minimizeToTray: boolean;
 }
 const key = ["desktop-preferences"];
 
@@ -21,18 +23,19 @@ export function DesktopPreferences() {
         : null,
     staleTime: Infinity,
   });
-  async function save(closeToTray: boolean) {
+  async function save(patch: Partial<Preferences>) {
+    if (!preferences.data || busy) return;
     setBusy(true);
     setError("");
     try {
       cache.setQueryData(
         key,
         await invoke<Preferences>("desktop_preferences_save", {
-          preferences: { closeToTray },
+          preferences: { ...preferences.data, ...patch },
         }),
       );
     } catch (cause) {
-      setError(typeof cause === "string" ? cause : "无法保存桌面设置");
+      setError(typeof cause === "string" ? cause : t("无法保存桌面设置"));
     } finally {
       setBusy(false);
     }
@@ -42,27 +45,47 @@ export function DesktopPreferences() {
     <section className="network-section">
       <h3>
         <PanelBottom size={15} />
-        窗口与系统托盘
+        {t("窗口与系统托盘")}
       </h3>
       {preferences.data && (
         <>
           <label className="checkbox">
             <input
               type="checkbox"
-              checked={preferences.data.closeToTray}
+              checked={preferences.data.minimizeToTray}
               disabled={busy}
-              onChange={(event) => void save(event.target.checked)}
+              onChange={(event) =>
+                void save({ minimizeToTray: event.target.checked })
+              }
             />
-            关闭窗口时保留在系统托盘
+            {t("最小化时隐藏至托盘")}
           </label>
           <p className="muted">
-            保留工作台后可继续接收提醒。右键托盘图标可退出工作台，执行服务继续独立运行。
+            {t(
+              "启用后，点击最小化按钮时窗口将隐藏到系统托盘而不是任务栏。点击托盘图标可重新打开。",
+            )}
+          </p>
+          <label className="checkbox">
+            <input
+              type="checkbox"
+              checked={preferences.data.closeToTray}
+              disabled={busy}
+              onChange={(event) =>
+                void save({ closeToTray: event.target.checked })
+              }
+            />
+            {t("关闭窗口时保留在系统托盘")}
+          </label>
+          <p className="muted">
+            {t(
+              "保留工作台后可继续接收提醒。右键托盘图标可退出工作台，执行服务继续独立运行。",
+            )}
           </p>
         </>
       )}
       {(error || preferences.error) && (
         <p className="error" role="alert">
-          {error || String(preferences.error)}
+          {t(error || String(preferences.error))}
         </p>
       )}
     </section>

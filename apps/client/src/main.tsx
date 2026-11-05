@@ -1,3 +1,4 @@
+import { getLanguage, t } from "./localization.ts";
 import React, {
   Suspense,
   lazy,
@@ -101,7 +102,7 @@ import {
   openLocalProjectFile,
   openReceivedFile,
 } from "./projectFileActions";
-import { projectFileLocation, relativeProjectPath } from "./projectFileLinks";
+import { projectFileLocation, projectFileTarget } from "./projectFileLinks";
 import { ConversationSearchDialog } from "./input-terminal/ConversationSearchDialog";
 import { useConversationHistory } from "./useConversationHistory";
 import { useOutputReading } from "./useOutputReading";
@@ -118,6 +119,7 @@ import {
   NetworkConnectionNotice,
 } from "./hub-controller/ConnectionRecovery";
 import { useInputConnection } from "./input-terminal/useInputConnection";
+import { useInputChannels } from "./input-terminal/useInputChannels";
 import { useCommandRecovery } from "./useCommandRecovery";
 import { useSessionInteractions } from "./useSessionInteractions";
 import { useInteractionResponses } from "./useInteractionResponses";
@@ -138,8 +140,12 @@ import "./desktop-workspace.css";
 import "./desktop-titlebar.css";
 import { AppUpdates } from "./components/AppUpdates";
 import { useAppUpdates } from "./appUpdates";
+import { conversationHubProject } from "./workspaceNavigation";
+import { initializeLanguage, useLanguage } from "./useLanguage";
+import { LanguageSettings } from "./components/LanguageSettings";
 
 initializeAppearance();
+initializeLanguage();
 
 const queries = new QueryClient({ defaultOptions: { queries: { retry: 1 } } });
 const OutputPanel = lazy(() =>
@@ -150,6 +156,7 @@ const OutputPanel = lazy(() =>
 
 function App() {
   useAppearance();
+  useLanguage();
   useEffect(attachMobileSystemBars, []);
   useEffect(attachInputViewport, []);
   useEffect(() => {
@@ -168,8 +175,17 @@ function App() {
     queries.clear();
   });
   const { connection, loading } = input;
-  const desktopTerminals = useDesktopTerminals(input.retry);
+  useInputChannels(connection);
+  const desktopTerminals = useDesktopTerminals(input.retry, {
+    enabled:
+      input.issue?.kind !== "storage" && (!!input.address || !input.checking),
+    baseURL: input.address,
+    confirmed: !!connection && connection.baseURL === input.address,
+  });
   const [localDeviceOpen, setLocalDeviceOpen] = useState(false);
+  const [localDeviceSection, setLocalDeviceSection] = useState<
+    "overview" | "routing"
+  >("overview");
   const localDeviceAvailable = desktopTerminals.available;
   const [localStartAvailable, setLocalStartAvailable] = useState(false);
   const [connectionTarget, setConnectionTarget] = useState<string>();
@@ -189,13 +205,23 @@ function App() {
     setConnectingExisting(false);
   }
   const openLocalDevice = localDeviceAvailable
-    ? () => setLocalDeviceOpen(true)
+    ? () => {
+        setLocalDeviceSection("overview");
+        setLocalDeviceOpen(true);
+      }
     : undefined;
+  const openLocalModelRouting =
+    localDeviceAvailable && desktopTerminals.hostedLocally
+      ? () => {
+          setLocalDeviceSection("routing");
+          setLocalDeviceOpen(true);
+        }
+      : undefined;
   let screen: React.ReactNode;
   const defaultHubURL =
     connectionTarget ?? desktopTerminals.baseURL ?? hostedHubURL();
   if (loading || desktopTerminals.pending)
-    screen = <div className="loading">正在打开工作台…</div>;
+    screen = <div className="loading">{t("正在打开工作台…")}</div>;
   else if (input.issue)
     screen = (
       <div className="connect-screen">
@@ -203,17 +229,17 @@ function App() {
           <Brand />
           <h1>
             {input.issue.kind === "authorization"
-              ? "输入端授权已失效"
+              ? t("输入端授权已失效")
               : input.issue.kind === "storage"
-                ? "暂时无法读取配对记录"
+                ? t("暂时无法读取配对记录")
                 : input.issue.kind === "configuration"
-                  ? "连接地址需要检查"
-                  : "正在等待设备网络"}
+                  ? t("连接地址需要检查")
+                  : t("正在等待设备网络")}
           </h1>
           <p>
             {input.issue.retrying
-              ? "正在自动重试。网络恢复后将使用原配对打开工作台。"
-              : "已有配对记录会保留，可以重试连接或查看详情。"}
+              ? t("正在自动重试。网络恢复后将使用原配对打开工作台。")
+              : t("已有配对记录会保留，可以重试连接或查看详情。")}
           </p>
           {input.issue.kind === "network" &&
             input.address &&
@@ -234,22 +260,23 @@ function App() {
             disabled={input.checking}
             onClick={input.retry}
           >
-            {input.checking ? "正在连接…" : "立即重试"}
+            {input.checking ? t("正在连接…") : t("立即重试")}
           </button>
           {openLocalDevice && (
             <button className="local-device-entry" onClick={openLocalDevice}>
-              <Monitor size={16} /> 管理本机服务
+              <Monitor size={16} />
+              {t(" 管理本机服务")}
             </button>
           )}
           <details className="connection-recovery-details">
-            <summary>连接详情与重新配对</summary>
+            <summary>{t("连接详情与重新配对")}</summary>
             {input.address && <p>{input.address}</p>}
             <p className="error">{input.issue.message}</p>
             <button
               className="reconnect-button"
               onClick={() => void input.disconnect()}
             >
-              移除本机配对记录并重新连接
+              {t("移除本机配对记录并重新连接")}
             </button>
           </details>
         </main>
@@ -264,6 +291,12 @@ function App() {
         ])}
         connection={connection}
         onLocalDevice={openLocalDevice}
+        onLocalModelRouting={openLocalModelRouting}
+        onChangeHub={() => {
+          setConnectionTarget(connection.baseURL);
+          input.chooseNetwork();
+          setConnectingExisting(true);
+        }}
         onLogout={() => {
           void input.disconnect();
         }}
@@ -284,16 +317,27 @@ function App() {
       <DesktopTitlebar />
       {screen}
       <AppUpdates />
+      {!connection && <LanguageSettings compact />}
       {!connection && (
         <button
           className="app-update-entry"
           onClick={() => useAppUpdates.getState().show()}
         >
-          应用更新
+          {t("应用更新")}
         </button>
       )}
       {localDeviceAvailable && (
         <LocalDeviceDialog
+          connection={connection ?? undefined}
+          hubDeviceId={desktopTerminals.hubDeviceId}
+          connectionError={desktopTerminals.error}
+          onChangeHub={() => {
+            setConnectionTarget(connection?.baseURL);
+            input.chooseNetwork();
+            setConnectingExisting(true);
+            setLocalDeviceOpen(false);
+          }}
+          initialSection={localDeviceSection}
           open={localDeviceOpen}
           onOpenChange={setLocalDeviceOpen}
           onConnect={async (value) => {
@@ -323,10 +367,14 @@ function Workspace({
   connection,
   onLogout,
   onLocalDevice,
+  onLocalModelRouting,
+  onChangeHub,
 }: {
   connection: Connection;
   onLogout: () => void;
   onLocalDevice?: () => void;
+  onLocalModelRouting?: () => void;
+  onChangeHub: () => void;
 }) {
   const client = useMemo(
     () =>
@@ -444,6 +492,14 @@ function Workspace({
   const activeDevice = devices.data?.find((d) => d.id === state.deviceId);
   const project = view.projectFor(activeDevice);
   const activeSession = sessions.data?.find((s) => s.id === state.sessionId);
+  const hubDevice = devices.data?.find((device) =>
+    device.roles.includes("coordinator"),
+  );
+  const legacyConversation =
+    !!activeSession && !!hubDevice && activeSession.deviceId !== hubDevice.id;
+  const correspondingHubProject = activeSession
+    ? conversationHubProject(devices.data ?? [], activeSession)
+    : undefined;
   const target = executionTarget(
     activeDevice,
     activeSession?.projectId ?? project,
@@ -477,12 +533,13 @@ function Workspace({
         return;
       }
       const location = projectFileLocation(path);
-      const root =
-        activeDevice?.projects.find((item) => item.id === session.projectId)
-          ?.path ?? "";
-      const relative = location
-        ? relativeProjectPath(location.path, root)
+      const selectedProject = activeDevice?.projects.find(
+        (item) => item.id === session.projectId,
+      );
+      const fileTarget = location
+        ? projectFileTarget(location.path, selectedProject)
         : undefined;
+      const relative = fileTarget?.path;
       if (!relative) {
         setFileTarget({ session, file: path, epoch });
         return;
@@ -500,13 +557,14 @@ function Workspace({
               deviceId: session.deviceId,
               sessionId: session.id,
               kind: "file.export",
-              file: { path: relative },
+              file: { path: relative, directory: fileTarget?.directory },
             };
             try {
               const copy = await client.exportFile(
                 session,
                 relative,
                 command.id,
+                fileTarget?.directory,
               );
               await openReceivedFile(client, copy, action);
               if (epoch === privateEpoch.current)
@@ -529,7 +587,7 @@ function Workspace({
               error:
                 cause instanceof Error
                   ? cause.message
-                  : "默认应用未能打开此文件，请右键选择打开方式。",
+                  : t("默认应用未能打开此文件，请右键选择打开方式。"),
             });
         }
       })();
@@ -579,7 +637,13 @@ function Workspace({
         devices.data ?? [],
         sessions.data ?? [],
       ),
-    [drafts.all, attachmentUploads.all, devices.data, sessions.data],
+    [
+      drafts.all,
+      attachmentUploads.all,
+      devices.data,
+      sessions.data,
+      getLanguage(),
+    ],
   );
   useAutosizeTextarea(composerInput, text, !network.unauthorized);
   const composerPosition = useComposerPosition(
@@ -591,7 +655,7 @@ function Workspace({
     activeSession?.executionRecovery?.state === "retired";
   const canAttach = target.canExecute && !executionRetired;
   const attachmentUnavailable = executionRetired
-    ? "请新建对话后添加附件。"
+    ? t("请新建对话后添加附件。")
     : target.message;
   const canSubmit =
     target.canExecute &&
@@ -640,7 +704,7 @@ function Workspace({
   );
   const messages = useMemo(
     () => messagesFrom(historyView.events, state.sessionId),
-    [historyView.events, state.sessionId],
+    [historyView.events, state.sessionId, getLanguage()],
   );
   const commandOutputs = useMemo(
     () => commandOutputsFrom(historyView.events, state.sessionId),
@@ -851,7 +915,8 @@ function Workspace({
           queryKey: ["queue", command.sessionId],
         });
       composerActivity.report(feedbackKey, "");
-    } else composerActivity.report(feedbackKey, result.error ?? "指令未完成");
+    } else
+      composerActivity.report(feedbackKey, result.error ?? t("指令未完成"));
     setPendingCommands((old) =>
       old.filter((pending) => pending.command.id !== id),
     );
@@ -910,7 +975,7 @@ function Workspace({
         );
         if (epoch !== privateEpoch.current) return;
         session = result.session ?? undefined;
-        if (!session) throw new Error("会话尚未创建");
+        if (!session) throw new Error(t("会话尚未创建"));
         submittedDraftKey = composerKey(
           session.deviceId,
           session.id,
@@ -1070,7 +1135,14 @@ function Workspace({
     );
   }
   function newConversation() {
-    if (activeSession)
+    const hub = devices.data?.find((device) =>
+      device.roles.includes("coordinator"),
+    );
+    if (hub && state.deviceId !== hub.id) {
+      state.selectDevice(hub.id);
+      if (correspondingHubProject)
+        view.selectProject(hub.id, correspondingHubProject.id);
+    } else if (activeSession)
       view.selectProject(activeSession.deviceId, activeSession.projectId);
     state.selectSession("");
     setSidebar(false);
@@ -1102,14 +1174,14 @@ function Workspace({
   }
   function continueDraft(key: string): string | undefined {
     const entry = localDrafts.find((item) => item.key === key);
-    if (!entry) return "这份草稿已更新，请重新选择。";
+    if (!entry) return t("这份草稿已更新，请重新选择。");
     const target = draftDestination(
       key,
       cache.getQueryData<Device[]>(["devices"]) ?? [],
       cache.getQueryData<Session[]>(["sessions"]) ?? [],
     );
     if (!target.canOpen || !target.device)
-      return target.notice || "原目标暂不可用，草稿仍保留。";
+      return target.notice || t("原目标暂不可用，草稿仍保留。");
     if (target.session) selectConversation(target.session);
     else selectProject(target.device, target.projectId);
     setHubControllerOpen(false);
@@ -1177,13 +1249,13 @@ function Workspace({
       <div className="connect-screen">
         <main className="connect-card">
           <Brand />
-          <h1>配对授权已失效</h1>
-          <p>重新连接后再读取设备和对话。</p>
+          <h1>{t("配对授权已失效")}</h1>
+          <p>{t("重新连接后再读取设备和对话。")}</p>
           <button className="primary connect-button" onClick={disconnectInput}>
-            重新配对
+            {t("重新配对")}
           </button>
           <button className="reconnect-button" onClick={network.retry}>
-            重试连接
+            {t("重试连接")}
           </button>
         </main>
       </div>
@@ -1241,6 +1313,20 @@ function Workspace({
         }
         onProjectCategory={async (device, selected, category) => {
           const epoch = privateEpoch.current;
+          if (device.roles.includes("coordinator")) {
+            const current = device.projects.find(
+              (project) => project.id === selected.id,
+            );
+            if (!current) throw new Error(t("项目已不可用，请刷新列表"));
+            await client.saveHubProject(current.id, {
+              name: current.name,
+              category,
+              directories: current.directories ?? [],
+              expectedRevision: current.revision ?? 0,
+            });
+            await cache.invalidateQueries({ queryKey: ["devices"] });
+            return;
+          }
           const result = await execute({
             id: commandID(),
             deviceId: device.id,
@@ -1323,7 +1409,9 @@ function Workspace({
         {droppingFiles && (
           <div className={`file-drop-target ${canAttach ? "" : "unavailable"}`}>
             <Paperclip size={30} />
-            <strong>{canAttach ? "松开以添加附件" : "暂时无法添加附件"}</strong>
+            <strong>
+              {canAttach ? t("松开以添加附件") : t("暂时无法添加附件")}
+            </strong>
             <span>
               {canAttach
                 ? `${activeDevice?.name} · ${activeSession?.title ?? target.project?.name}`
@@ -1334,8 +1422,8 @@ function Workspace({
         <header className="workspace-header">
           <button
             className="icon-button navigation-toggle"
-            aria-label="切换对话导航"
-            title="切换导航 · Ctrl+B"
+            aria-label={t("切换对话导航")}
+            title={t("切换导航 · Ctrl+B")}
             onClick={toggleNavigation}
           >
             <Menu size={20} />
@@ -1343,21 +1431,21 @@ function Workspace({
           <div className="breadcrumb">
             <div className="workspace-context">
               <FolderOpen size={13} />
-              <span>{target.project?.name ?? "工作台"}</span>
+              <span>{target.project?.name ?? t("工作台")}</span>
               <span className="workspace-device-name">
                 <Monitor size={12} />
-                {activeDevice?.name ?? "选择设备"}
+                {activeDevice?.name ?? t("选择设备")}
               </span>
             </div>
-            <strong>{activeSession?.title ?? "新对话"}</strong>
+            <strong>{activeSession?.title ?? t("新对话")}</strong>
           </div>
           <div className="header-actions">
             {activeSession && (
               <>
                 <button
                   className="header-action-button"
-                  aria-label="项目文件"
-                  title="项目文件"
+                  aria-label={t("项目文件")}
+                  title={t("项目文件")}
                   aria-expanded={!!fileTarget}
                   onClick={() =>
                     setFileTarget(
@@ -1371,24 +1459,24 @@ function Workspace({
                   }
                 >
                   <FolderOpen size={16} />
-                  <span>项目文件</span>
+                  <span>{t("项目文件")}</span>
                 </button>
                 <button
                   className="header-action-button"
-                  aria-label="查看输出"
-                  title="查看输出"
+                  aria-label={t("查看输出")}
+                  title={t("查看输出")}
                   aria-pressed={!!outputPanel}
                   onClick={() => setOutputPanel(outputPanel ? null : "diff")}
                 >
                   <PanelRight size={16} />
-                  <span>查看输出</span>
+                  <span>{t("查看输出")}</span>
                 </button>
               </>
             )}
             <button
               className="icon-button"
-              aria-label="搜索设备、项目与对话"
-              title="快速切换 · Ctrl+K"
+              aria-label={t("搜索设备、项目与对话")}
+              title={t("快速切换 · Ctrl+K")}
               onClick={() => setSwitcher(true)}
             >
               <Search size={18} />
@@ -1399,24 +1487,26 @@ function Workspace({
               <Circle size={7} fill="currentColor" />
               {state.connectionState !== "connected"
                 ? state.connectionState === "connecting"
-                  ? "正在连接"
-                  : "连接已断开"
+                  ? t("正在连接")
+                  : t("连接已断开")
                 : target.issue
                   ? target.label
                   : activeDevice && !activeDevice.online
-                    ? "设备离线"
+                    ? legacyConversation
+                      ? t("旧设备离线")
+                      : t("设备离线")
                     : waitingForReply
-                      ? "等待回复"
+                      ? t("等待回复")
                       : !activeSession && modelAccountMissing
-                        ? "待连接模型账号"
+                        ? t("待连接模型账号")
                         : !activeSession &&
                             modelStatusEnabled &&
                             modelAccount.isPending
-                          ? "读取账号状态"
+                          ? t("读取账号状态")
                           : !activeSession &&
                               modelStatusEnabled &&
                               modelAccount.isError
-                            ? "账号状态待确认"
+                            ? t("账号状态待确认")
                             : stateLabel(activeSession)}
             </span>
             <ConversationActions
@@ -1483,28 +1573,28 @@ function Workspace({
             <div className="message-list">
               <div className="history-controls" aria-live="polite">
                 {historyView.loadingOlder ? (
-                  <span>正在加载更早的消息…</span>
+                  <span>{t("正在加载更早的消息…")}</span>
                 ) : historyView.hasOlder ? (
                   <button onClick={() => historyView.earlier()}>
-                    向上滚动，读取更早消息
+                    {t("向上滚动，读取更早消息")}
                   </button>
                 ) : (
-                  !history.isPending && <span>对话起点</span>
+                  !history.isPending && <span>{t("对话起点")}</span>
                 )}
-                {historyView.target && <span>已定位搜索结果</span>}
+                {historyView.target && <span>{t("已定位搜索结果")}</span>}
                 {history.error && (
                   <button onClick={() => void history.refetch()}>
-                    读取失败，点击重试
+                    {t("读取失败，点击重试")}
                   </button>
                 )}
               </div>
               {messages.length === 0 && (
                 <div className="quiet-state">
                   {history.isFetching
-                    ? "正在读取对话…"
+                    ? t("正在读取对话…")
                     : history.error
-                      ? "暂时无法读取对话记录。"
-                      : "当前记录没有可展示的消息。"}
+                      ? t("暂时无法读取对话记录。")
+                      : t("当前记录没有可展示的消息。")}
                 </div>
               )}
               <MessageList
@@ -1554,7 +1644,9 @@ function Workspace({
         </div>
         {outputPanel && (
           <Suspense
-            fallback={<div className="terminal-panel">正在打开输出面板…</div>}
+            fallback={
+              <div className="terminal-panel">{t("正在打开输出面板…")}</div>
+            }
           >
             <OutputPanel
               key={historyView.contextKey}
@@ -1599,13 +1691,13 @@ function Workspace({
               onClick={interactionFocus.show}
               aria-label={
                 historyView.live
-                  ? "查看当前待处理请求"
-                  : "返回最新对话并查看待处理请求"
+                  ? t("查看当前待处理请求")
+                  : t("返回最新对话并查看待处理请求")
               }
             >
               <MessageCircleQuestion size={15} />
-              <span>{interactions.data.length} 项当前请求待处理</span>
-              <strong>{historyView.live ? "查看" : "返回当前"}</strong>
+              <span>{t("{0} 项当前请求待处理", interactions.data.length)}</span>
+              <strong>{historyView.live ? t("查看") : t("返回当前")}</strong>
             </button>
           )}
           {activeSession && (readingEarlier || !historyView.live) && (
@@ -1615,8 +1707,8 @@ function Workspace({
             >
               <ArrowDown size={14} />
               {conversationReads.unread.has(activeSession.id)
-                ? "查看新回复"
-                : "回到最新"}
+                ? t("查看新回复")
+                : t("回到最新")}
             </button>
           )}
           {activeSession && (
@@ -1638,7 +1730,7 @@ function Workspace({
             <div className="error" role="alert">
               {error}
               {error && (
-                <button aria-label="关闭错误" onClick={() => setError("")}>
+                <button aria-label={t("关闭错误")} onClick={() => setError("")}>
                   <X size={14} />
                 </button>
               )}
@@ -1647,29 +1739,33 @@ function Workspace({
           {drafts.persistenceError && (
             <div className="error" role="alert">
               {drafts.persistenceError}
-              <button onClick={() => openHubController()}>管理草稿</button>
+              <button onClick={() => openHubController()}>
+                {t("管理草稿")}
+              </button>
             </div>
           )}
           {activeSession?.archived && (
             <div className="archived-conversation-banner" role="status">
               <span>
-                <strong>此对话已归档</strong>
+                <strong>{t("此对话已归档")}</strong>
                 {activeSession.state === "running"
-                  ? "任务继续执行；恢复对话后可追加要求。"
-                  : "恢复后可以继续发送消息。"}
+                  ? t("任务继续执行；恢复对话后可追加要求。")
+                  : t("恢复后可以继续发送消息。")}
               </span>
               <button
                 disabled={!network.ready || sessionSaving}
                 onClick={() => changeCurrentSession({ archived: false })}
               >
-                {sessionSaving ? "正在保存…" : "恢复对话"}
+                {sessionSaving ? t("正在保存…") : t("恢复对话")}
               </button>
             </div>
           )}
           {activeSession && target.issue && !executionRetired && (
             <div className="execution-target-notice" role="status">
               <span>{target.message}</span>
-              <button onClick={() => setSwitcher(true)}>选择设备或项目</button>
+              <button onClick={() => setSwitcher(true)}>
+                {t("选择设备或项目")}
+              </button>
             </div>
           )}
           {modelStatusEnabled && !activeSession?.archived && (
@@ -1687,54 +1783,72 @@ function Workspace({
           {activeSession?.stopStatus === "background-running" &&
             !activeSession.frozen && (
               <div className="paused-banner" role="status">
-                <span>后台任务仍在运行，排队消息会等待它退出。</span>
+                <span>{t("后台任务仍在运行，排队消息会等待它退出。")}</span>
                 <button onClick={() => setOutputPanel("terminal")}>
-                  查看输出
+                  {t("查看输出")}
                 </button>
                 <button onClick={() => void control("stop")}>
-                  停止后台任务
+                  {t("停止后台任务")}
                 </button>
               </div>
             )}
+          {legacyConversation && (
+            <div className="paused-banner" role="status">
+              <span>
+                {t(
+                  "此对话关联旧设备身份。可从对应 Hub 项目新建对话使用当前执行端。",
+                )}
+              </span>
+              <button onClick={newConversation}>
+                {correspondingHubProject
+                  ? t("在此项目新建对话")
+                  : t("从 Hub 新建对话")}
+              </button>
+            </div>
+          )}
           {executionRetired && (
             <div className="paused-banner" role="status">
               <span>
-                旧执行已结束，未确认的结果仍保持未知。原输入和队列保留供查阅。
+                {t(
+                  "旧执行已结束，未确认的结果仍保持未知。原输入和队列保留供查阅。",
+                )}
               </span>
               <button onClick={() => state.selectSession("")}>
-                新建对话继续
+                {t("新建对话继续")}
               </button>
             </div>
           )}
           {activeSession?.frozen && !executionRetired && (
             <div className="paused-banner">
               {activeSession.state === "unknown"
-                ? "执行状态待核实，队列保持冻结。"
+                ? t("执行状态待核实，队列保持冻结。")
                 : activeSession.state === "running"
-                  ? "后续队列已冻结，当前回合仍在执行。"
+                  ? t("后续队列已冻结，当前回合仍在执行。")
                   : activeSession.stopStatus === "processes-unchecked"
-                    ? "回合已结束，需核实后台进程。"
-                    : "任务队列已冻结。"}
+                    ? t("回合已结束，需核实后台进程。")
+                    : t("任务队列已冻结。")}
               {activeSession.state === "unknown" && (
                 <button onClick={() => void control("reconcile")}>
-                  核实状态
+                  {t("核实状态")}
                 </button>
               )}
               {activeSession.stopStatus === "processes-unchecked" && (
                 <button onClick={() => void control("stop")}>
-                  停止并清理后台进程
+                  {t("停止并清理后台进程")}
                 </button>
               )}
               {activeSession.executionRecovery?.state === "eligible" && (
                 <div>
                   <p>
-                    已核对执行设备在旧任务之后重新启动。可结束旧执行并解除项目占用，未确认的结果会继续保留为未知，原输入不会重发。
+                    {t(
+                      "已核对执行设备在旧任务之后重新启动。可结束旧执行并解除项目占用，未确认的结果会继续保留为未知，原输入不会重发。",
+                    )}
                   </p>
                   <button
                     disabled={!activeDevice?.online}
                     onClick={() => void control("execution.retire")}
                   >
-                    确认结束旧执行
+                    {t("确认结束旧执行")}
                   </button>
                 </div>
               )}
@@ -1749,12 +1863,12 @@ function Workspace({
                 }
                 onClick={() => void control("resume")}
               >
-                恢复任务
+                {t("恢复任务")}
               </button>
             </div>
           )}
           <ConversationComposer
-            projectLabel={target.project?.name ?? "选择项目"}
+            projectLabel={target.project?.name ?? t("选择项目")}
             deviceControl={
               <DevicePicker
                 devices={devices.data ?? []}
@@ -1771,20 +1885,22 @@ function Workspace({
               onChange: setText,
               onRemember: composerPosition.remember,
               placeholder: executionRetired
-                ? "旧执行已结束，原输入保留供复制。"
+                ? t("旧执行已结束，原输入保留供复制。")
                 : !target.canEdit
                   ? target.message
                   : activeSession?.archived
-                    ? "此对话已归档，恢复后可发送…"
+                    ? t("此对话已归档，恢复后可发送…")
                     : activeDevice && !activeDevice.online
-                      ? "设备离线，可先写下要求…"
+                      ? legacyConversation
+                        ? t("旧设备离线，可从 Hub 项目新建对话。")
+                        : t("设备离线，可先写下要求…")
                       : modelAccountMissing
-                        ? "先连接模型账号，草稿会保留在这里…"
+                        ? t("先连接模型账号，草稿会保留在这里…")
                         : modelStatusEnabled && modelAccount.isPending
-                          ? "正在读取模型账号状态，可先写下要求…"
+                          ? t("正在读取模型账号状态，可先写下要求…")
                           : activeSession?.state === "running"
-                            ? "追加要求，调整当前任务…"
-                            : "描述你的目标，或继续已有的工作…",
+                            ? t("追加要求，调整当前任务…")
+                            : t("描述你的目标，或继续已有的工作…"),
             }}
             files={{
               canAdd: canAttach,
@@ -1811,22 +1927,22 @@ function Workspace({
             }}
             sendKey={view.sendKey}
             context={[
-              activeDevice?.name ?? "未选择执行端",
+              activeDevice?.name ?? t("未选择执行端"),
               target.project?.name ?? activeSession?.projectId,
               uploading
-                ? `${attachmentUploads.pending} 个附件准备中`
+                ? t("{0} 个附件准备中", attachmentUploads.pending)
                 : attachmentUploads.blocked
-                  ? "附件待处理"
+                  ? t("附件待处理")
                   : "",
             ]
               .filter(Boolean)
               .join(" · ")}
             status={
               executionRetired
-                ? "旧执行已结束"
+                ? t("旧执行已结束")
                 : !target.canEdit
                   ? text
-                    ? "原输入保留供复制"
+                    ? t("原输入保留供复制")
                     : target.label
                   : target.issue
                     ? target.label
@@ -1850,7 +1966,7 @@ function Workspace({
             projectControl={
               !activeSession && (
                 <select
-                  aria-label="选择项目"
+                  aria-label={t("选择项目")}
                   value={project}
                   disabled={!activeDevice?.projects.length}
                   onChange={(event) => {
@@ -1860,14 +1976,14 @@ function Workspace({
                 >
                   {!activeDevice?.projects.length && (
                     <option value="">
-                      {activeDevice ? "暂无可用项目" : "请先选择执行设备"}
+                      {activeDevice ? t("暂无可用项目") : t("请先选择执行设备")}
                     </option>
                   )}
                   {activeDevice?.projects.map((item) => (
                     <option key={item.id} value={item.id}>
                       {item.name}
                       {draftKeys.has(composerKey(state.deviceId, "", item.id))
-                        ? " · 草稿"
+                        ? t(" · 草稿")
                         : ""}
                     </option>
                   ))}
@@ -2038,7 +2154,9 @@ function Workspace({
         loginKey={connection.credentials.token}
         accountSupported={network.capabilities.includes("mewdex-accounts")}
         onLocalDevice={onLocalDevice}
+        onLocalModelRouting={onLocalModelRouting}
         onDisconnect={disconnectInput}
+        onChangeHub={onChangeHub}
         draftSettings={{
           entries: localDrafts,
           error: drafts.persistenceError,
@@ -2090,17 +2208,17 @@ function Workspace({
 }
 
 function stateLabel(session?: Session): string {
-  if (!session) return "就绪";
-  if (session.executionRecovery?.state === "retired") return "旧执行已结束";
+  if (!session) return t("就绪");
+  if (session.executionRecovery?.state === "retired") return t("旧执行已结束");
   return (
     (
       {
-        idle: "就绪",
-        running: "执行中",
-        stopping: "停止中",
-        paused: "已暂停",
-        failed: "执行失败",
-        unknown: "状态待确认",
+        idle: t("就绪"),
+        running: t("执行中"),
+        stopping: t("停止中"),
+        paused: t("已暂停"),
+        failed: t("执行失败"),
+        unknown: t("状态待确认"),
       } as Record<string, string>
     )[session.state] ?? session.state
   );

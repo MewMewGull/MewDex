@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { useQuery } from "@tanstack/react-query";
@@ -52,8 +53,11 @@ export function WorkspaceFolderPicker({
           onCloseAutoFocus={focus.restore}
         >
           <div className="dialog-heading">
-            <Dialog.Title>选择文件夹</Dialog.Title>
-            <Dialog.Close className="icon-button" aria-label="关闭文件夹选择">
+            <Dialog.Title>{t("选择文件夹")}</Dialog.Title>
+            <Dialog.Close
+              className="icon-button"
+              aria-label={t("关闭文件夹选择")}
+            >
               <X size={18} />
             </Dialog.Close>
           </div>
@@ -68,7 +72,7 @@ export function WorkspaceFolderPicker({
             <button
               className="icon-button"
               type="button"
-              aria-label="上一级目录"
+              aria-label={t("上一级目录")}
               disabled={
                 !listing.data?.parent ||
                 listing.data.parent === listing.data.path
@@ -79,16 +83,16 @@ export function WorkspaceFolderPicker({
             </button>
             <input
               ref={input}
-              aria-label="设备上的文件夹路径"
-              placeholder="输入这台机器上的路径"
+              aria-label={t("设备上的文件夹路径")}
+              placeholder={t("输入这台机器上的路径")}
               value={address}
               onChange={(event) => setAddress(event.target.value)}
             />
-            <button type="submit">前往</button>
+            <button type="submit">{t("前往")}</button>
             <button
               type="button"
               className="icon-button"
-              aria-label="刷新文件夹"
+              aria-label={t("刷新文件夹")}
               disabled={listing.isFetching}
               onClick={() => void listing.refetch()}
             >
@@ -97,9 +101,9 @@ export function WorkspaceFolderPicker({
           </form>
           <div
             className="workspace-directory-list folder-picker-list"
-            aria-label="文件夹"
+            aria-label={t("文件夹")}
           >
-            {listing.isFetching && <p role="status">正在读取文件夹…</p>}
+            {listing.isFetching && <p role="status">{t("正在读取文件夹…")}</p>}
             {listing.error && (
               <p className="error" role="alert">
                 {listing.error.message}
@@ -112,17 +116,17 @@ export function WorkspaceFolderPicker({
               </button>
             ))}
             {listing.isSuccess && !listing.data.directories.length && (
-              <p>此目录没有子文件夹。</p>
+              <p>{t("此目录没有子文件夹。")}</p>
             )}
           </div>
           <div className="project-dialog-footer">
-            <Dialog.Close>取消</Dialog.Close>
+            <Dialog.Close>{t("取消")}</Dialog.Close>
             <button
               className="primary"
               disabled={!listing.data?.path || listing.isFetching}
               onClick={() => onSelect(listing.data!.path)}
             >
-              使用此文件夹
+              {t("使用此文件夹")}
             </button>
           </div>
         </Dialog.Content>

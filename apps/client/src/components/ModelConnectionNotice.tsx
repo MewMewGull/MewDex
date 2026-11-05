@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { KeyRound, RefreshCw } from "lucide-react";
 import type { ModelAccount } from "@mewdex/sdk";
 
@@ -24,25 +25,25 @@ export function ModelConnectionNotice({
       <div>
         <strong>
           {unread
-            ? "暂时无法确认模型账号状态"
+            ? t("暂时无法确认模型账号状态")
             : pending
-              ? "等待完成模型登录"
-              : "先连接模型账号"}
+              ? t("等待完成模型登录")
+              : t("先连接模型账号")}
         </strong>
         <p>
           {unread
-            ? "可以继续编辑草稿，刷新状态或到设置中查看详情。"
+            ? t("可以继续编辑草稿，刷新状态或到设置中查看详情。")
             : pending
-              ? "完成设置页中的网页登录后，这里会自动更新。草稿会继续保留。"
+              ? t("完成设置页中的网页登录后，这里会自动更新。草稿会继续保留。")
               : account?.loginSupported
-                ? "设备已在线。连接模型账号后，即可在这里开始对话。"
-                : "此设备沿用已有的模型配置，需要设备所有者完成登录后刷新。"}
+                ? t("Hub 已在线。连接共用模型账号后，即可开始对话。")
+                : t("请在 Hub 所在机器完成模型账号登录后刷新。")}
         </p>
       </div>
       <div className="model-connection-actions">
         <button
           className="icon-button"
-          aria-label="刷新当前设备的模型账号状态"
+          aria-label={t("刷新 Hub 的模型账号状态")}
           disabled={refreshing}
           onClick={onRefresh}
         >
@@ -50,12 +51,12 @@ export function ModelConnectionNotice({
         </button>
         <button className="model-connection-manage" onClick={onManage}>
           {unread
-            ? "账号设置"
+            ? t("账号设置")
             : pending
-              ? "继续登录"
+              ? t("继续登录")
               : account?.loginSupported
-                ? "连接账号"
-                : "查看设置"}
+                ? t("连接账号")
+                : t("查看设置")}
         </button>
       </div>
     </div>

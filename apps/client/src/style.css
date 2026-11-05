@@ -2552,9 +2552,9 @@ button, select, .session { transition: background-color 130ms ease, border-color
   border: 1px solid var(--panel-border);
 }
 .local-service-indicator.ready {
-  background: var(--status-success-surface);
-  color: var(--status-success-text);
-  border-color: var(--status-success-border);
+  background: var(--accent-surface);
+  color: var(--accent-text);
+  border-color: var(--accent-border);
 }
 .local-service-overview h3 {
   margin: 20px 0 10px;
@@ -3115,6 +3115,24 @@ button, select, .session { transition: background-color 130ms ease, border-color
   color: var(--text-default);
   font-size: calc(11px * var(--ui-scale, 1));
   margin-top: 6px;
+}
+.model-routing-settings fieldset {
+  margin: 20px 0;
+  padding: 16px;
+  border: 1px solid var(--panel-border);
+  border-radius: 9px;
+  min-width: 0;
+}
+.model-routing-settings legend {
+  padding: 0 6px;
+  font-size: calc(13px * var(--ui-scale, 1));
+  color: var(--text-strong);
+}
+.model-routing-settings .model-route-path {
+  padding: 10px 12px;
+  border-radius: 7px;
+  background: var(--surface);
+  overflow-wrap: anywhere;
 }
 .device-data-form,
 .device-operation,
@@ -4917,6 +4935,7 @@ kbd {
 }
 .settings-frame-heading h2 {
   margin-bottom: 8px;
+  color: var(--accent-text);
 }
 .settings-frame-heading p {
   font-size: calc(12px * var(--ui-scale, 1));
@@ -5370,3 +5389,22 @@ kbd {
     font-size: calc(16px * var(--ui-scale, 1));
   }
 }
+/* The language picker also stays available before pairing a device. */
+.connect-language {
+  position: fixed;
+  top: calc(16px + var(--desktop-titlebar-height, 0px) + env(safe-area-inset-top));
+  right: max(16px, env(safe-area-inset-right));
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: calc(100vw - 32px);
+  padding: 8px 12px;
+  border: 1px solid var(--panel-border);
+  border-radius: 12px;
+  background: var(--panel);
+}
+.connect-language label { display: flex; align-items: center; gap: 6px; }
+.connect-language select { width: auto; max-width: 150px; }
+.connect-language .error { position: absolute; top: 100%; right: 0; min-width: 220px; }
+.language-settings > select { width: min(100%, 320px); }

@@ -53,6 +53,13 @@ func TestScopeIsBoundAcrossCreateTurnResumeAndFork(t *testing.T) {
 	if fork["permissions"] != s.ExecutionScopeID || fork["baseInstructions"] != base {
 		t.Fatal("fork lost scope or base instructions")
 	}
+	for _, method := range []string{"thread/start", "thread/resume", "thread/fork"} {
+		params := lastParameters(t, fake, method)
+		config := params["config"].(map[string]any)
+		if config["default_permissions"] != s.ExecutionScopeID || config["permissions"].(map[string]any)[s.ExecutionScopeID] == nil {
+			t.Fatalf("%s cannot reload its retained execution profile", method)
+		}
+	}
 }
 
 func TestMissingEngineScopeReceiptCannotStartAConversation(t *testing.T) {

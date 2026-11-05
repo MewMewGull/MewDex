@@ -191,31 +191,6 @@ func TestRevocationClosesExistingEventStream(t *testing.T) {
 	}
 }
 
-func TestGatewayGrantUsesExecutorIdentityAndScope(t *testing.T) {
-	h, s, _, _ := testHub(t)
-	code, err := s.InviteWithAccess("executor", protocol.Access{Gateway: true}, time.Minute)
-	if err != nil {
-		t.Fatal(err)
-	}
-	token, id, err := s.Pair(code, "server", "server-id")
-	if err != nil {
-		t.Fatal(err)
-	}
-	grant, err := h.AuthorizeGateway(context.Background(), "server-id", token)
-	if err != nil || grant.IdentityID != id.ID {
-		t.Fatalf("gateway grant: %+v %v", grant, err)
-	}
-	if _, err = h.AuthorizeGateway(context.Background(), "other-server", token); err == nil {
-		t.Fatal("another device reused gateway identity")
-	}
-	if err = s.UpdateAccess(id.ID, protocol.Access{}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err = h.AuthorizeGateway(context.Background(), "server-id", token); err == nil {
-		t.Fatal("gateway scope removal was not applied")
-	}
-}
-
 func TestPromptHistoryRespectsProjectScope(t *testing.T) {
 	h, s, server, _ := testHub(t)
 	for _, id := range []string{"allowed", "private"} {

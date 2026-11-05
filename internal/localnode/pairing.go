@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"mewdex/internal/config"
+	"mewdex/internal/hostidentity"
 	"mewdex/internal/lifecycle"
 	"mewdex/internal/protocol"
 )
@@ -140,14 +141,16 @@ func (m *Manager) executorIdentity(ctx context.Context, c config.Config, token s
 	if err == nil && (identity.Role != "executor" || identity.DeviceID != c.DeviceID) {
 		err = errors.New("credential does not match this executor; its files were preserved")
 	}
-	return identity, err
-}
-
-func executorGrant(c config.Config, identity protocol.Identity) error {
-	if c.Engine.UseHubGateway && !identity.Access.Gateway {
-		return errors.New("executor invitation does not grant model forwarding; update its network access before continuing")
+	if err == nil && identity.HostID != "" {
+		host, hostErr := hostidentity.ID(ctx)
+		if hostErr != nil {
+			return identity, hostErr
+		}
+		if identity.HostID != host {
+			err = errors.New("executor credential belongs to another host; its files were preserved")
+		}
 	}
-	return nil
+	return identity, err
 }
 
 func validExecutorCredentials(c config.Config, value *Credentials) bool {
@@ -155,6 +158,10 @@ func validExecutorCredentials(c config.Config, value *Credentials) bool {
 }
 
 func (m *Manager) pairExecutor(ctx context.Context, c config.Config, invitation string) error {
+	hostID, err := hostidentity.ID(ctx)
+	if err != nil {
+		return err
+	}
 	f, err := m.executorPairingFiles(c)
 	if err != nil {
 		return err
@@ -166,7 +173,7 @@ func (m *Manager) pairExecutor(ctx context.Context, c config.Config, invitation 
 		return err
 	}
 	if token != nil {
-		identity, checkErr := m.executorIdentity(ctx, c, string(token))
+		_, checkErr := m.executorIdentity(ctx, c, string(token))
 		if checkErr == nil {
 			if err = f.finishAdopted(c, token); err != nil {
 				return err
@@ -174,7 +181,7 @@ func (m *Manager) pairExecutor(ctx context.Context, c config.Config, invitation 
 			if err = f.authorization(c, token, false); err != nil {
 				return err
 			}
-			return executorGrant(c, identity) // Never consume an invitation for a valid identity.
+			return nil // Never consume an invitation for a valid identity.
 		}
 		if !isHubUnauthorized(checkErr) {
 			return checkErr // Offline, forbidden, mismatch and server errors cannot justify replacement.
@@ -224,7 +231,7 @@ func (m *Manager) pairExecutor(ctx context.Context, c config.Config, invitation 
 		return err
 	}
 	var credentials Credentials
-	if err = m.api(ctx, c.HubURL, "/v1/pair", map[string]string{"code": invitation, "name": c.Name, "deviceId": c.DeviceID}, "", &credentials); err != nil {
+	if err = m.api(ctx, c.HubURL, "/v1/pair", map[string]string{"code": invitation, "name": c.Name, "deviceId": c.DeviceID, "hostId": hostID}, "", &credentials); err != nil {
 		return errors.New("executor pairing response is unconfirmed; existing credentials were preserved; inspect Hub membership before using a different invitation")
 	}
 	attempt.Credentials = &credentials
@@ -288,7 +295,7 @@ func (f *pairingFiles) adopt(c config.Config, attempt executorPairingAttempt, re
 	if err = f.root.Remove(f.token + ".pairing.json"); err != nil {
 		return err
 	}
-	return executorGrant(c, identity)
+	return nil
 }
 
 func (m *Manager) repairExecutor(ctx context.Context, request *PairingRequest) error {

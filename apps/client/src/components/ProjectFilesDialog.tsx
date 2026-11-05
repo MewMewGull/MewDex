@@ -1,3 +1,4 @@
+import { getLanguage, t } from "../localization.ts";
 import { useEffect, useMemo, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import {
@@ -29,7 +30,7 @@ import { formatBytes } from "../formatBytes";
 import {
   parentProjectPath,
   projectFileLocation,
-  relativeProjectPath,
+  projectFileTarget,
 } from "../projectFileLinks";
 import { AttachmentList, AttachmentPreview } from "./AttachmentList";
 import { useDialogReturnFocus } from "../useDialogReturnFocus";
@@ -66,9 +67,15 @@ export function ProjectFilesDialog({
     (item) => item.id === session.projectId,
   );
   const initialLocation = projectFileLocation(initialFile);
-  const initial = initialLocation
-    ? relativeProjectPath(initialLocation.path, project?.path ?? "")
+  const initialTarget = initialLocation
+    ? projectFileTarget(initialLocation.path, project)
     : undefined;
+  const [directoryIndex, setDirectoryIndex] = useState(
+    initialTarget?.directory ?? 0,
+  );
+  const projectRoot =
+    project?.directories?.[directoryIndex]?.path ?? project?.path ?? "";
+  const initial = initialTarget?.path;
   const [tab, setTab] = useState<"project" | "outputs">("project");
   const [directory, setDirectory] = useState(
     initial ? parentProjectPath(initial) : ".",
@@ -99,10 +106,15 @@ export function ProjectFilesDialog({
   const capable = !!device?.capabilities?.includes("project-files");
   const online = capable && !!device?.online;
   const files = useInfiniteQuery({
-    queryKey: ["project-files", session.id, directory],
+    queryKey: ["project-files", session.id, directoryIndex, directory],
     initialPageParam: "",
     queryFn: ({ pageParam }) =>
-      client.projectFiles(session, directory, pageParam),
+      client.projectFiles(
+        session,
+        directory,
+        pageParam,
+        project?.directories ? directoryIndex : undefined,
+      ),
     getNextPageParam: (page) => (page.hasMore ? page.next : undefined),
     enabled: online && tab === "project",
     retry: false,
@@ -161,7 +173,7 @@ export function ProjectFilesDialog({
       setDefaultProjectOpener(session.deviceId, session.projectId, value);
       setDefaultOpener(value);
     } catch {
-      setError("无法保存默认打开方式");
+      setError(t("无法保存默认打开方式"));
     }
   }
   async function openFile(path: string, action = defaultOpener) {
@@ -171,7 +183,7 @@ export function ProjectFilesDialog({
       try {
         await openLocalProjectFile(session, path, action);
       } catch (cause) {
-        setError(cause instanceof Error ? cause.message : "无法打开文件");
+        setError(cause instanceof Error ? cause.message : t("无法打开文件"));
       }
     } else await exportFile(path, "open", action);
   }
@@ -188,13 +200,21 @@ export function ProjectFilesDialog({
       deviceId: session.deviceId,
       sessionId: session.id,
       kind: "file.export",
-      file: { path },
+      file: {
+        path,
+        directory: project?.directories ? directoryIndex : undefined,
+      },
     };
     setBusy(true);
     setError("");
     setSnapshot(null);
     try {
-      const value = await client.exportFile(session, path, command.id);
+      const value = await client.exportFile(
+        session,
+        path,
+        command.id,
+        project?.directories ? directoryIndex : undefined,
+      );
       setSnapshot(value);
       setSnapshotLine(line);
       if (mode === "open") {
@@ -229,8 +249,8 @@ export function ProjectFilesDialog({
         setPending(null);
       } else if (result.state === "failed") {
         setPending(null);
-        setError(result.error || "文件文件副本未完成");
-      } else setError("回传结果仍待确认，可以查看已有文件副本或稍后查询。");
+        setError(result.error || t("文件文件副本未完成"));
+      } else setError(t("回传结果仍待确认，可以查看已有文件副本或稍后查询。"));
       await outputs.refetch();
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : String(cause));
@@ -254,21 +274,48 @@ export function ProjectFilesDialog({
           onCloseAutoFocus={returnFocus.restore}
         >
           <div className="dialog-heading">
-            <Dialog.Title>项目文件</Dialog.Title>
-            <Dialog.Close className="icon-button" aria-label="关闭项目文件">
+            <Dialog.Title>{t("项目文件")}</Dialog.Title>
+            <Dialog.Close
+              className="icon-button"
+              aria-label={t("关闭项目文件")}
+            >
               <X size={18} />
             </Dialog.Close>
           </div>
           <Dialog.Description>
-            {device?.name ?? "执行设备"} · {project?.name ?? session.projectId}
+            {device?.name ?? t("执行设备")} ·{" "}
+            {project?.name ?? session.projectId}
           </Dialog.Description>
+          {!!project?.directories?.length && (
+            <label>
+              {t("项目目录")}
+              <select
+                aria-label={t("浏览的项目目录")}
+                value={directoryIndex}
+                disabled={busy || !!pending}
+                onChange={(event) => {
+                  setDirectoryIndex(Number(event.target.value));
+                  browse(".");
+                }}
+              >
+                {project.directories.map((binding, index) => (
+                  <option
+                    key={`${binding.deviceId}:${binding.projectId}`}
+                    value={index}
+                  >
+                    {binding.name} · {binding.path}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
           <div className="project-files-heading">
-            <div className="project-file-tabs" aria-label="文件视图">
+            <div className="project-file-tabs" aria-label={t("文件视图")}>
               <button
                 aria-pressed={tab === "project"}
                 onClick={() => setTab("project")}
               >
-                当前文件
+                {t("当前文件")}
               </button>
               <button
                 aria-pressed={tab === "outputs"}
@@ -277,7 +324,7 @@ export function ProjectFilesDialog({
                   void outputs.refetch();
                 }}
               >
-                已接收文件
+                {t("已接收文件")}
               </button>
             </div>
             {local.data?.deviceId === session.deviceId && (
@@ -299,7 +346,8 @@ export function ProjectFilesDialog({
                   className="project-folder-open"
                   onClick={() => void openFile(".")}
                 >
-                  <FolderOpen size={15} /> 打开工作区
+                  <FolderOpen size={15} />
+                  {t(" 打开工作区")}
                 </button>
               </ProjectFileMenu>
             )}
@@ -311,10 +359,10 @@ export function ProjectFilesDialog({
           )}
           {pending && (
             <div className="file-export-pending" role="status">
-              <strong>文件回传结果待确认</strong>
+              <strong>{t("文件回传结果待确认")}</strong>
               <p>{pending.path}</p>
               <button disabled={busy} onClick={() => void observe()}>
-                查询原回执
+                {t("查询原回执")}
               </button>
               <button
                 onClick={() => {
@@ -322,7 +370,7 @@ export function ProjectFilesDialog({
                   void outputs.refetch();
                 }}
               >
-                查看已回传文件副本
+                {t("查看已回传文件副本")}
               </button>
             </div>
           )}
@@ -340,26 +388,26 @@ export function ProjectFilesDialog({
                     type="button"
                     className="icon-button"
                     disabled={current === "." || !online}
-                    aria-label="返回上级目录"
+                    aria-label={t("返回上级目录")}
                     onClick={() => browse(parentProjectPath(current))}
                   >
                     <ArrowUp size={16} />
                   </button>
                   <input
-                    aria-label="项目内目录"
+                    aria-label={t("项目内目录")}
                     value={address}
                     onChange={(event) => setAddress(event.target.value)}
-                    placeholder="项目内目录"
+                    placeholder={t("项目内目录")}
                     spellCheck={false}
                   />
                   <button disabled={!online} type="submit">
-                    打开
+                    {t("打开")}
                   </button>
                   <button
                     className="icon-button"
                     disabled={!online || files.isFetching}
                     type="button"
-                    aria-label="刷新项目文件"
+                    aria-label={t("刷新项目文件")}
                     onClick={() => void files.refetch()}
                   >
                     <RefreshCw size={15} />
@@ -367,26 +415,33 @@ export function ProjectFilesDialog({
                 </form>
                 {!capable && (
                   <p className="muted">
-                    此设备尚未提供文件查看，请更新执行端；已回传的文件副本仍可查看。
+                    {t(
+                      "此设备尚未提供文件查看，请更新执行端；已回传的文件副本仍可查看。",
+                    )}
                   </p>
                 )}
                 {capable && !device?.online && (
                   <p className="muted">
-                    执行设备离线。可以查看已回传文件副本，设备在线后再读取当前文件。
+                    {t(
+                      "执行设备离线。可以查看已回传文件副本，设备在线后再读取当前文件。",
+                    )}
                   </p>
                 )}
                 {files.error && (
                   <p className="error" role="alert">
-                    无法读取此目录：{files.error.message}
+                    {t("无法读取此目录：{0}", files.error.message)}
                   </p>
                 )}
                 {files.isPending && online && (
                   <p className="project-files-loading">
-                    <LoaderCircle size={18} className="spinning" />{" "}
-                    正在读取文件…
+                    <LoaderCircle size={18} className="spinning" />
+                    {t(" 正在读取文件…")}
                   </p>
                 )}
-                <div className="project-file-list" aria-label="当前项目文件">
+                <div
+                  className="project-file-list"
+                  aria-label={t("当前项目文件")}
+                >
                   {entries.map((file) => (
                     <ProjectFileMenu
                       key={file.path}
@@ -403,10 +458,10 @@ export function ProjectFilesDialog({
                         void navigator.clipboard
                           .writeText(
                             project
-                              ? `${project.path.replace(/[\\/]+$/, "")}/${file.path}`
+                              ? `${projectRoot.replace(/[\\/]+$/, "")}/${file.path}`
                               : file.path,
                           )
-                          .catch(() => setError("无法复制路径"))
+                          .catch(() => setError(t("无法复制路径")))
                       }
                     >
                       <button
@@ -425,13 +480,17 @@ export function ProjectFilesDialog({
                         )}
                         <strong>{file.name}</strong>
                         <small>
-                          {file.directory ? "文件夹" : formatBytes(file.size)}
+                          {file.directory
+                            ? t("文件夹")
+                            : formatBytes(file.size)}
                         </small>
                       </button>
                     </ProjectFileMenu>
                   ))}
                   {!entries.length && files.isSuccess && (
-                    <p className="empty-list">此目录没有可查看的文件。</p>
+                    <p className="empty-list">
+                      {t("此目录没有可查看的文件。")}
+                    </p>
                   )}
                 </div>
                 {files.hasNextPage && (
@@ -440,7 +499,9 @@ export function ProjectFilesDialog({
                     disabled={files.isFetchingNextPage}
                     onClick={() => void files.fetchNextPage()}
                   >
-                    {files.isFetchingNextPage ? "正在读取…" : "加载更多文件"}
+                    {files.isFetchingNextPage
+                      ? t("正在读取…")
+                      : t("加载更多文件")}
                   </button>
                 )}
                 {selected && (
@@ -450,7 +511,7 @@ export function ProjectFilesDialog({
                       <p>
                         {selected}
                         {selected === initial && initialLocation?.line
-                          ? ` · 第 ${initialLocation.line} 行`
+                          ? t(" · 第 {0} 行", initialLocation.line)
                           : ""}
                       </p>
                     </div>
@@ -460,18 +521,22 @@ export function ProjectFilesDialog({
                       onClick={() => void exportFile()}
                     >
                       <Copy size={15} />{" "}
-                      {busy ? "正在读取…" : "在 MewDex 中预览"}
+                      {busy ? t("正在读取…") : t("在 MewDex 中预览")}
                     </button>
                   </div>
                 )}
                 <p className="project-files-note">
                   {isLocal
-                    ? "左键使用默认应用打开，右键选择 IDE、打开方式或在应用内预览。"
-                    : "远程文件会下载为本机副本后打开，修改副本不会自动同步到远程设备。"}
+                    ? t(
+                        "左键使用默认应用打开，右键选择 IDE、打开方式或在应用内预览。",
+                      )
+                    : t(
+                        "远程文件会下载为本机副本后打开，修改副本不会自动同步到远程设备。",
+                      )}
                 </p>
                 {openedCopy && (
                   <p className="project-files-note" role="status">
-                    已打开本机副本：{openedCopy}
+                    {t("已打开本机副本：{0}", openedCopy)}
                   </p>
                 )}
                 {snapshot && (
@@ -490,19 +555,25 @@ export function ProjectFilesDialog({
             ) : (
               <div className="project-output-list">
                 {outputs.isPending && (
-                  <p className="muted">正在读取文件副本…</p>
+                  <p className="muted">{t("正在读取文件副本…")}</p>
                 )}
                 {outputs.error && (
                   <p className="error">
-                    暂时无法读取文件副本。
-                    <button onClick={() => void outputs.refetch()}>重试</button>
+                    {t("暂时无法读取文件副本。")}
+                    <button onClick={() => void outputs.refetch()}>
+                      {t("重试")}
+                    </button>
                   </p>
                 )}
                 {outputs.data?.map((output) => (
                   <article key={output.id} className="project-output-item">
                     <p title={output.path}>
                       {output.path}
-                      <time>{new Date(output.createdAt).toLocaleString()}</time>
+                      <time>
+                        {new Date(output.createdAt).toLocaleString(
+                          getLanguage(),
+                        )}
+                      </time>
                     </p>
                     <AttachmentList
                       client={client}
@@ -516,10 +587,14 @@ export function ProjectFilesDialog({
                   </article>
                 ))}
                 {outputs.data?.length === 0 && (
-                  <p className="empty-list">还没有从这个对话回传文件。</p>
+                  <p className="empty-list">
+                    {t("还没有从这个对话回传文件。")}
+                  </p>
                 )}
                 <p className="project-files-note">
-                  显示最近 200 份文件副本。执行设备离线后仍可从设备网络读取。
+                  {t(
+                    "显示最近 200 份文件副本。执行设备离线后仍可从设备网络读取。",
+                  )}
                 </p>
               </div>
             )}

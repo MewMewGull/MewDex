@@ -1,8 +1,9 @@
 package protocol
 
 type FileRequest struct {
-	Path  string `json:"path"`
-	After string `json:"after,omitempty"`
+	Directory *int   `json:"directory,omitempty"`
+	Path      string `json:"path"`
+	After     string `json:"after,omitempty"`
 }
 type ProjectFile struct {
 	Name       string `json:"name"`
@@ -20,14 +21,15 @@ type FileListing struct {
 
 // An output is an explicitly requested immutable snapshot of a current file.
 type OutputFile struct {
-	ID         string     `json:"id"`
-	CommandID  string     `json:"commandId"`
-	SessionID  string     `json:"sessionId"`
-	DeviceID   string     `json:"deviceId"`
-	ProjectID  string     `json:"projectId"`
-	Path       string     `json:"path"`
-	Attachment Attachment `json:"attachment"`
-	CreatedAt  string     `json:"createdAt"`
+	Directory  *ProjectDirectory `json:"directory,omitempty"`
+	ID         string            `json:"id"`
+	CommandID  string            `json:"commandId"`
+	SessionID  string            `json:"sessionId"`
+	DeviceID   string            `json:"deviceId"`
+	ProjectID  string            `json:"projectId"`
+	Path       string            `json:"path"`
+	Attachment Attachment        `json:"attachment"`
+	CreatedAt  string            `json:"createdAt"`
 }
 
 type FileExportRequest struct {

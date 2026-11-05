@@ -75,6 +75,31 @@ func inbound(id, user string) Envelope {
 	return Envelope{ID: id, Platform: "qq", Account: "app", Scene: "c2c", ChatID: user, UserID: user, Text: "修改项目中的文件", ReplyToken: id}
 }
 
+func TestChannelUsesCurrentHubProjectCatalogue(t *testing.T) {
+	m, backend, _ := testManager(t)
+	s := backend.store
+	if err := s.RegisterDevice(protocol.Device{ID: "hub.coordinator", Roles: []string{"coordinator", "executor"}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RegisterDevice(protocol.Device{ID: "node", Roles: []string{"executor"}, Projects: []protocol.Project{{ID: "directory", Name: "Sott", Path: "/projects/Sott"}}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.SaveHubProject("hub", "hp_sott", protocol.HubProjectRequest{Name: "Sott", Directories: []protocol.ProjectDirectory{{DeviceID: "node", ProjectID: "directory"}}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Update("qq", protocol.MessagingUpdate{Enabled: true, DeviceID: "hub.coordinator", ProjectID: "hp_sott", AppID: "app", AllowedUsers: []string{"alice"}}); err != nil {
+		t.Fatal("a newly created Hub project could not receive channel input", err)
+	}
+	c, _ := m.config("qq")
+	if err := m.receive(c, inbound("hub-input", "alice")); err != nil {
+		t.Fatal(err)
+	}
+	drainInbox(t, m, context.Background())
+	if len(backend.commands) != 2 || backend.commands[0].DeviceID != "hub.coordinator" || backend.commands[0].ProjectID != "hp_sott" {
+		t.Fatal("channel input did not retain the Hub project", backend.commands)
+	}
+}
+
 func drainInbox(t *testing.T, m *Manager, ctx context.Context) {
 	t.Helper()
 	raw, err := m.store.PendingObjects("messaging_inbox", 100)

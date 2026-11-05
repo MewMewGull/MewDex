@@ -1,3 +1,4 @@
+import { t } from "./localization.ts";
 import { useRef, useState } from "react";
 import type { Device, NetworkSnapshot } from "@mewdex/sdk";
 import { useWorkspace } from "./state";
@@ -35,7 +36,7 @@ function loadView(key: string): { value: WorkspaceView; error: string } {
   } catch {
     return {
       value: emptyView(),
-      error: "暂时无法读取本机工作台设置，将从默认设置打开。",
+      error: t("暂时无法读取本机工作台设置，将从默认设置打开。"),
     };
   }
 }
@@ -56,7 +57,7 @@ export function useWorkspaceView(scope: string) {
       localStorage.setItem(storageKey, JSON.stringify(next));
       setError("");
     } catch {
-      setError("工作台设置尚未保存，重开时可能回到原设置。");
+      setError(t("工作台设置尚未保存，重开时可能回到原设置。"));
     }
   }
 
@@ -136,7 +137,7 @@ export function useWorkspaceView(scope: string) {
         localStorage.removeItem(storageKey);
         setError("");
       } catch {
-        setError("暂时无法清除本机工作台设置。");
+        setError(t("暂时无法清除本机工作台设置。"));
       }
     },
   };

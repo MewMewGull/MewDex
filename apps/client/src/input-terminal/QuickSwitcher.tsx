@@ -1,3 +1,4 @@
+import { getLanguage, t } from "../localization.ts";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { FolderPlus, MessageSquare, Search, X } from "lucide-react";
@@ -49,7 +50,7 @@ export function QuickSwitcher({
         deviceId,
         unreadSessions,
       }),
-    [devices, sessions, search, deviceId, unreadSessions],
+    [devices, sessions, search, deviceId, unreadSessions, getLanguage()],
   );
   const entries = groups.flatMap((group) => group.entries);
   const { active, listboxId, optionId, setSelectedId, onKeyDown } =
@@ -70,12 +71,12 @@ export function QuickSwitcher({
   function describe(entry: SwitchEntry) {
     if (entry.kind === "session")
       return [
-        unreadSessions.has(entry.session.id) ? "未读" : "",
-        draftSessions.has(entry.session.id) ? "草稿" : "",
+        unreadSessions.has(entry.session.id) ? t("未读") : "",
+        draftSessions.has(entry.session.id) ? t("草稿") : "",
         entry.session.archived
-          ? "已归档"
+          ? t("已归档")
           : entry.session.pinned
-            ? "已置顶"
+            ? t("已置顶")
             : "",
         entry.deviceName,
         entry.projectName,
@@ -86,9 +87,9 @@ export function QuickSwitcher({
       return [
         entry.device.name,
         draftKeys.has(composerKey(entry.device.id, "", entry.project.id))
-          ? "继续草稿"
-          : "新对话",
-        entry.device.roles.includes("executor") ? "" : "未开启执行能力",
+          ? t("继续草稿")
+          : t("新对话"),
+        entry.device.roles.includes("executor") ? "" : t("未开启执行能力"),
         entry.device.online && connected
           ? ""
           : devicePresence(entry.device.online, connected).label,
@@ -113,16 +114,18 @@ export function QuickSwitcher({
             returnFocus.restore(event, chosen.current);
           }}
         >
-          <Dialog.Title className="sr-only">快速切换</Dialog.Title>
+          <Dialog.Title className="sr-only">{t("快速切换")}</Dialog.Title>
           <Dialog.Description className="sr-only">
-            搜索设备、项目与对话，用方向键选择，按回车打开。选择项目进入该项目的新对话或未发送草稿。
+            {t(
+              "搜索设备、项目与对话，用方向键选择，按回车打开。选择项目进入该项目的新对话或未发送草稿。",
+            )}
           </Dialog.Description>
           <div className="quick-switcher-search">
             <Search size={18} />
             <input
               ref={input}
-              aria-label="搜索设备、项目与对话"
-              placeholder="搜索设备、项目与对话…"
+              aria-label={t("搜索设备、项目与对话")}
+              placeholder={t("搜索设备、项目与对话…")}
               value={search}
               onChange={(event) => {
                 setSearch(event.target.value);
@@ -135,7 +138,10 @@ export function QuickSwitcher({
               aria-activedescendant={active ? optionId(active.id) : undefined}
               onKeyDown={onKeyDown}
             />
-            <Dialog.Close className="icon-button" aria-label="关闭快速切换">
+            <Dialog.Close
+              className="icon-button"
+              aria-label={t("关闭快速切换")}
+            >
               <X size={17} />
             </Dialog.Close>
           </div>
@@ -143,7 +149,7 @@ export function QuickSwitcher({
             className="quick-switcher-results"
             role="listbox"
             id={listboxId}
-            aria-label="匹配结果"
+            aria-label={t("匹配结果")}
           >
             {groups.map((group) => (
               <div
@@ -199,14 +205,16 @@ export function QuickSwitcher({
                       </span>
                       {entry.kind === "device" &&
                         entry.device.id === deviceId && (
-                          <span className="quick-switcher-current">当前</span>
+                          <span className="quick-switcher-current">
+                            {t("当前")}
+                          </span>
                         )}
                       {entry.kind === "session" &&
                         unreadSessions.has(entry.session.id) && (
                           <span
                             className="session-unread-dot"
                             role="img"
-                            aria-label="有新回复"
+                            aria-label={t("有新回复")}
                           />
                         )}
                       {selected && <kbd>↵</kbd>}
@@ -216,16 +224,18 @@ export function QuickSwitcher({
               </div>
             ))}
             {!entries.length && (
-              <p className="empty-list">没有找到匹配的设备、项目或对话</p>
+              <p className="empty-list">
+                {t("没有找到匹配的设备、项目或对话")}
+              </p>
             )}
           </div>
           <div className="quick-switcher-caption">
-            <span className="keyboard-only-hint">↑ ↓ 选择</span>
-            <span className="keyboard-only-hint">Enter 打开</span>
-            <span className="keyboard-only-hint">Esc 关闭</span>
+            <span className="keyboard-only-hint">{t("↑ ↓ 选择")}</span>
+            <span className="keyboard-only-hint">{t("Enter 打开")}</span>
+            <span className="keyboard-only-hint">{t("Esc 关闭")}</span>
             {!search.trim() && (
               <span className="quick-switcher-search-hint">
-                输入名称查找全部对话与项目
+                {t("输入名称查找全部对话与项目")}
               </span>
             )}
           </div>

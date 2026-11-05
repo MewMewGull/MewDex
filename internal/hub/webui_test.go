@@ -3,7 +3,6 @@ package hub
 import (
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 )
 
@@ -42,31 +41,19 @@ func TestBundledBrowserOriginsStillRequireAuthentication(t *testing.T) {
 	}
 }
 
-func TestWebEntryCanStopWithoutStoppingTheHub(t *testing.T) {
+func TestHubOnlyServesItsAPI(t *testing.T) {
 	h, _, _, _ := testHub(t)
-	enabled := false
-	h.SetWebUI(func() bool { return enabled })
 	handler := h.Handler()
+	for _, path := range []string{"/", "/index.html", "/assets/app.js"} {
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, httptest.NewRequest("GET", path, nil))
+		if w.Code != http.StatusNotFound {
+			t.Fatalf("Hub served input assets at %s", path)
+		}
+	}
 	w := httptest.NewRecorder()
-	handler.ServeHTTP(w, httptest.NewRequest("GET", "/", nil))
-	if w.Code != http.StatusServiceUnavailable || !strings.Contains(w.Body.String(), "尚未启动") {
-		t.Fatal("web entry was enabled by default")
-	}
-	enabled = true
-	w = httptest.NewRecorder()
 	handler.ServeHTTP(w, httptest.NewRequest("GET", "/health", nil))
 	if w.Code != http.StatusOK {
-		t.Fatal("Hub stopped with its web entry")
-	}
-	enabled = false
-	w = httptest.NewRecorder()
-	handler.ServeHTTP(w, httptest.NewRequest("GET", "/index.html", nil))
-	if w.Code != http.StatusServiceUnavailable {
-		t.Fatal("stopped web assets remained available")
-	}
-	w = httptest.NewRecorder()
-	handler.ServeHTTP(w, httptest.NewRequest("GET", "/health", nil))
-	if w.Code != http.StatusOK {
-		t.Fatal("stopping the web entry stopped the Hub")
+		t.Fatal("Hub API is unavailable")
 	}
 }

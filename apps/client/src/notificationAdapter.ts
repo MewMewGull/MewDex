@@ -1,3 +1,4 @@
+import { t } from "./localization.ts";
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { inputCapabilities } from "./localDevice";
 import type { InputAlert } from "./inputAlerts";
@@ -48,8 +49,8 @@ const nativeAdapter = createNativeNotificationAdapter({
     if (!(await inputCapabilities()).localService) return;
     const { getCurrentWindow } = await import("@tauri-apps/api/window");
     const window = getCurrentWindow();
-    await window.show();
     await window.unminimize();
+    await window.show();
     await window.setFocus();
   },
   async registerActions(types) {
@@ -103,7 +104,7 @@ const webAdapter: NotificationAdapter = {
   async send(_scope, alert, open, failed, signal) {
     if (signal.aborted) return;
     if (window.Notification.permission !== "granted")
-      throw new Error("浏览器提醒权限尚未开启");
+      throw new Error(t("浏览器提醒权限尚未开启"));
     const notification = new window.Notification(alert.title, {
       body: alert.body,
       tag: alert.key,

@@ -1,3 +1,4 @@
+import { t } from "../localization.ts";
 import { useRef, type RefObject } from "react";
 
 const defaultWidth = 38;
@@ -32,13 +33,13 @@ export function OutputResizeHandle({
       className="output-resize-handle"
       role="separator"
       tabIndex={0}
-      aria-label="调整输出面板宽度"
+      aria-label={t("调整输出面板宽度")}
       aria-orientation="vertical"
       aria-valuemin={30}
       aria-valuemax={65}
       aria-valuenow={width}
       aria-valuetext={`${Math.round(width)}%`}
-      title="拖动调整宽度 · 双击还原 · 方向键微调"
+      title={t("拖动调整宽度 · 双击还原 · 方向键微调")}
       onPointerDown={(event) => {
         if (event.button !== 0) return;
         event.preventDefault();

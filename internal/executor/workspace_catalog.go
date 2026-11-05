@@ -17,6 +17,41 @@ func (x *Executor) Projects() []protocol.Project {
 	defer x.projectMu.RUnlock()
 	return append([]protocol.Project{}, x.config.Projects...)
 }
+
+// EnsureProject installs a Hub-owned conversation workspace under its stable
+// project ID. Physical directories continue to be owned by execution nodes.
+func (x *Executor) EnsureProject(project protocol.Project) error {
+	root, err := workspace.CanonicalDir(project.Path)
+	if err != nil {
+		return err
+	}
+	x.projectMu.Lock()
+	defer x.projectMu.Unlock()
+	for i, existing := range x.config.Projects {
+		if existing.ID != project.ID {
+			continue
+		}
+		if existing.Path != root {
+			return errors.New("Hub project workspace changed")
+		}
+		project.Path = root
+		if err = x.store.Put("workspaces", project.ID, project); err != nil {
+			return err
+		}
+		x.config.Projects[i] = project
+		return nil
+	}
+	project.Path = root
+	if err = x.store.Put("project_bindings", project.ID, projectBinding{ID: project.ID, DeviceID: x.config.DeviceID, Path: root}); err != nil {
+		return err
+	}
+	if err = x.store.Put("workspaces", project.ID, project); err != nil {
+		return err
+	}
+	x.config.Projects = append(x.config.Projects, project)
+	x.projectRoots[project.ID] = root
+	return nil
+}
 func (x *Executor) projectRoot(id string) string {
 	x.projectMu.RLock()
 	defer x.projectMu.RUnlock()
@@ -137,6 +172,9 @@ func (x *Executor) registerWorkspace(root string, request *protocol.WorkspaceReq
 	defer x.projectMu.Unlock()
 	for _, project := range x.config.Projects {
 		if project.Path == root {
+			if x.terminal != nil {
+				return project, nil
+			}
 			if project.Name != strings.TrimSpace(request.Name) || project.Category != strings.TrimSpace(request.Category) {
 				return protocol.Project{}, fmt.Errorf("此文件夹已添加为“%s”，可在项目菜单中修改名称与分类", project.Name)
 			}

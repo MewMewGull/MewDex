@@ -16,7 +16,7 @@ if (!/^[A-Za-z0-9_.-]+\.exe$/.test(installerName)) throw new Error('Installer na
 const source = path.resolve(root, input);
 const relative = path.relative(root, source);
 if (!relative || relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) throw new Error('Build input must stay in this workspace');
-const stage = path.join(root, '.state', `hub-installer-${Date.now()}`);
+const stage = path.join(root, '.state', `app-installer-${Date.now()}`);
 const payload = path.join(stage, 'payload');
 await mkdir(payload, { recursive: true });
 function run(exe, args, extra = {}) {
@@ -33,14 +33,17 @@ async function copy(name) {
   await mkdir(path.dirname(path.join(payload, name)), { recursive: true });
   await copyFile(sourceFile, path.join(payload, name)); files.push(name);
 }
-for (const name of ['mewdex-client.exe', 'mewdex-node.exe', 'engine']) await copy(name);
-for (const name of ['README.md', 'README.zh-CN.md', 'mewdex.product.json', 'docs/releases.md']) {
+for (const name of ['mewdex-client.exe', 'mewdex-input-bridge.exe']) await copy(name);
+for (const name of ['START-HERE.txt', 'component.json', 'licenses', 'third_party']) {
+  try { await lstat(path.join(source, name)); }
+  catch (error) { if (error.code === 'ENOENT') continue; throw error; }
+  await copy(name);
+}
+for (const name of ['LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md', 'README.md', 'README.zh-CN.md', 'mewdex.product.json', 'docs/releases.md', 'docs/architecture.md', 'docs/protocol.md', 'docs/messaging.md', 'docs/hub-startup-20261102.md', 'docs/dependency-licenses.json', 'docs/licensing.md']) {
   await mkdir(path.dirname(path.join(payload, name)), { recursive: true });
   await copyFile(path.join(root, name), path.join(payload, name));
   files.push(name);
 }
-const helper = await readFile(path.join(payload, 'mewdex-node.exe'));
-if (helper.readUInt16LE(helper.readUInt32LE(0x3c) + 92) !== 2) throw new Error('The Windows Hub must use the GUI subsystem to prevent a login console');
 for (const name of await readdir(source)) if (/\.dll$/i.test(name)) await copy(name);
 const lock = JSON.parse(await readFile(path.join(root, 'tools/windows-installer.lock.json'), 'utf8'));
 const tools = path.join(root, '.local', 'toolchains'); await mkdir(tools, { recursive: true });

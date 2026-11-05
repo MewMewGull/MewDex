@@ -1,3 +1,4 @@
+import { t } from "./localization.ts";
 import type { Device, Project, Session } from "@mewdex/sdk";
 import { devicePlatform } from "./devicePresence.ts";
 
@@ -25,6 +26,8 @@ export function orderedDevices(devices: Device[], currentId = "") {
   return [...devices].sort(
     (a, b) =>
       Number(b.id === currentId) - Number(a.id === currentId) ||
+      Number(b.roles.includes("coordinator")) -
+        Number(a.roles.includes("coordinator")) ||
       Number(executable(b)) - Number(executable(a)) ||
       Number(b.online) - Number(a.online) ||
       a.name.localeCompare(b.name) ||
@@ -34,11 +37,45 @@ export function orderedDevices(devices: Device[], currentId = "") {
 
 export function conversationContext(session: Session, device?: Device) {
   return {
-    deviceName: device?.name ?? "未连接设备",
+    deviceName: device?.name ?? t("未连接设备"),
     projectName:
       device?.projects.find((project) => project.id === session.projectId)
         ?.name ?? session.projectId,
   };
+}
+
+export function conversationHubProject(devices: Device[], session: Session) {
+  const hub = devices.find((device) => device.roles.includes("coordinator"));
+  if (!hub) return undefined;
+  if (session.deviceId === hub.id)
+    return hub.projects.find((project) => project.id === session.projectId);
+  const direct = hub.projects.find((project) =>
+    project.directories?.some(
+      (directory) =>
+        directory.deviceId === session.deviceId &&
+        directory.projectId === session.projectId,
+    ),
+  );
+  if (direct) return direct;
+  const originalDevice = devices.find(
+    (device) => device.id === session.deviceId,
+  );
+  const original = originalDevice?.projects.find(
+    (project) => project.id === session.projectId,
+  );
+  if (!originalDevice || !original?.path) return undefined;
+  const matches = hub.projects.filter((project) =>
+    project.directories?.some(
+      (directory) =>
+        directory.path === original.path &&
+        devices.some(
+          (device) =>
+            device.id === directory.deviceId &&
+            device.platform === originalDevice.platform,
+        ),
+    ),
+  );
+  return matches.length === 1 ? matches[0] : undefined;
 }
 
 export type SwitchEntry =
@@ -75,22 +112,26 @@ export function quickSwitchGroups({
   const searching = !!search.trim();
   const byId = new Map(devices.map((device) => [device.id, device]));
   const ordered = orderedDevices(devices, deviceId);
-  const targets: SwitchEntry[] = ordered
+  const central = ordered.find((device) =>
+    device.roles.includes("coordinator"),
+  );
+  const targets: SwitchEntry[] = (central ? [] : ordered)
     .filter((device) => deviceMatches(search, device))
     .map((device) => ({ kind: "device", id: `device:${device.id}`, device }));
-  const projects: SwitchEntry[] = ordered.flatMap((device) =>
-    searching || device.id === deviceId
-      ? device.projects
-          .filter((project) =>
-            navigationMatches(search, device.name, project.name),
-          )
-          .map((project) => ({
-            kind: "project" as const,
-            id: `project:${JSON.stringify([device.id, project.id])}`,
-            device,
-            project,
-          }))
-      : [],
+  const projects: SwitchEntry[] = (central ? [central] : ordered).flatMap(
+    (device) =>
+      central || searching || device.id === deviceId
+        ? device.projects
+            .filter((project) =>
+              navigationMatches(search, device.name, project.name),
+            )
+            .map((project) => ({
+              kind: "project" as const,
+              id: `project:${JSON.stringify([device.id, project.id])}`,
+              device,
+              project,
+            }))
+        : [],
   );
   const conversations: SwitchEntry[] = sessions
     .map((session) => ({
@@ -118,19 +159,23 @@ export function quickSwitchGroups({
     );
   const targetGroup = {
     id: "devices",
-    label: "设备",
+    label: t("设备"),
     total: targets.length,
     entries: targets,
   };
   const projectGroup = {
     id: "projects",
-    label: searching ? "项目 · 新对话" : "当前设备 · 新对话",
+    label: central
+      ? t("Hub 项目 · 新对话")
+      : searching
+        ? t("项目 · 新对话")
+        : t("当前设备 · 新对话"),
     total: projects.length,
     entries: projects,
   };
   const conversationGroup = {
     id: "sessions",
-    label: searching ? "对话" : "最近对话",
+    label: searching ? t("对话") : t("最近对话"),
     total: conversations.length,
     entries: searching ? conversations : conversations.slice(0, 12),
   };

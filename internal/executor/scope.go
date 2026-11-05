@@ -93,6 +93,7 @@ func (x *Executor) executionScope(s protocol.Session) (executionscope.Profile, e
 		return empty, err
 	}
 	private := append([]string{x.config.DataDir}, environment.Private...)
+	private = append(private, x.config.PrivatePaths...)
 	if x.config.ProfilePath != "" {
 		path, err := executionscope.PrivateProfilePath(root, x.config.ProfilePath)
 		if err != nil {

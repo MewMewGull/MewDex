@@ -1,149 +1,255 @@
+import { t } from "./localization.ts";
 export type ThemeType = "dark" | "light";
 
 // Stable color IDs are also the public keys in shared theme files.
 export const themeColorRegistry = {
-  accent: { label: "强调色", group: "基础", dark: "#9ccba6", light: "#397548" },
+  accent: {
+    get label() {
+      return t("强调色");
+    },
+    get group() {
+      return t("基础");
+    },
+    dark: "#9ccba6",
+    light: "#397548",
+  },
   foreground: {
-    label: "主要文字",
-    group: "基础",
+    get label() {
+      return t("主要文字");
+    },
+    get group() {
+      return t("基础");
+    },
     dark: "#e0e7f2",
     light: "#263244",
   },
   descriptionForeground: {
-    label: "次要文字",
-    group: "基础",
+    get label() {
+      return t("次要文字");
+    },
+    get group() {
+      return t("基础");
+    },
     dark: "#91a5be",
     light: "#596b80",
   },
   disabledForeground: {
-    label: "弱化文字",
-    group: "基础",
+    get label() {
+      return t("弱化文字");
+    },
+    get group() {
+      return t("基础");
+    },
     dark: "#788aa1",
     light: "#68788c",
   },
   "editor.background": {
-    label: "工作区背景",
-    group: "基础",
+    get label() {
+      return t("工作区背景");
+    },
+    get group() {
+      return t("基础");
+    },
     dark: "#10131b",
     light: "#ffffff",
   },
   "sideBar.background": {
-    label: "侧栏背景",
-    group: "基础",
+    get label() {
+      return t("侧栏背景");
+    },
+    get group() {
+      return t("基础");
+    },
     dark: "#151923",
     light: "#f3f5f8",
   },
   "panel.background": {
-    label: "弹窗与面板背景",
-    group: "基础",
+    get label() {
+      return t("弹窗与面板背景");
+    },
+    get group() {
+      return t("基础");
+    },
     dark: "#1b2330",
     light: "#f8fafc",
   },
   "surface.background": {
-    label: "卡片背景",
-    group: "基础",
+    get label() {
+      return t("卡片背景");
+    },
+    get group() {
+      return t("基础");
+    },
     dark: "#19222d",
     light: "#edf1f6",
   },
   "surface.hoverBackground": {
-    label: "悬停背景",
-    group: "基础",
+    get label() {
+      return t("悬停背景");
+    },
+    get group() {
+      return t("基础");
+    },
     dark: "#242d3c",
     light: "#e4eaf2",
   },
   "widget.border": {
-    label: "界面边框",
-    group: "基础",
+    get label() {
+      return t("界面边框");
+    },
+    get group() {
+      return t("基础");
+    },
     dark: "#354051",
     light: "#cbd4e0",
   },
   "input.background": {
-    label: "输入控件背景",
-    group: "输入与对话",
+    get label() {
+      return t("输入控件背景");
+    },
+    get group() {
+      return t("输入与对话");
+    },
     dark: "#171c27",
     light: "#ffffff",
   },
   "input.foreground": {
-    label: "输入控件文字",
-    group: "输入与对话",
+    get label() {
+      return t("输入控件文字");
+    },
+    get group() {
+      return t("输入与对话");
+    },
     dark: "#e0e7f2",
     light: "#263244",
   },
   "input.border": {
-    label: "输入控件边框",
-    group: "输入与对话",
+    get label() {
+      return t("输入控件边框");
+    },
+    get group() {
+      return t("输入与对话");
+    },
     dark: "#354051",
     light: "#cbd4e0",
   },
   "chat.foreground": {
-    label: "回复文字",
-    group: "输入与对话",
+    get label() {
+      return t("回复文字");
+    },
+    get group() {
+      return t("输入与对话");
+    },
     dark: "#adb9cf",
     light: "#34465d",
   },
   "chat.userForeground": {
-    label: "用户消息文字",
-    group: "输入与对话",
+    get label() {
+      return t("用户消息文字");
+    },
+    get group() {
+      return t("输入与对话");
+    },
     dark: "#e0e5f0",
     light: "#263244",
   },
   "chat.inputBackground": {
-    label: "对话输入区背景",
-    group: "输入与对话",
+    get label() {
+      return t("对话输入区背景");
+    },
+    get group() {
+      return t("输入与对话");
+    },
     dark: "#192029",
     light: "#f3f5f8",
   },
   "textCodeBlock.background": {
-    label: "代码块背景",
-    group: "输入与对话",
+    get label() {
+      return t("代码块背景");
+    },
+    get group() {
+      return t("输入与对话");
+    },
     dark: "#0d1119",
     light: "#edf1f6",
   },
   "titleBar.activeBackground": {
-    label: "标题栏背景",
-    group: "标题栏与终端",
+    get label() {
+      return t("标题栏背景");
+    },
+    get group() {
+      return t("标题栏与终端");
+    },
     dark: "#151923",
     light: "#f3f5f8",
   },
   "titleBar.activeForeground": {
-    label: "标题栏文字",
-    group: "标题栏与终端",
+    get label() {
+      return t("标题栏文字");
+    },
+    get group() {
+      return t("标题栏与终端");
+    },
     dark: "#91a5be",
     light: "#596b80",
   },
   "terminal.background": {
-    label: "终端背景",
-    group: "标题栏与终端",
+    get label() {
+      return t("终端背景");
+    },
+    get group() {
+      return t("标题栏与终端");
+    },
     dark: "#0d1119",
     light: "#f5f7fa",
   },
   "terminal.foreground": {
-    label: "终端文字",
-    group: "标题栏与终端",
+    get label() {
+      return t("终端文字");
+    },
+    get group() {
+      return t("标题栏与终端");
+    },
     dark: "#a6b7cc",
     light: "#34465d",
   },
   successForeground: {
-    label: "成功状态",
-    group: "状态",
+    get label() {
+      return t("成功状态");
+    },
+    get group() {
+      return t("状态");
+    },
     dark: "#bfe3c5",
     light: "#27643a",
   },
   warningForeground: {
-    label: "警告状态",
-    group: "状态",
+    get label() {
+      return t("警告状态");
+    },
+    get group() {
+      return t("状态");
+    },
     dark: "#dcc89a",
     light: "#805900",
   },
   errorForeground: {
-    label: "错误状态",
-    group: "状态",
+    get label() {
+      return t("错误状态");
+    },
+    get group() {
+      return t("状态");
+    },
     dark: "#f1b7bc",
     light: "#ad3346",
   },
   infoForeground: {
-    label: "提示状态",
-    group: "状态",
+    get label() {
+      return t("提示状态");
+    },
+    get group() {
+      return t("状态");
+    },
     dark: "#a8c5ed",
     light: "#285e9e",
   },
@@ -161,11 +267,27 @@ export interface ColorTheme {
 }
 
 export const builtInThemes: readonly ColorTheme[] = [
-  { id: "mewdex-dark", name: "MewDex 深色", type: "dark", colors: {} },
-  { id: "mewdex-light", name: "MewDex 浅色", type: "light", colors: {} },
+  {
+    id: "mewdex-dark",
+    get name() {
+      return t("MewDex 深色");
+    },
+    type: "dark",
+    colors: {},
+  },
+  {
+    id: "mewdex-light",
+    get name() {
+      return t("MewDex 浅色");
+    },
+    type: "light",
+    colors: {},
+  },
   {
     id: "midnight",
-    name: "午夜蓝",
+    get name() {
+      return t("午夜蓝");
+    },
     type: "dark",
     colors: {
       accent: "#88baff",
@@ -193,7 +315,9 @@ export const builtInThemes: readonly ColorTheme[] = [
   },
   {
     id: "warm-paper",
-    name: "暖纸",
+    get name() {
+      return t("暖纸");
+    },
     type: "light",
     colors: {
       accent: "#986337",
@@ -270,20 +394,22 @@ export function normalizeThemeColor(value: unknown): string | undefined {
 
 function readColors(value: unknown, strict = false): ThemeColors {
   if (!isObject(value)) {
-    if (strict) throw new Error("主题文件的 colors 必须是颜色对象。");
+    if (strict) throw new Error(t("主题文件的 colors 必须是颜色对象。"));
     return {};
   }
   const colors: ThemeColors = {};
   for (const [id, input] of Object.entries(value)) {
     if (!Object.hasOwn(themeColorRegistry, id)) {
       if (strict)
-        throw new Error(`无法识别颜色项 ${id}，请检查主题文件或升级 MewDex。`);
+        throw new Error(
+          t("无法识别颜色项 {0}，请检查主题文件或升级 MewDex。", id),
+        );
       continue;
     }
     const color = normalizeThemeColor(input);
     if (!color && strict)
       throw new Error(
-        `颜色项 ${id} 需要十六进制颜色，例如 #88baff 或 #88baff80。`,
+        t("颜色项 {0} 需要十六进制颜色，例如 #88baff 或 #88baff80。", id),
       );
     if (color) colors[id as ThemeColorId] = color;
   }
@@ -427,25 +553,25 @@ export interface ThemeFile {
 
 export function parseThemeFile(text: string): ThemeFile {
   if (new TextEncoder().encode(text).length > maxThemeFileBytes)
-    throw new Error("主题文件不能超过 256 KiB。");
+    throw new Error(t("主题文件不能超过 256 KiB。"));
   let input: unknown;
   try {
     input = JSON.parse(text.replace(/^\uFEFF/, ""));
   } catch {
-    throw new Error("主题文件不是有效的 JSON。");
+    throw new Error(t("主题文件不是有效的 JSON。"));
   }
   if (!isObject(input) || input.format !== "mewdex-color-theme")
-    throw new Error("请选择 MewDex 导出的 .mewdex-theme.json 主题文件。");
+    throw new Error(t("请选择 MewDex 导出的 .mewdex-theme.json 主题文件。"));
   if (input.version !== 1)
-    throw new Error("当前 MewDex 不支持此主题文件版本。");
+    throw new Error(t("当前 MewDex 不支持此主题文件版本。"));
   if (
     typeof input.name !== "string" ||
     !input.name.trim() ||
     input.name.length > 80
   )
-    throw new Error("主题名称需要 1–80 个字符。");
+    throw new Error(t("主题名称需要 1–80 个字符。"));
   if (input.type !== "dark" && input.type !== "light")
-    throw new Error("主题类型需要是 dark 或 light。");
+    throw new Error(t("主题类型需要是 dark 或 light。"));
   return {
     format: "mewdex-color-theme",
     version: 1,

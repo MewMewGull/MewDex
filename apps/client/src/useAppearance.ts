@@ -1,3 +1,4 @@
+import { t } from "./localization.ts";
 import { useSyncExternalStore } from "react";
 import {
   accentColors,
@@ -64,7 +65,7 @@ function save(next: Appearance) {
     localStorage.setItem(key, JSON.stringify(value));
     error = "";
   } catch {
-    error = "外观设置未保存，关闭工作台后可能恢复原设置。";
+    error = t("外观设置未保存，关闭工作台后可能恢复原设置。");
   }
   publish();
 }
