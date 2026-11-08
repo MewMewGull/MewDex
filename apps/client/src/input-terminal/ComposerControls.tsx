@@ -274,7 +274,7 @@ export function ComposerControls({
               )
             }
           >
-            <option value="">{inherited || t("执行端默认模型")}</option>
+            <option value="">{inherited || t("Hub 默认模型")}</option>
             {value.model &&
               !models.some((item) => item.model === value.model) && (
                 <option value={value.model}>{value.model}</option>
@@ -301,7 +301,7 @@ export function ComposerControls({
             <option value="">
               {model?.defaultReasoningEffort
                 ? t("{0}（默认）", reasoningLabel(model.defaultReasoningEffort))
-                : t("执行端默认强度")}
+                : t("Hub 默认强度")}
             </option>
             {value.reasoningEffort &&
               !model?.supportedReasoningEfforts.some(

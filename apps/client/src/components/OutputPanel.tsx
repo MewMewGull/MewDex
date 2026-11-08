@@ -1,4 +1,5 @@
 import { t } from "../localization.ts";
+import { ExecutionTargetDetails } from "./ExecutionTargetDetails";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FileDiff, Search, Terminal, X } from "lucide-react";
 import type { CommandOutput } from "../outputs";
@@ -179,6 +180,7 @@ export function OutputPanel({
           </div>
           {selected && !all && (
             <div className="command-output-heading">
+              <ExecutionTargetDetails target={selected.executionTarget} />
               {selected.command && (
                 <div>
                   <code>{selected.command}</code>

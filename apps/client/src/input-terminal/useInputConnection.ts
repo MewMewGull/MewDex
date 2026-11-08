@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MewDexClient, MewDexError } from "@mewdex/sdk";
 import { credentialStore, subscribeResume, type Connection } from "../platform";
+import { hasHostedChannels } from "../localDevice";
 import {
   connectionRetryDelay,
   readConnection,
@@ -146,22 +147,30 @@ export function useInputConnection(onChanged: () => void) {
     cancelRead();
     try {
       await persist(() => credentialStore.clear());
-      if (epoch.current !== requestEpoch) return;
+      if (epoch.current !== requestEpoch) return false;
       changed.current();
       failures.current = 0;
       setAddress(undefined);
       setConnection(null);
       setIssue(null);
       setChecking(false);
+      return true;
     } catch (cause) {
       setIssue({
         kind: "storage",
         message: cause instanceof Error ? cause.message : String(cause),
         retrying: false,
       });
+      return false;
     }
   }
   function chooseNetwork() {
+    if (hasHostedChannels()) {
+      void disconnect().then((disconnected) => {
+        if (disconnected) window.location.assign("/__mewdex/settings");
+      });
+      return;
+    }
     epoch.current++;
     cancelRead();
     setConnection(null);

@@ -145,7 +145,7 @@ pub(crate) async fn desktop_notification_send(
                     &tickets::activation_url(&registration.scheme, &ticket.token)?,
                     &options.title,
                     &options.body,
-                    crate::desktop_window_windows::notification_open_label(&app),
+                    crate::desktop_window_tray::notification_open_label(&app),
                 )?))
                 .map_err(|_| "无法准备系统提醒")?;
             let toast = ToastNotification::CreateToastNotification(&document)

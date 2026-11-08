@@ -21,6 +21,9 @@ MIT 和 Apache-2.0 都允许商业使用、修改和分发。Apache-2.0 第 3 �
 | Go 在 `go.mod` 中声明的外部模块 | 16 | 含直接及间接要求；逐项读本机模块缓存中的原始许可，结果为 BSD-3-Clause、MIT、ISC 和 Apache-2.0 |
 | 仓库中保留源码的通知插件 | 1 | `tauri-plugin-notification` 2.8.0，Apache-2.0 OR MIT；原许可及补丁记录保留 |
 | 独立获取的 Codex 引擎 | 1 | 0.162.1；核对 `engine.lock.json` 固定源码修订的 Apache-2.0 LICENSE 及 NOTICE |
+| 独立 Windows 沙箱的第三方 crate 精确版本 | 567 | 2026-11-07 补充，使用 `apps/sandbox/Cargo.lock` 与固定源码修订生成，清单和许可随 `sandbox/` 分发 |
+| 独立 macOS ARM64 沙箱的第三方 crate 精确版本 | 93 | 使用同一锁文件按目标平台解析，包含 MXC SDK 的 MIT 许可与其依赖原文 |
+| 独立 Linux x64 沙箱的第三方 crate 精确版本 | 549 | 复用固定修订的 Codex Linux 模块，按 MUSL 目标解析 Rust 依赖，另附 Bubblewrap 许可与源码材料 |
 
 数量表示包条目或版本，不表示它们全部进入某个安装包。Rust 原始表达式中的 `/` 保留上游元数据形式；`AND` 需要同时遵守，`OR` 允许选择其中一项，不能把两者混为一谈。
 
@@ -60,6 +63,10 @@ MIT / BSD / ISC / Apache 等组件仍需按其条款保留版权、许可和适�
 本次没有逐文件核对引擎二进制内部全部依赖或伴随资源。其 Apache-2.0 主许可不能覆盖这些独立组件；发布完整引擎包时需要保留相应第三方声明。代码开源许可也不代替模型服务的账号、服务或商标使用条款。
 
 ### 原生平台与开发工具
+
+独立沙箱的构建脚本为 `scripts/prepare-sandbox-resources.py`。它验证 `tools/sandbox.lock.json` 固定的 Codex 与 MXC 源码归档 SHA-256，按锁文件构建，并输出目标平台的 `sandbox/dependency-licenses.json` 与逐包许可全文。Windows 包同时保留 Codex NOTICE，macOS 包保留 MXC SDK 的 MIT 许可。上游包缺少许可全文时，补充来源、固定修订与哈希记录在 `tools/sandbox-license-evidence.json`。各目标与客户端清单存在重叠，分别保留各自构建范围。
+
+Linux x64 包保留 Codex NOTICE、静态构建所用 OpenSSL 的许可文件，以及独立 Bubblewrap 程序的 `COPYING`。Bubblewrap 的许可原文声明 GNU Library General Public License version 2。固定 Codex 修订所含的 Bubblewrap 源码及原有构建文件作为归档随包提供，完整源码归档地址、固定修订与校验值也记录在 `sandbox/licenses/bubblewrap/source.json`。二进制来自同版本官方 Codex npm 包，并通过完整包 SHA-512 和资源 SHA-256 双重校验。
 
 Linux Tauri 使用 GTK / WebKitGTK 等系统库。Rust 绑定的 MIT 许可不等于底层 C 库的许可，例如 WebKitGTK 的官方文档注明 BSD / LGPL-2.1。使用系统动态库与将库装进 AppImage 等发布物的义务不同；若随包分发，要核对实际库版本、源码提供方式、许可及替换 / 重新链接条件。依据：[Tauri 平台依赖](https://v2.tauri.app/start/prerequisites/)、[WebKitGTK 官方许可说明](https://www.webkitgtk.org/reference/webkit2gtk/stable/index.html)。
 

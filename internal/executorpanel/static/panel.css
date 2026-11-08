@@ -115,6 +115,23 @@ dd {
 [hidden] {
   display: none !important;
 }
+.checkbox {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  line-height: 1.6;
+}
+.checkbox input {
+  width: auto;
+  margin-top: 5px;
+}
+select {
+  padding: 10px;
+  border: 1px solid #46516a;
+  border-radius: 6px;
+  background: #121722;
+  color: #edf2ff;
+}
 @media (max-width: 520px) {
   main {
     padding-top: 24px;

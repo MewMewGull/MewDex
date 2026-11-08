@@ -6,7 +6,6 @@ import {
   Copy,
   KeyRound,
   Keyboard,
-  LogOut,
   History,
   Monitor,
   FilePenLine,
@@ -36,12 +35,12 @@ import {
 import { keyboardModifierLabel, sendKeyHint, type SendKey } from "../inputKeys";
 import { hasTouchInput } from "../inputViewport";
 import { AppearanceSettings } from "../components/AppearanceSettings";
-import { CopyButton } from "../components/CopyButton";
 import { MewDexAccountSettings } from "./MewDexAccountSettings";
 import { MessagingSettings } from "./MessagingSettings";
 import { WebWorkbenchButton } from "./WebWorkbenchButton";
 import { AppUpdateSettings } from "../components/AppUpdates";
 import { LanguageSettings } from "../components/LanguageSettings";
+import { devicePlatform } from "../devicePresence";
 
 type Section =
   | "account"
@@ -51,6 +50,7 @@ type Section =
   | "drafts"
   | "updates"
   | "pairing"
+  | "input-pairing"
   | "models"
   | "messaging"
   | "access";
@@ -178,6 +178,7 @@ export function HubController({
   workspaceView,
   initialModelDeviceId,
   initialExecutorSetup = false,
+  initialSection,
 }: {
   client: MewDexClient;
   devices: Device[];
@@ -202,6 +203,7 @@ export function HubController({
   };
   initialModelDeviceId?: string;
   initialExecutorSetup?: boolean;
+  initialSection?: Section;
 }) {
   const cache = useQueryClient();
   const modifier = keyboardModifierLabel();
@@ -212,25 +214,42 @@ export function HubController({
     queryFn: () => client.identities(),
     enabled: open && section === "access" && identity.role === "admin",
   });
-  const [role, setRole] = useState<"client" | "executor" | "admin">("client");
+  const [role, setRole] = useState<"client" | "admin">("client");
   useEffect(() => {
     if (!open) return;
     if (initialExecutorSetup && identity.role === "admin") {
       setSection("pairing");
-      setRole("executor");
-      setAccess({ allDevices: false, targets: [], gateway: false });
-      setCode("");
+      setCode(null);
       setError("");
       return;
     }
-    setSection(initialModelDeviceId ? "models" : "general");
-  }, [open, initialModelDeviceId, initialExecutorSetup, identity.role]);
+    setSection(initialModelDeviceId ? "models" : (initialSection ?? "general"));
+  }, [
+    open,
+    initialModelDeviceId,
+    initialExecutorSetup,
+    initialSection,
+    identity.role,
+  ]);
   const [access, setAccess] = useState<Access>(initialAccess);
-  const [code, setCode] = useState("");
+  const [code, setCode] = useState<{ value: string; context: string } | null>(
+    null,
+  );
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<Identity | null>(null);
   const [editedAccess, setEditedAccess] = useState<Access>(initialAccess);
+  const executorPairing = section === "pairing";
+  const pairingRole = executorPairing ? "executor" : role;
+  const pairingAccess = executorPairing
+    ? { allDevices: false, targets: [], gateway: false }
+    : access;
+  const pairingContext = JSON.stringify([pairingRole, pairingAccess]);
+  const executors = devices.filter(
+    (device) =>
+      device.roles.includes("executor") &&
+      !device.roles.includes("coordinator"),
+  );
 
   async function action(work: () => Promise<unknown>) {
     setBusy(true);
@@ -249,10 +268,12 @@ export function HubController({
       open={open}
       onOpenChange={onOpenChange}
       title={t("设置")}
-      description={t("管理输入偏好、Hub 连接、共用 GPT 账号和访问权限。")}
+      description={t("输入端负责交互与显示，Hub 统一连接 GPT 并管理执行端。")}
+      className="terminal-settings"
       selected={section}
       onSelect={(value) => {
         setSection(value);
+        setCode(null);
         setError("");
       }}
       sections={[
@@ -260,67 +281,73 @@ export function HubController({
           id: "general",
           label: t("通用"),
           icon: <Bell size={16} />,
-          group: t("工作台"),
+          group: t("输入端设置"),
         },
         {
           id: "appearance",
           label: t("外观"),
           icon: <Palette size={16} />,
-          group: t("工作台"),
+          group: t("输入端设置"),
         },
         {
           id: "drafts",
           label: t("草稿"),
           icon: <FilePenLine size={16} />,
-          group: t("工作台"),
-        },
-        {
-          id: "updates",
-          label: t("应用更新"),
-          icon: <Download size={16} />,
-          group: t("工作台"),
-        },
-        {
-          id: "connection",
-          label: t("Hub 连接"),
-          icon: <Globe2 size={16} />,
-          group: t("连接"),
+          group: t("输入端设置"),
         },
         {
           id: "account",
           label: t("MewDex 账号"),
           icon: <KeyRound size={16} />,
-          group: t("连接"),
+          group: t("输入端设置"),
+        },
+        ...(identity.role === "admin"
+          ? [
+              {
+                id: "input-pairing" as const,
+                label: t("输入端配对"),
+                icon: <KeyRound size={16} />,
+                group: t("输入端设置"),
+              },
+              {
+                id: "messaging" as const,
+                label: t("消息渠道"),
+                icon: <MessageCircle size={16} />,
+                group: t("输入端设置"),
+              },
+            ]
+          : []),
+        {
+          id: "updates",
+          label: t("应用更新"),
+          icon: <Download size={16} />,
+          group: t("输入端设置"),
+        },
+        {
+          id: "connection",
+          label: t("Hub 连接"),
+          icon: <Globe2 size={16} />,
+          group: t("Hub 与执行端设置"),
+        },
+        {
+          id: "models",
+          label: t("GPT 账号与网络"),
+          icon: <Sparkles size={16} />,
+          group: t("Hub 与执行端设置"),
         },
         ...(identity.role === "admin"
           ? [
               {
                 id: "pairing" as const,
-                label: t("添加设备"),
-                icon: <KeyRound size={16} />,
-                group: t("连接"),
-              },
-            ]
-          : []),
-        {
-          id: "models",
-          label: t("GPT 连接"),
-          icon: <Sparkles size={16} />,
-          group: t("模型与访问"),
-        },
-        ...(identity.role === "admin"
-          ? [
-              {
-                id: "messaging" as const,
-                label: t("消息渠道"),
-                icon: <MessageCircle size={16} />,
-                group: t("模型与访问"),
+                label: t("执行端"),
+                icon: <Monitor size={16} />,
+                group: t("Hub 与执行端设置"),
               },
               {
                 id: "access" as const,
                 label: t("访问权限"),
                 icon: <ShieldCheck size={16} />,
-                group: t("模型与访问"),
+                group: t("Hub 与执行端设置"),
               },
             ]
           : []),
@@ -331,13 +358,19 @@ export function HubController({
       )}
       {section === "updates" && <AppUpdateSettings />}
       {section === "account" && (
-        <MewDexAccountSettings
-          client={client}
-          supported={accountSupported}
-          baseURL={baseURL}
-          loginKey={loginKey}
-          onLogout={onDisconnect}
-        />
+        <>
+          <MewDexAccountSettings
+            client={client}
+            supported={accountSupported}
+            baseURL={baseURL}
+            loginKey={loginKey}
+            onLogout={onDisconnect}
+          />
+          <section className="network-section">
+            <h3>{t(" Hub 的输入入口")}</h3>
+            <WebWorkbenchButton baseURL={baseURL} />
+          </section>
+        </>
       )}
       {section === "general" && (
         <>
@@ -442,55 +475,12 @@ export function HubController({
         </>
       )}
       {section === "connection" && (
-        <>
-          <HubConnectionPanel
-            baseURL={baseURL}
-            identity={identity}
-            locallyHosted={!!onLocalModelRouting}
-            onChangeHub={onChangeHub}
-          />
-          <section className="network-section">
-            <h3>
-              <Globe2 size={16} />
-              {t(" Hub 的输入入口")}
-            </h3>
-            <WebWorkbenchButton baseURL={baseURL} />
-            <details className="connection-advanced">
-              <summary>{t("登录密钥")}</summary>
-              <p className="muted">
-                {t(
-                  "登录密钥拥有当前输入端的访问权限，可用于连接此 Hub。管理员可在访问权限中撤销对应身份。",
-                )}
-              </p>
-              <CopyButton text={loginKey} label={t("复制登录密钥")} />
-            </details>
-            <button className="settings-disconnect" onClick={onDisconnect}>
-              <LogOut size={15} />
-              {t("退出 MewDex")}
-            </button>
-            <p className="muted">{t("退出会清除当前网络的本机草稿。")}</p>
-          </section>
-          {onLocalDevice && (
-            <section className="network-section">
-              <h3>
-                <Monitor size={16} />
-                {t(" 此设备的服务")}
-              </h3>
-              <p className="muted">
-                {t("管理此设备的执行能力、后台服务、自启动和本机数据。")}
-              </p>
-              <button
-                className="settings-link"
-                onClick={() => {
-                  onOpenChange(false);
-                  onLocalDevice();
-                }}
-              >
-                {t("查看连接与本机服务")}
-              </button>
-            </section>
-          )}
-        </>
+        <HubConnectionPanel
+          baseURL={baseURL}
+          identity={identity}
+          locallyHosted={!!onLocalModelRouting}
+          onChangeHub={onChangeHub}
+        />
       )}
       {section === "models" && (
         <HubGPTPanel
@@ -515,37 +505,87 @@ export function HubController({
           {section === "pairing" && (
             <section className="network-section">
               <h3>
-                <KeyRound size={15} />
-                {t(" 添加输入端或执行端")}
+                <Monitor size={16} />
+                {t("执行端")}
               </h3>
-              <label>
-                {t("设备角色")}
-                <select
-                  value={role}
-                  onChange={(e) => {
-                    const role = e.target.value as
-                      | "client"
-                      | "executor"
-                      | "admin";
-                    setRole(role);
-                    setAccess({
-                      allDevices: role === "client",
-                      targets: [],
-                      gateway: false,
-                    });
-                    setCode("");
+              <p className="muted">
+                {t(
+                  "其他电脑或服务器只需安装执行端，在执行端面板填写当前 Hub 地址和一次性配对码，再配置本机目录。",
+                )}
+              </p>
+              <p className="muted">
+                {t("GPT 账号和 OpenAI 网络连接统一在 Hub 上配置。")}
+              </p>
+              {executors.map((device) => (
+                <div className="identity-row" key={device.id}>
+                  <Monitor size={16} />
+                  <div>
+                    <strong>{device.name}</strong>
+                    <small>
+                      {[
+                        device.online ? t("在线") : t("离线"),
+                        devicePlatform(device.platform),
+                        t("{0} 个目录绑定", device.projects.length),
+                      ].join(" · ")}
+                    </small>
+                  </div>
+                </div>
+              ))}
+              {!executors.length && (
+                <p className="muted">{t("当前没有已配对的执行端。")}</p>
+              )}
+              {onLocalDevice && (
+                <button
+                  className="settings-link"
+                  onClick={() => {
+                    onOpenChange(false);
+                    onLocalDevice();
                   }}
                 >
-                  <option value="client">
-                    {t("输入端：手机、桌面或网页")}
-                  </option>
-                  <option value="executor">{t("执行端：电脑或服务器")}</option>
-                  <option value="admin">
-                    {t("管理员输入端：管理设备、授权与模型登录")}
-                  </option>
-                </select>
-              </label>
-              {role === "admin" ? (
+                  {t("查看连接与本机服务")}
+                </button>
+              )}
+            </section>
+          )}
+          {(section === "pairing" || section === "input-pairing") && (
+            <section className="network-section">
+              <h3>
+                <KeyRound size={15} />
+                {executorPairing ? t("添加执行端") : t("添加输入端")}
+              </h3>
+              {!executorPairing && (
+                <>
+                  <p className="muted">
+                    {t(
+                      "手机、桌面和网页输入端可使用同一 MewDex 账号登录。配对码用于连接其他输入端。",
+                    )}
+                  </p>
+                  <label>
+                    {t("设备角色")}
+                    <select
+                      value={role}
+                      onChange={(e) => {
+                        const role = e.target.value as "client" | "admin";
+                        setRole(role);
+                        setAccess({
+                          allDevices: role === "client",
+                          targets: [],
+                          gateway: false,
+                        });
+                        setCode(null);
+                      }}
+                    >
+                      <option value="client">
+                        {t("输入端：手机、桌面或网页")}
+                      </option>
+                      <option value="admin">
+                        {t("管理员输入端：管理设备、授权与模型登录")}
+                      </option>
+                    </select>
+                  </label>
+                </>
+              )}
+              {!executorPairing && role === "admin" ? (
                 <p className="muted">
                   {t("管理员输入端可以管理整个设备网络。")}
                 </p>
@@ -554,7 +594,7 @@ export function HubController({
                   value={access}
                   onChange={setAccess}
                   devices={devices}
-                  executor={role === "executor"}
+                  executor={executorPairing}
                 />
               )}
               <button
@@ -562,20 +602,25 @@ export function HubController({
                 disabled={busy}
                 onClick={() =>
                   void action(async () => {
-                    const result = await client.invite(role, access);
-                    setCode(result.code);
+                    const result = await client.invite(
+                      pairingRole,
+                      pairingAccess,
+                    );
+                    setCode({ value: result.code, context: pairingContext });
                   })
                 }
               >
                 {t("生成一次性配对码")}
               </button>
-              {code && (
+              {code?.context === pairingContext && (
                 <div className="pairing-result">
-                  <code>{code}</code>
+                  <code>{code.value}</code>
                   <button
                     className="icon-button"
                     aria-label={t("复制配对码")}
-                    onClick={() => void navigator.clipboard.writeText(code)}
+                    onClick={() =>
+                      void navigator.clipboard.writeText(code.value)
+                    }
                   >
                     <Copy size={15} />
                   </button>

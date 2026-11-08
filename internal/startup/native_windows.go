@@ -12,9 +12,11 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 	"unicode/utf16"
 
 	"golang.org/x/sys/windows"
+	"mewdex/internal/lifecycle"
 )
 
 type nativeBackend struct {
@@ -51,6 +53,16 @@ type taskXML struct {
 		Enabled *bool  `xml:"Enabled"`
 		UserID  string `xml:"UserId"`
 	} `xml:"Triggers>LogonTrigger"`
+	Recovery struct {
+		StartBoundary string `xml:"StartBoundary"`
+		EndBoundary   string `xml:"EndBoundary,omitempty"`
+		Enabled       *bool  `xml:"Enabled"`
+		Repetition    struct {
+			Interval          string `xml:"Interval"`
+			Duration          string `xml:"Duration,omitempty"`
+			StopAtDurationEnd bool   `xml:"StopAtDurationEnd"`
+		} `xml:"Repetition"`
+	} `xml:"Triggers>TimeTrigger"`
 	Principal struct {
 		ID        string `xml:"id,attr"`
 		UserID    string `xml:"UserId"`
@@ -90,6 +102,11 @@ func (b *nativeBackend) render(d Definition) ([]byte, error) {
 	value := taskXML{Namespace: "http://schemas.microsoft.com/windows/2004/02/mit/task", Version: "1.3", Source: "MewDex:" + d.Owner, Author: "MewDex"}
 	enabled := true
 	value.Trigger.Enabled, value.Trigger.UserID = &enabled, b.sid
+	// RestartOnFailure does not reliably recover a task whose action already
+	// started. Repetition provides an independent recovery opportunity, while
+	// IgnoreNew and the installation lease protect a healthy running service.
+	value.Recovery.StartBoundary, value.Recovery.Enabled = "2020-01-01T00:00:00Z", &enabled
+	value.Recovery.Repetition.Interval = "PT1M"
 	value.Principal.ID, value.Principal.UserID, value.Principal.LogonType, value.Principal.RunLevel = "MewDexUser", b.sid, "InteractiveToken", "LeastPrivilege"
 	value.Settings.MultipleInstances = "IgnoreNew"
 	value.Settings.AllowHardTerminate, value.Settings.StartWhenAvailable, value.Settings.AllowStartOnDemand, value.Settings.Enabled, value.Settings.Hidden = true, true, true, true, true
@@ -221,10 +238,35 @@ func (b *nativeBackend) matches(raw string, d Definition) bool {
 		var wanted taskXML
 		if renderErr == nil && xml.Unmarshal(expected, &wanted) == nil {
 			triggerUser := strings.EqualFold(current.Trigger.UserID, b.sid) || (b.account != "" && strings.EqualFold(current.Trigger.UserID, b.account))
-			return current.Actions.Exec == wanted.Actions.Exec && current.Principal.UserID == wanted.Principal.UserID && current.Principal.LogonType == "InteractiveToken" && (current.Principal.RunLevel == "LeastPrivilege" || current.Principal.RunLevel == "") && triggerUser && (current.Trigger.Enabled == nil || *current.Trigger.Enabled) && current.Settings.ExecutionTimeLimit == "PT0S"
+			boundary, boundaryErr := time.Parse(time.RFC3339, current.Recovery.StartBoundary)
+			boundaryMatches := boundaryErr == nil && boundary.UTC().Format(time.RFC3339) == wanted.Recovery.StartBoundary
+			recoveryMatches := boundaryMatches && current.Recovery.EndBoundary == "" &&
+				(current.Recovery.Enabled == nil || *current.Recovery.Enabled) && current.Recovery.Repetition == wanted.Recovery.Repetition
+			principalMatches := current.Principal.UserID == wanted.Principal.UserID && current.Principal.LogonType == "InteractiveToken" &&
+				(current.Principal.RunLevel == "LeastPrivilege" || current.Principal.RunLevel == "")
+			triggerMatches := triggerUser && (current.Trigger.Enabled == nil || *current.Trigger.Enabled)
+			settingsMatch := current.Settings.ExecutionTimeLimit == "PT0S" && current.Settings.MultipleInstances == "IgnoreNew"
+			return current.Actions.Exec == wanted.Actions.Exec && principalMatches && triggerMatches && settingsMatch && recoveryMatches
 		}
 	}
 	return false
+}
+
+func (*nativeBackend) recoverySession() (string, error) {
+	groups, err := windows.GetCurrentProcessToken().GetTokenGroups()
+	if err != nil {
+		return "", err
+	}
+	boot, err := lifecycle.BootSession()
+	if err != nil {
+		return "", err
+	}
+	for _, group := range groups.AllGroups() {
+		if group.Attributes&windows.SE_GROUP_LOGON_ID == windows.SE_GROUP_LOGON_ID {
+			return Fingerprint([]byte(boot + ":" + group.Sid.String())), nil
+		}
+	}
+	return "", errors.New("Windows startup recovery requires an interactive login session")
 }
 
 func (b *nativeBackend) Inspect(ctx context.Context, d Definition) (Entry, error) {

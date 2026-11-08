@@ -13,12 +13,14 @@ import (
 )
 
 type Process struct {
-	tree     *processTree
-	done     chan struct{}
-	reaped   chan struct{}
-	waitErr  error
-	killErr  error
-	killOnce sync.Once
+	tree             *processTree
+	done             chan struct{}
+	reaped           chan struct{}
+	waitErr          error
+	killErr          error
+	killOnce         sync.Once
+	interrupt        func() error
+	interruptTimeout time.Duration
 }
 
 // Start owns cmd.Wait. Streaming callers must use their own os.Pipe rather than
@@ -61,7 +63,13 @@ func StartContext(ctx context.Context, cmd *exec.Cmd) (*Process, error) {
 		_ = cmd.Wait()
 		return nil, err
 	}
-	p := &Process{tree: tree, done: make(chan struct{}), reaped: make(chan struct{})}
+	p := &Process{
+		tree:             tree,
+		done:             make(chan struct{}),
+		reaped:           make(chan struct{}),
+		interrupt:        cmd.Cancel,
+		interruptTimeout: cmd.WaitDelay,
+	}
 	go func() {
 		p.waitErr = cmd.Wait()
 		close(p.reaped)
@@ -75,7 +83,25 @@ func (p *Process) Done() <-chan struct{} { return p.done }
 
 func (p *Process) Kill() error {
 	p.killOnce.Do(func() {
-		p.killErr = p.tree.terminate()
+		// Respect a command's shutdown hook before forcibly reclaiming its
+		// process group or job. Sandboxes may own descendants in another session.
+		select {
+		case <-p.reaped:
+		default:
+			if p.interrupt != nil {
+				err := p.interrupt()
+				if err != nil && !errors.Is(err, os.ErrProcessDone) {
+					p.killErr = err
+				}
+				timer := time.NewTimer(p.interruptTimeout)
+				select {
+				case <-p.reaped:
+				case <-timer.C:
+				}
+				timer.Stop()
+			}
+		}
+		p.killErr = errors.Join(p.killErr, p.tree.terminate())
 		if retryKillAfterReap(p.killErr) {
 			// Darwin may report EPERM for an exited, unreaped group leader.
 			// Reap only our child, then signal the SAME owned group again.

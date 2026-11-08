@@ -15,7 +15,7 @@ import (
 func desktopManager(args []string) (*localnode.Manager, error) {
 	flags := flag.NewFlagSet("desktop", flag.ContinueOnError)
 	root := flags.String("root", "", "app-owned local device root")
-	engine := flags.String("engine-binary", "", "bundled native engine path")
+	engine := flags.String("engine-binary", packagedEngine(), "bundled native runtime path")
 	if err := flags.Parse(args); err != nil {
 		return nil, err
 	}

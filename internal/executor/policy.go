@@ -190,6 +190,7 @@ func (x *Executor) reconfigureBase(ctx context.Context, s *protocol.Session) err
 	s.EngineID = result.Thread.ID
 	s.ExecutionScopeID = profile.ID()
 	s.BaseVersion = policy.BaseVersion(s.Policy)
+	s.ModelProvider = result.ModelProvider
 	if result.Model != "" {
 		s.Model = result.Model
 	}

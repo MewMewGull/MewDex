@@ -96,6 +96,8 @@ type Node struct {
 	Executor Handler
 }
 
+var errPairingRequired = errors.New("Hub rejected this executor credential. Pair the executor again.")
+
 // Run reconnects the transport only. Commands with unknown outcomes are not resubmitted.
 func (n *Node) Run(ctx context.Context) error {
 	if err := config.ValidateURL(n.Config.HubURL, n.Config.AllowPrivateHTTP); err != nil {
@@ -110,24 +112,27 @@ func (n *Node) Run(ctx context.Context) error {
 	}
 	instanceID := protocol.ID()
 	delay := time.Second
+	_ = n.Store.Put("status", "connection", protocol.NodeConnection{State: "connecting", At: protocol.Now()})
 	for {
-		err := n.connect(ctx, instanceID)
+		err := n.connect(ctx, instanceID, func() { delay = time.Second })
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		_ = n.Store.Put("status", "connection", map[string]string{"state": "disconnected", "error": err.Error(), "at": protocol.Now()})
+		status := protocol.NodeConnection{State: "reconnecting", Error: err.Error(), At: protocol.Now(), RetryAt: time.Now().Add(delay).UTC().Format(time.RFC3339Nano)}
+		if errors.Is(err, errPairingRequired) {
+			status.State = "pairing-required"
+		}
+		_ = n.Store.Put("status", "connection", status)
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-time.After(delay):
 		}
-		if delay < 20*time.Second {
-			delay *= 2
-		}
+		delay = min(delay*2, 20*time.Second)
 	}
 }
 
-func (n *Node) connect(ctx context.Context, instanceID string) error {
+func (n *Node) connect(ctx context.Context, instanceID string, connected func()) error {
 	b, err := os.ReadFile(n.Config.NodeTokenFile)
 	if err != nil {
 		return err
@@ -143,8 +148,13 @@ func (n *Node) connect(ctx context.Context, instanceID string) error {
 		u.Scheme = "ws"
 	}
 	u.Path = strings.TrimRight(u.Path, "/") + "/v1/node/ws"
-	conn, _, err := websocket.Dial(ctx, u.String(), &websocket.DialOptions{HTTPClient: hubHTTP, HTTPHeader: http.Header{"Authorization": []string{"Bearer " + token}}})
+	dialCtx, dialCancel := context.WithTimeout(ctx, 15*time.Second)
+	conn, response, err := websocket.Dial(dialCtx, u.String(), &websocket.DialOptions{HTTPClient: hubHTTP, HTTPHeader: http.Header{"Authorization": []string{"Bearer " + token}}})
+	dialCancel()
 	if err != nil {
+		if response != nil && response.StatusCode == http.StatusUnauthorized {
+			return errPairingRequired
+		}
 		return err
 	}
 	defer conn.CloseNow()
@@ -166,7 +176,9 @@ func (n *Node) connect(ctx context.Context, instanceID string) error {
 	if err = send(protocol.Frame{Version: protocol.Version, Type: "hello", ID: instanceID, Payload: protocol.JSON(device)}); err != nil {
 		return err
 	}
-	_, hello, err := conn.Read(connectionCtx)
+	helloCtx, helloCancel := context.WithTimeout(connectionCtx, 10*time.Second)
+	_, hello, err := conn.Read(helloCtx)
+	helloCancel()
 	if err != nil {
 		return err
 	}
@@ -182,7 +194,11 @@ func (n *Node) connect(ctx context.Context, instanceID string) error {
 	if json.Unmarshal(hello, &accepted) != nil || accepted.Type != "hello.accepted" || accepted.Version != protocol.Version {
 		return errors.New("Hub rejected protocol handshake")
 	}
-	_ = n.Store.Put("status", "connection", map[string]string{"state": "connected", "at": protocol.Now()})
+	connected()
+	if controller, ok := n.Executor.(interface{ ComputerDisconnected() }); ok {
+		defer controller.ComputerDisconnected()
+	}
+	_ = n.Store.Put("status", "connection", protocol.NodeConnection{State: "connected", At: protocol.Now()})
 	go func() {
 		ticker := time.NewTicker(time.Second)
 		defer ticker.Stop()

@@ -54,6 +54,17 @@ func TestOwnedProcessFixture(t *testing.T) {
 		os.Exit(7)
 	}
 	switch mode {
+	case "cooperative", "cooperative-slow":
+		for {
+			if _, err := os.Stat(filepath.Join(root, "shutdown.request")); err == nil {
+				if mode == "cooperative-slow" {
+					time.Sleep(2 * time.Second)
+				}
+				_ = os.WriteFile(filepath.Join(root, "shutdown.completed"), []byte("completed"), 0600)
+				os.Exit(0)
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
 	case "parent", "unrelated":
 		_, _ = io.Copy(io.Discard, os.Stdin)
 	case "output":
@@ -62,6 +73,35 @@ func TestOwnedProcessFixture(t *testing.T) {
 		time.Sleep(14 * time.Second)
 	}
 	os.Exit(0)
+}
+
+func TestOwnedProcessKillUsesShutdownHook(t *testing.T) {
+	t.Setenv("MEWDEX_TEST_OWNED_PROCESS", "1")
+	for _, mode := range []string{"cooperative", "cooperative-slow"} {
+		t.Run(mode, func(t *testing.T) {
+			root := t.TempDir()
+			command := exec.CommandContext(context.Background(), os.Args[0], "-test.run=^TestOwnedProcessFixture$", "--", mode, root)
+			command.WaitDelay = 3 * time.Second
+			command.Cancel = func() error {
+				return os.WriteFile(filepath.Join(root, "shutdown.request"), []byte("stop"), 0600)
+			}
+			process, err := Start(command)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Cleanup(func() { _ = process.Kill(); _ = process.Wait() })
+			waitReady(t, root, mode)
+			if err = process.Kill(); err != nil {
+				t.Fatal(err)
+			}
+			if err = process.Wait(); err != nil {
+				t.Fatal(err)
+			}
+			if _, err = os.Stat(filepath.Join(root, "shutdown.completed")); err != nil {
+				t.Fatal("owned process was killed before its shutdown hook completed", err)
+			}
+		})
+	}
 }
 
 func waitReady(t *testing.T, root string, modes ...string) {

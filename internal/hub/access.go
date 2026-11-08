@@ -10,7 +10,7 @@ import (
 )
 
 func (h *Hub) allowsCommand(id protocol.Identity, c protocol.Command) bool {
-	if strings.HasPrefix(c.Kind, "terminal.") || c.Terminal != nil {
+	if strings.HasPrefix(c.Kind, "terminal.") || c.Terminal != nil || strings.HasPrefix(c.Kind, "computer.") || c.Computer != nil {
 		return false
 	}
 	if strings.HasPrefix(c.Kind, "workspace.") && c.DeviceID == h.coordinatorID {
@@ -82,10 +82,10 @@ func interactionEventForIdentity(id protocol.Identity, event protocol.Event) pro
 }
 
 func (h *Hub) visibleEvent(id protocol.Identity, e protocol.Event) bool {
-	if strings.HasPrefix(e.Kind, "terminal.") {
+	if strings.HasPrefix(e.Kind, "terminal.") || strings.HasPrefix(e.Kind, "computer.") {
 		return false
 	}
-	if e.Kind == "project.catalog.updated" {
+	if e.Kind == "project.catalog.updated" || e.Kind == "project.harness.updated" {
 		var project struct {
 			ProjectID string `json:"projectId"`
 		}

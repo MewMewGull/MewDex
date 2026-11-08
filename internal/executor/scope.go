@@ -19,8 +19,9 @@ func scopeParams(profile executionscope.Profile) map[string]any {
 }
 
 type scopedThread struct {
-	Model  string `json:"model"`
-	Thread struct {
+	Model         string `json:"model"`
+	ModelProvider string `json:"modelProvider"`
+	Thread        struct {
 		ID string `json:"id"`
 	} `json:"thread"`
 }

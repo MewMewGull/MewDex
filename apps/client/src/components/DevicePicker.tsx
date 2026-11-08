@@ -1,7 +1,7 @@
 import { t } from "../localization.ts";
 import { useMemo, useRef, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
-import { Check, ChevronDown, Search, X } from "lucide-react";
+import { Check, ChevronDown, Search, Settings, X } from "lucide-react";
 import type { Device } from "@mewdex/sdk";
 import { deviceDescription, devicePresence } from "../devicePresence";
 import { deviceMatches, orderedDevices } from "../workspaceNavigation";
@@ -13,11 +13,13 @@ export function DevicePicker({
   selectedId,
   connected,
   onSelect,
+  onManageHub,
 }: {
   devices: Device[];
   selectedId: string;
   connected: boolean;
   onSelect: (id: string) => void;
+  onManageHub: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -33,30 +35,36 @@ export function DevicePicker({
   );
   const navigation = useKeyboardList(matches, open, choose);
   const hub = devices.find((device) => device.roles.includes("coordinator"));
-  const displayed = selectedId ? selected : hub;
+  const displayed = selected;
   function choose(device: Device) {
     chosen.current = true;
     onSelect(device.id);
     setOpen(false);
     setSearch("");
   }
-  if (hub && displayed)
+  if (hub)
     return (
-      <div className="device-picker-trigger hub-network-summary">
+      <button
+        type="button"
+        className="device-picker-trigger"
+        aria-label={t("管理 Hub 与执行端")}
+        aria-haspopup="dialog"
+        title={t("管理 Hub 与执行端")}
+        onClick={onManageHub}
+      >
         <span className="device-picker-icon">
-          <DeviceIcon platform={displayed.platform} />
+          <DeviceIcon platform={hub.platform} />
         </span>
         <span className="device-picker-current">
-          <small>
-            {displayed.id === hub.id ? t("当前 Hub") : t("对话所属设备")}
-          </small>
-          <strong>{displayed.name}</strong>
+          <small>{t("当前 Hub")}</small>
+          <strong>{hub.name}</strong>
         </span>
         <i
-          className={devicePresence(displayed.online, connected).dot}
-          title={devicePresence(displayed.online, connected).label}
+          className={devicePresence(hub.online, connected).dot}
+          title={devicePresence(hub.online, connected).label}
         />
-      </div>
+        <Settings size={14} />
+      </button>
     );
   return (
     <Dialog.Root
@@ -70,22 +78,22 @@ export function DevicePicker({
         className="device-picker-trigger"
         aria-label={t(
           "选择执行设备{0}",
-          selected ? t("，当前为 {0}", selected.name) : "",
+          displayed ? t("，当前为 {0}", displayed.name) : "",
         )}
         title={
-          selected ? deviceDescription(selected, connected) : t("选择设备")
+          displayed ? deviceDescription(displayed, connected) : t("选择设备")
         }
       >
         <span className="device-picker-icon">
-          <DeviceIcon platform={selected?.platform ?? ""} />
+          <DeviceIcon platform={displayed?.platform ?? ""} />
         </span>
         <span className="device-picker-current">
           <small>{t("当前设备")}</small>
-          <strong>{selected?.name ?? t("选择设备")}</strong>
+          <strong>{displayed?.name ?? t("选择设备")}</strong>
         </span>
         <i
-          className={devicePresence(selected?.online, connected).dot}
-          title={devicePresence(selected?.online, connected).label}
+          className={devicePresence(displayed?.online, connected).dot}
+          title={devicePresence(displayed?.online, connected).label}
         />
         <ChevronDown size={14} />
       </Dialog.Trigger>

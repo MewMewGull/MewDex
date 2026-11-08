@@ -58,6 +58,31 @@ func TestApplicationUpdatePreflightChecksStoppedTasksWithoutChangingConfiguratio
 	}
 }
 
+func TestServiceUpdateWaitsForComputerControlToFinish(t *testing.T) {
+	c := config.Config{Executor: true, DataDir: t.TempDir()}
+	database, err := store.Open(filepath.Join(c.DataDir, "executor.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	value := protocol.ComputerSession{ID: "control", DeviceID: "node", ProjectID: "root", OwnerID: "conversation", InstanceID: "instance", State: "pending", CreatedAt: protocol.Now()}
+	value, err = database.SaveComputerSession(value, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = updateIdle(c); err == nil {
+		t.Fatal("service update ignored a pending local computer request")
+	}
+	value.State = "stopped"
+	value.LastActionState = "unknown"
+	if _, err = database.SaveComputerSession(value, value.Revision); err != nil {
+		t.Fatal(err)
+	}
+	if err = updateIdle(c); err != nil {
+		t.Fatal("stopped window still blocked the service update", err)
+	}
+	database.Close()
+}
+
 func TestServiceUpdateWaitsForAffectedExecutions(t *testing.T) {
 	for _, item := range []struct {
 		name, bucket, state, stop string

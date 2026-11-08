@@ -30,23 +30,24 @@ type Setup struct {
 }
 
 type Request struct {
-	ModelRouting       *ModelRoutingSettings `json:"modelRouting,omitempty"`
-	WebWorkbench       *WebWorkbenchSettings `json:"webWorkbench,omitempty"`
-	ProjectID          string                `json:"projectId,omitempty"`
-	Operation          string                `json:"operation"`
-	Setup              *Setup                `json:"setup,omitempty"`
-	Projects           []protocol.Project    `json:"projects,omitempty"`
-	ExpectedDeviceID   string                `json:"expectedDeviceId,omitempty"`
-	ExpectedInstanceID string                `json:"expectedInstanceId,omitempty"`
-	Backup             *BackupRequest        `json:"backup,omitempty"`
-	Restore            *RestoreRequest       `json:"restore,omitempty"`
-	Pairing            *PairingRequest       `json:"pairing,omitempty"`
-	Job                *JobRequest           `json:"job,omitempty"`
-	Startup            *StartupRequest       `json:"startup,omitempty"`
-	Listener           *ListenerRequest      `json:"listener,omitempty"`
-	HubProxy           *HubProxySettings     `json:"hubProxy,omitempty"`
-	Upgrade            *UpgradeRequest       `json:"upgrade,omitempty"`
-	Cleanup            *CleanupRequest       `json:"cleanup,omitempty"`
+	Computer           *protocol.ComputerApproval `json:"computer,omitempty"`
+	ModelRouting       *ModelRoutingSettings      `json:"modelRouting,omitempty"`
+	WebWorkbench       *WebWorkbenchSettings      `json:"webWorkbench,omitempty"`
+	ProjectID          string                     `json:"projectId,omitempty"`
+	Operation          string                     `json:"operation"`
+	Setup              *Setup                     `json:"setup,omitempty"`
+	Projects           []protocol.Project         `json:"projects,omitempty"`
+	ExpectedDeviceID   string                     `json:"expectedDeviceId,omitempty"`
+	ExpectedInstanceID string                     `json:"expectedInstanceId,omitempty"`
+	Backup             *BackupRequest             `json:"backup,omitempty"`
+	Restore            *RestoreRequest            `json:"restore,omitempty"`
+	Pairing            *PairingRequest            `json:"pairing,omitempty"`
+	Job                *JobRequest                `json:"job,omitempty"`
+	Startup            *StartupRequest            `json:"startup,omitempty"`
+	Listener           *ListenerRequest           `json:"listener,omitempty"`
+	HubProxy           *HubProxySettings          `json:"hubProxy,omitempty"`
+	Upgrade            *UpgradeRequest            `json:"upgrade,omitempty"`
+	Cleanup            *CleanupRequest            `json:"cleanup,omitempty"`
 }
 
 type CleanupRequest struct {
@@ -177,6 +178,8 @@ type Snapshot struct {
 	ExistingModelAccount bool                  `json:"existingModelAccount"`
 	PairingRequired      bool                  `json:"pairingRequired"`
 	Message              string                `json:"message,omitempty"`
+
+	HubConnection *protocol.NodeConnection `json:"hubConnection,omitempty"`
 }
 
 type Credentials struct {
@@ -193,20 +196,21 @@ type Connection struct {
 }
 
 type Result struct {
-	WebWorkbench *WebWorkbenchSettings    `json:"webWorkbench,omitempty"`
-	Project      *protocol.Project        `json:"project,omitempty"`
-	Snapshot     Snapshot                 `json:"snapshot"`
-	Connection   *Connection              `json:"connection,omitempty"`
-	Backup       *BackupInfo              `json:"backup,omitempty"`
-	Restore      *RestoreInfo             `json:"restore,omitempty"`
-	Upgrade      *UpgradeInfo             `json:"upgrade,omitempty"`
-	Job          *JobInfo                 `json:"job,omitempty"`
-	Startup      *StartupInfo             `json:"startup,omitempty"`
-	HubProxy     *HubProxyInfo            `json:"hubProxy,omitempty"`
-	SSHConfig    *hubproxy.SSHConfigInfo  `json:"sshConfig,omitempty"`
-	SSHTest      *hubproxy.ConnectionTest `json:"sshTest,omitempty"`
-	ExistingHub  *HubDiscovery            `json:"existingHub,omitempty"`
-	Cleanup      *CleanupInfo             `json:"cleanup,omitempty"`
+	Computer     *protocol.ComputerLocalStatus `json:"computer,omitempty"`
+	WebWorkbench *WebWorkbenchSettings         `json:"webWorkbench,omitempty"`
+	Project      *protocol.Project             `json:"project,omitempty"`
+	Snapshot     Snapshot                      `json:"snapshot"`
+	Connection   *Connection                   `json:"connection,omitempty"`
+	Backup       *BackupInfo                   `json:"backup,omitempty"`
+	Restore      *RestoreInfo                  `json:"restore,omitempty"`
+	Upgrade      *UpgradeInfo                  `json:"upgrade,omitempty"`
+	Job          *JobInfo                      `json:"job,omitempty"`
+	Startup      *StartupInfo                  `json:"startup,omitempty"`
+	HubProxy     *HubProxyInfo                 `json:"hubProxy,omitempty"`
+	SSHConfig    *hubproxy.SSHConfigInfo       `json:"sshConfig,omitempty"`
+	SSHTest      *hubproxy.ConnectionTest      `json:"sshTest,omitempty"`
+	ExistingHub  *HubDiscovery                 `json:"existingHub,omitempty"`
+	Cleanup      *CleanupInfo                  `json:"cleanup,omitempty"`
 }
 
 type Response struct {

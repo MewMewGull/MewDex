@@ -14,6 +14,10 @@ type catalogFixture struct {
 	*fixtureEngine
 }
 
+func (f *catalogFixture) ModelRuntime() protocol.ModelRuntime {
+	return protocol.ModelRuntime{Adapter: "fixture", Version: "fixture-version", Transport: "jsonrpc-stdio"}
+}
+
 func (f *catalogFixture) Call(ctx context.Context, method string, params any, out any) error {
 	if err := f.fixtureEngine.Call(ctx, method, params, out); err != nil || method != "model/list" {
 		return err
@@ -24,7 +28,7 @@ func (f *catalogFixture) Call(ctx context.Context, method string, params any, ou
 	if err := json.Unmarshal(protocol.JSON(params), &request); err != nil {
 		return err
 	}
-	model := map[string]any{"id": "picker-id", "model": "provider-model", "displayName": "Fixture model", "defaultReasoningEffort": "future-effort", "supportedReasoningEfforts": []any{map[string]string{"reasoningEffort": "future-effort", "description": "A catalog-provided option"}}, "privateProviderToken": "not-public"}
+	model := map[string]any{"id": "picker-id", "model": "provider-model", "displayName": "Fixture model", "defaultReasoningEffort": "future-effort", "supportedReasoningEfforts": []any{map[string]string{"reasoningEffort": "future-effort", "description": "A catalog-provided option"}}, "inputModalities": []string{"text", "image"}, "privateProviderToken": "not-public"}
 	page := map[string]any{"data": []any{model, map[string]any{"id": "hidden", "hidden": true}}, "nextCursor": "opaque-next"}
 	if request.Cursor == "opaque-next" {
 		page = map[string]any{"data": []any{}, "nextCursor": nil}
@@ -44,6 +48,9 @@ func TestModelCatalogPagesAreReadOnlyScopedAndProjected(t *testing.T) {
 		t.Fatalf("catalog projection: %s", first.Data)
 	}
 	var public map[string]any
+	if page.Runtime == nil || page.Runtime.Adapter != "fixture" || page.Runtime.Version != "fixture-version" || len(page.Models[0].InputModalities) != 2 {
+		t.Fatal("catalog omitted its initialized adapter or model input metadata")
+	}
 	_ = json.Unmarshal(first.Data, &public)
 	if _, ok := public["models"].([]any)[0].(map[string]any)["privateProviderToken"]; ok {
 		t.Fatal("provider-private field reached an input")
@@ -77,6 +84,9 @@ func TestModelCatalogPagesAreReadOnlyScopedAndProjected(t *testing.T) {
 func TestReasoningPolicyVersionsReachNextTurnAndClearOverride(t *testing.T) {
 	x, data, fake := setup(t)
 	s := createAndStart(t, x)
+	if s.ModelProvider != "fixture-provider" {
+		t.Fatal("thread provider was not captured in the conversation")
+	}
 	finishTurn(x, s)
 	p := s.Policy
 	p.ReasoningEffort = "future-effort"

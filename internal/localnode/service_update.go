@@ -103,12 +103,19 @@ func updateIdle(c config.Config) error {
 		}
 		sessions, err := store.List[protocol.Session](database, "sessions")
 		jobs, jobErr := store.List[protocol.TerminalJob](database, "terminal_jobs")
+		computer, computerErr := database.ComputerSession()
 		database.Close()
 		if err != nil {
 			return err
 		}
 		if jobErr != nil {
 			return jobErr
+		}
+		if computerErr != nil && !errors.Is(computerErr, store.ErrNotFound) {
+			return computerErr
+		}
+		if computerErr == nil && computer.State != "stopped" && computer.State != "expired" {
+			return errors.New("执行端仍有窗口控制请求或授权，请先在本机面板停止原会话")
 		}
 		for _, job := range jobs {
 			if job.State == "running" || job.State == "unknown" {

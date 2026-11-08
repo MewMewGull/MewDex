@@ -2,7 +2,10 @@ package localnode
 
 import (
 	"context"
+	"database/sql"
+	"encoding/json"
 	"errors"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,7 +34,10 @@ type Options struct {
 	SSHHome string
 }
 
-type Manager struct{ options Options }
+type Manager struct {
+	options        Options
+	upgradeProfile string
+}
 
 func New(options Options) (*Manager, error) {
 	if options.Root == "" || options.Program == "" {
@@ -49,8 +55,13 @@ func New(options Options) (*Manager, error) {
 	return &Manager{options: options}, nil
 }
 
-func (m *Manager) profile() string { return filepath.Join(m.options.Root, "device.json") }
-func (m *Manager) draft() string   { return filepath.Join(m.options.Root, "device.setup.json") }
+func (m *Manager) profile() string {
+	if m.upgradeProfile != "" {
+		return m.upgradeProfile
+	}
+	return filepath.Join(m.options.Root, "device.json")
+}
+func (m *Manager) draft() string { return filepath.Join(m.options.Root, "device.setup.json") }
 
 func (m *Manager) Handle(ctx context.Context, request Request) (Result, error) {
 	if request.Operation == "proxy.ssh.config" {
@@ -171,6 +182,9 @@ func (m *Manager) Handle(ctx context.Context, request Request) (Result, error) {
 	if request.Operation == "status" {
 		snapshot, err := m.status(ctx)
 		return Result{Snapshot: snapshot}, err
+	}
+	if strings.HasPrefix(request.Operation, "computer.") {
+		return m.computer(ctx, request)
 	}
 	lock, err := lifecycle.Acquire(filepath.Join(m.options.Root, "management"))
 	if err != nil {
@@ -381,6 +395,9 @@ func (m *Manager) status(ctx context.Context) (snapshot Snapshot, resultErr erro
 	}
 	installation.Close()
 	snapshot.State = "stopped"
+	if snapshot.HubConnection != nil {
+		snapshot.HubConnection = &protocol.NodeConnection{State: "disconnected"}
+	}
 	return snapshot, nil
 }
 
@@ -398,6 +415,17 @@ func (m *Manager) describe(c config.Config) Snapshot {
 		pairingRequired = m.executorNeedsPairing(c)
 	}
 	snapshot := Snapshot{Configured: true, State: "stopped", DeviceID: c.DeviceID, Name: c.Name, Hub: c.Hub, Executor: c.Executor, HubURL: c.HubURL, Listen: c.Listen, Projects: projects, EnginePresent: err == nil, ExistingModelAccount: c.Engine.Home == "", PairingRequired: pairingRequired}
+	if c.Executor && !c.Hub {
+		path := filepath.Join(c.DataDir, "executor.db")
+		database, openErr := sql.Open("sqlite", "file:"+url.PathEscape(filepath.ToSlash(path))+"?mode=ro")
+		if openErr == nil {
+			defer database.Close()
+			var raw []byte
+			if database.QueryRow("SELECT data FROM objects WHERE bucket='status' AND id='connection'").Scan(&raw) == nil {
+				_ = json.Unmarshal(raw, &snapshot.HubConnection)
+			}
+		}
+	}
 	routing := modelRouting(c)
 	snapshot.ModelRouting = &routing
 	if c.Hub {

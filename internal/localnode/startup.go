@@ -128,6 +128,19 @@ func (m *Manager) startRegistered(ctx context.Context) (bool, error) {
 	return true, controller.Start(ctx, binding)
 }
 
+func (m *Manager) pauseStartupRecovery() error {
+	if _, err := os.Lstat(filepath.Join(m.options.Root, "startup.json")); errors.Is(err, os.ErrNotExist) {
+		return nil
+	} else if err != nil {
+		return err
+	}
+	controller, err := m.startupController()
+	if err != nil {
+		return err
+	}
+	return controller.PauseRecovery()
+}
+
 // RunManaged is the foreground entry used by the OS manager. The installation
 // lease remains owned through serve, including engine cleanup. The existing
 // service path acquires its data lock and control record as usual.
@@ -181,5 +194,11 @@ func (m *Manager) RunManaged(ctx context.Context, owner string, serve func(conte
 		}
 	}
 	c.InstallationRoot = "" // This function already owns that lease for the entire callback.
-	return serviceguard.Run(ctx, c.DataDir, lease, c.Executor || c.Hub, func(ctx context.Context) error { return serve(ctx, c) })
+	err = serviceguard.Run(ctx, c.DataDir, lease, c.Executor || c.Hub, func(ctx context.Context) error { return serve(ctx, c) })
+	if err == nil && ctx.Err() != nil {
+		// Preserve OS-manager failure recovery for an interrupted managed
+		// process. An authenticated local stop cancels only serve's child scope.
+		return ctx.Err()
+	}
+	return err
 }

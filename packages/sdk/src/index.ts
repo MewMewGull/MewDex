@@ -40,6 +40,12 @@ import {
   type MessagingUpdate,
   type MessagingLogin,
   type InputBridge,
+  type ProjectHarnessState,
+  type ProjectHarnessUpdate,
+  type ProjectHarnessHistory,
+  type ProjectTurnContext,
+  type ComputerStatus,
+  type ComputerStopRequest,
 } from "./protocol.ts";
 
 export class MewDexError extends Error {
@@ -458,6 +464,73 @@ export class MewDexClient {
       method: "PUT",
       body: JSON.stringify(input),
     });
+  }
+
+  projectHarness(
+    id: string,
+    revision = 0,
+    signal?: AbortSignal,
+  ): Promise<ProjectHarnessState> {
+    return this.request(
+      `/v1/projects/${encodeURIComponent(id)}/harness?revision=${revision}`,
+      { signal },
+    );
+  }
+
+  computerStatus(
+    projectId: string,
+    sessionId: string,
+    directory: number,
+    signal?: AbortSignal,
+  ): Promise<ComputerStatus> {
+    return this.request(
+      `/v1/projects/${encodeURIComponent(projectId)}/computer?${new URLSearchParams({ sessionId, directory: String(directory) })}`,
+      { signal },
+    );
+  }
+
+  stopComputer(
+    projectId: string,
+    sessionId: string,
+    directory: number,
+    input: ComputerStopRequest,
+  ): Promise<ComputerStatus> {
+    return this.request(
+      `/v1/projects/${encodeURIComponent(projectId)}/computer?${new URLSearchParams({ sessionId, directory: String(directory) })}`,
+      { method: "POST", body: JSON.stringify(input) },
+    );
+  }
+
+  saveProjectHarness(
+    id: string,
+    input: ProjectHarnessUpdate,
+  ): Promise<ProjectHarnessState> {
+    return this.request(`/v1/projects/${encodeURIComponent(id)}/harness`, {
+      method: "PUT",
+      body: JSON.stringify(input),
+    });
+  }
+
+  projectHarnessHistory(
+    id: string,
+    before = 0,
+    signal?: AbortSignal,
+  ): Promise<ProjectHarnessHistory> {
+    return this.request(
+      `/v1/projects/${encodeURIComponent(id)}/harness/history?before=${before}`,
+      { signal },
+    );
+  }
+
+  projectTurnContext(
+    projectId: string,
+    sessionId: string,
+    signal?: AbortSignal,
+  ): Promise<ProjectTurnContext> {
+    return this.request(
+      `/v1/projects/${encodeURIComponent(projectId)}/harness/turn?${new URLSearchParams({ sessionId })}`,
+      { signal },
+    );
   }
   sessions(deviceId?: string): Promise<Session[]> {
     return this.request(

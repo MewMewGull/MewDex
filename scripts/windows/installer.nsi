@@ -2,6 +2,8 @@
 Unicode true
 ManifestDPIAware true
 RequestExecutionLevel user
+!define MUI_ICON "${__FILEDIR__}\..\..\apps\client\src-tauri\icons\icon.ico"
+!define MUI_UNICON "${__FILEDIR__}\..\..\apps\client\src-tauri\icons\icon.ico"
 !include "MUI2.nsh"
 !include "nsDialogs.nsh"
 !include "LogicLib.nsh"
@@ -35,6 +37,8 @@ Var Dialog
 Var Parameters
 Var ExplicitStartup
 Var UpdatePID
+
+!include "${__FILEDIR__}\workbench-upgrade.nsh"
 
 !define MUI_ABORTWARNING
 !define MUI_CUSTOMFUNCTION_ABORT ReopenWorkbench
@@ -95,6 +99,10 @@ FunctionEnd
 
 Function ReopenWorkbench
   ${If} $UpdatePID != ""
+  ${OrIf} $WorkbenchWasRunning == "true"
+    ; Consume the restart before Quit can invoke another MUI callback.
+    StrCpy $UpdatePID ""
+    StrCpy $WorkbenchWasRunning "false"
     Exec '"$INSTDIR\mewdex-client.exe"'
   ${EndIf}
 FunctionEnd
@@ -168,6 +176,7 @@ FunctionEnd
 
 Section "MewDex" Main
   SetShellVarContext current
+  Call CloseInstalledWorkbench
   Call EnsureWebView2
   SetOutPath "$INSTDIR"
   File /r "${PAYLOAD}\*"
@@ -183,6 +192,7 @@ Section "MewDex" Main
   WriteUninstaller "$INSTDIR\Uninstall.exe"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MewDex" "DisplayName" "MewDex"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MewDex" "DisplayVersion" "${APPVERSION}"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MewDex" "DisplayIcon" "$INSTDIR\mewdex-client.exe"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MewDex" "UninstallString" '$\"$INSTDIR\Uninstall.exe$\"'
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MewDex" "InstallLocation" "$INSTDIR"
   WriteRegDWORD HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\MewDex" "NoModify" 1

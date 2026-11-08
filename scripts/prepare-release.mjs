@@ -183,7 +183,7 @@ export async function prepareRelease(
     definition.summary.trim(),
     "",
     "APP、网页输入端、Hub 和执行端分别发布。APP 与网页端共用输入与网络管理功能。",
-    "桌面 APP 连接消息渠道，Hub 管理模型与会话，执行端通过 WebSocket 连接 Hub 并提供独立网页控制面板。",
+    "桌面 APP 与独立网页输入服务均可保持消息渠道连接，Hub 管理模型与会话，执行端通过 WebSocket 连接 Hub 并提供独立网页控制面板。",
     "",
     "| 组件 | 职责 |",
     "| --- | --- |",

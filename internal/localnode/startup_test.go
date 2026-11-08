@@ -4,15 +4,32 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"mewdex/internal/config"
+	"mewdex/internal/engine"
 	"mewdex/internal/lifecycle"
 	"mewdex/internal/serviceguard"
 	"mewdex/internal/startup"
 )
+
+func TestMain(m *testing.M) {
+	if len(os.Args) == 2 && os.Args[1] == "--version" {
+		fmt.Println("codex-cli " + engine.CompatibleVersion)
+		os.Exit(0)
+	}
+	if len(os.Args) > 1 && (os.Args[1] == "process-owner" || os.Args[1] == "process-child") {
+		if err := serviceguard.Dispatch(os.Args[1:]); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+	os.Exit(m.Run())
+}
 
 type startupBackendFixture struct {
 	entry   startup.Entry
@@ -96,5 +113,41 @@ func TestManagedStartupOwnsTheInstallationAndSuspendsChangedProfiles(t *testing.
 	status, err := m.Handle(ctx, Request{Operation: "startup.status"})
 	if err != nil || status.Startup == nil || status.Startup.MatchesProfile {
 		t.Fatal("changed startup binding was not visible")
+	}
+}
+
+func TestManagedRootInterruptionPreservesOSFailureRecovery(t *testing.T) {
+	for _, interrupted := range []bool{false, true} {
+		t.Run(fmt.Sprint(interrupted), func(t *testing.T) {
+			m := testManager(t)
+			backend := &startupBackendFixture{}
+			m.options.StartupBackend = backend
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			if _, err := m.Handle(ctx, Request{Operation: "setup", Setup: &Setup{Name: "managed cancellation fixture", Hub: true, Listen: "127.0.0.1:0"}}); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := m.Handle(ctx, Request{Operation: "startup.apply", Startup: &StartupRequest{Enabled: true}}); err != nil {
+				t.Fatal(err)
+			}
+			var record startup.Record
+			raw, err := os.ReadFile(filepath.Join(m.options.Root, "startup.json"))
+			if err != nil || json.Unmarshal(raw, &record) != nil {
+				t.Fatal("startup record unavailable", err)
+			}
+			driver, err := New(Options{Root: m.options.Root, Program: record.Definition.Program, StartupBackend: backend})
+			if err != nil {
+				t.Fatal(err)
+			}
+			err = driver.RunManaged(ctx, record.Definition.Owner, func(context.Context, config.Config) error {
+				if interrupted {
+					cancel()
+				}
+				return nil
+			})
+			if interrupted && !errors.Is(err, context.Canceled) || !interrupted && err != nil {
+				t.Fatal("managed cancellation lost its OS restart result", err)
+			}
+		})
 	}
 }

@@ -41,7 +41,14 @@ await mkdir(binaries, { recursive: true });
 const helper = path.join(binaries, `mewdex-input-bridge-${rust}${extension}`);
 const result = spawnSync(
   "go",
-  ["build", "-trimpath", "-o", helper, "./cmd/mewdex-input-bridge"],
+  [
+    "build",
+    "-trimpath",
+    ...(goos === "windows" ? ["-ldflags=-H=windowsgui"] : []),
+    "-o",
+    helper,
+    "./cmd/mewdex-input-bridge",
+  ],
   {
     cwd: root,
     encoding: "utf8",

@@ -1,6 +1,6 @@
 {
   "name": "@mewdex/sdk",
-  "version": "0.1.2-preview.20261106",
+  "version": "0.1.11-preview.20261108",
   "license": "Apache-2.0",
   "private": true,
   "type": "module",

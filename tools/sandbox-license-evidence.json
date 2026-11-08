@@ -1,0 +1,833 @@
+{
+  "packages": [
+    {
+      "package": "Inflector",
+      "version": "0.11.4",
+      "license": "BSD-2-Clause",
+      "commit": "a4a95eac75043f4bffb127c7c8ec886b5b106053",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/whatisinternet-inflector-a4a95eac/LICENSE.md",
+          "sha256": "03d1bd5bfbee8d44651e7f57faf9e5b4eda4233f0d4eda36a716f2f0533d230b",
+          "url": "https://raw.githubusercontent.com/whatisinternet/inflector/a4a95eac75043f4bffb127c7c8ec886b5b106053/LICENSE.md"
+        }
+      ]
+    },
+    {
+      "package": "allocative",
+      "version": "0.3.6",
+      "license": "Apache-2.0",
+      "commit": "c256f0bb074252ded51614aaa73a9a41cb38a2a4",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/facebookexperimental-allocative-c256f0bb/LICENSE-MIT",
+          "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93",
+          "url": "https://raw.githubusercontent.com/facebookexperimental/allocative/c256f0bb074252ded51614aaa73a9a41cb38a2a4/LICENSE-MIT"
+        },
+        {
+          "path": "third_party/licenses/sandbox/facebookexperimental-allocative-c256f0bb/LICENSE-APACHE",
+          "sha256": "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a",
+          "url": "https://raw.githubusercontent.com/facebookexperimental/allocative/c256f0bb074252ded51614aaa73a9a41cb38a2a4/LICENSE-APACHE"
+        }
+      ]
+    },
+    {
+      "package": "allocative_derive",
+      "version": "0.3.6",
+      "license": "Apache-2.0",
+      "commit": "c256f0bb074252ded51614aaa73a9a41cb38a2a4",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/facebookexperimental-allocative-c256f0bb/LICENSE-MIT",
+          "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93",
+          "url": "https://raw.githubusercontent.com/facebookexperimental/allocative/c256f0bb074252ded51614aaa73a9a41cb38a2a4/LICENSE-MIT"
+        },
+        {
+          "path": "third_party/licenses/sandbox/facebookexperimental-allocative-c256f0bb/LICENSE-APACHE",
+          "sha256": "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a",
+          "url": "https://raw.githubusercontent.com/facebookexperimental/allocative/c256f0bb074252ded51614aaa73a9a41cb38a2a4/LICENSE-APACHE"
+        }
+      ]
+    },
+    {
+      "package": "asn1-rs-impl",
+      "version": "0.2.0",
+      "license": "MIT/Apache-2.0",
+      "commit": "a20e5f7319c896737ad0f2557037817b91ad854f",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/rusticata-asn1-rs-a20e5f73/LICENSE-MIT",
+          "sha256": "a5c61b93b6ee1d104af9920cf020ff3c7efe818e31fe562c72261847a728f513",
+          "url": "https://raw.githubusercontent.com/rusticata/asn1-rs/a20e5f7319c896737ad0f2557037817b91ad854f/LICENSE-MIT"
+        },
+        {
+          "path": "third_party/licenses/sandbox/rusticata-asn1-rs-a20e5f73/LICENSE-APACHE",
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
+          "url": "https://raw.githubusercontent.com/rusticata/asn1-rs/a20e5f7319c896737ad0f2557037817b91ad854f/LICENSE-APACHE"
+        }
+      ]
+    },
+    {
+      "package": "clipboard-win",
+      "version": "5.4.1",
+      "license": "BSL-1.0",
+      "commit": "3b27cf2bfd1adcfa6e0264eb51c1025ddaf0f342",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/DoumanAsh-clipboard-win-3b27cf2b/LICENSE",
+          "sha256": "c9bff75738922193e67fa726fa225535870d2aa1059f91452c411736284ad566",
+          "url": "https://raw.githubusercontent.com/DoumanAsh/clipboard-win/3b27cf2bfd1adcfa6e0264eb51c1025ddaf0f342/LICENSE"
+        }
+      ]
+    },
+    {
+      "package": "crc-catalog",
+      "version": "2.4.0",
+      "license": "MIT OR Apache-2.0",
+      "commit": "b500ea693c552f8d946e290722a7b3ee8b9a7ee2",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/crc-catalog-2.4.0/PACKAGE-LICENSE-DECLARATION.toml",
+          "sha256": "2ce61392e0a3ee40c2e3075e247f3e74419df546bbf4bd80f0eef021d234a763",
+          "url": "https://docs.rs/crate/crc-catalog/2.4.0/source/Cargo.toml.orig"
+        },
+        {
+          "path": "third_party/licenses/sandbox/crc-catalog-2.4.0/LICENSE-Apache-2.0",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "evidenceKind": "published SPDX declaration with package authors and canonical license text",
+      "selectedLicense": "Apache-2.0"
+    },
+    {
+      "package": "debugserver-types",
+      "version": "0.5.0",
+      "license": "MIT",
+      "commit": "d444f163123af5b4fbce7375d1afead7e9b8a224",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/debugserver-types-0.5.0/PACKAGE-LICENSE-DECLARATION.toml",
+          "sha256": "705e49bb282781302ca3b45f594fa5454f2a321581b905dcf4c3f2934e0bc318",
+          "url": "https://docs.rs/crate/debugserver-types/0.5.0/source/Cargo.toml.orig"
+        },
+        {
+          "path": "third_party/licenses/sandbox/debugserver-types-0.5.0/LICENSE-MIT",
+          "sha256": "b05785f9f18e6716bab63424b11454513b9943a222595b70411009202fc592b5",
+          "url": "https://raw.githubusercontent.com/spdx/license-list-data/31846481de7ea17d92f2f46fad76abe58b2e9bb0/text/MIT.txt"
+        }
+      ],
+      "evidenceKind": "published SPDX declaration with package authors and canonical license text",
+      "selectedLicense": "MIT"
+    },
+    {
+      "package": "display_container",
+      "version": "0.9.0",
+      "license": "MIT OR Apache-2.0",
+      "commit": "7c9c7304a1dbd451e9e448749228e88de1c193ce",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/facebookincubator-gazebo-7c9c7304/LICENSE-MIT",
+          "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93",
+          "url": "https://raw.githubusercontent.com/facebookincubator/gazebo/7c9c7304a1dbd451e9e448749228e88de1c193ce/LICENSE-MIT"
+        },
+        {
+          "path": "third_party/licenses/sandbox/facebookincubator-gazebo-7c9c7304/LICENSE-APACHE",
+          "sha256": "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a",
+          "url": "https://raw.githubusercontent.com/facebookincubator/gazebo/7c9c7304a1dbd451e9e448749228e88de1c193ce/LICENSE-APACHE"
+        }
+      ]
+    },
+    {
+      "package": "eventsource-stream",
+      "version": "0.2.3",
+      "license": "MIT OR Apache-2.0",
+      "commit": "3d46f1c758f9ee4681e9da0427556d24c53f9c01",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/eventsource-stream-0.2.3/PACKAGE-LICENSE-DECLARATION.toml",
+          "sha256": "725711996fb72721abc35595e0703ca2d1b55cb4d98cc5ade959fc0f8c2e86a4",
+          "url": "https://docs.rs/crate/eventsource-stream/0.2.3/source/Cargo.toml.orig"
+        },
+        {
+          "path": "third_party/licenses/sandbox/eventsource-stream-0.2.3/LICENSE-Apache-2.0",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "evidenceKind": "published SPDX declaration with package authors and canonical license text",
+      "selectedLicense": "Apache-2.0"
+    },
+    {
+      "package": "flatbuffers",
+      "version": "25.12.19",
+      "license": "Apache-2.0",
+      "commit": "7e163021e59cca4f8e1e35a7c828b5c6b7915953",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/google-flatbuffers-7e163021/LICENSE",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "url": "https://raw.githubusercontent.com/google/flatbuffers/7e163021e59cca4f8e1e35a7c828b5c6b7915953/LICENSE"
+        }
+      ]
+    },
+    {
+      "package": "fxhash",
+      "version": "0.2.1",
+      "license": "Apache-2.0/MIT",
+      "commit": "a03cbf42dde010250adef75908f109be197d982b",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/fxhash-0.2.1/PACKAGE-LICENSE-DECLARATION.toml",
+          "sha256": "42f07fb23f8b37acf45914ccb71df077455a353850e148afeabb5c684f8ebaab",
+          "url": "https://docs.rs/crate/fxhash/0.2.1/source/Cargo.toml.orig"
+        },
+        {
+          "path": "third_party/licenses/sandbox/fxhash-0.2.1/LICENSE-Apache-2.0",
+          "sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+          "url": "https://www.apache.org/licenses/LICENSE-2.0.txt"
+        }
+      ],
+      "evidenceKind": "published SPDX declaration with package authors and canonical license text",
+      "selectedLicense": "Apache-2.0"
+    },
+    {
+      "package": "lock_free_hashtable",
+      "version": "0.1.4",
+      "license": "MIT OR Apache-2.0",
+      "commit": "5d36df573fad3fbdc29808ce18880c6e9f8cd0f8",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/facebook-buck2-5d36df57/LICENSE-MIT",
+          "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93",
+          "url": "https://raw.githubusercontent.com/facebook/buck2/5d36df573fad3fbdc29808ce18880c6e9f8cd0f8/LICENSE-MIT"
+        },
+        {
+          "path": "third_party/licenses/sandbox/facebook-buck2-5d36df57/LICENSE-APACHE",
+          "sha256": "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a",
+          "url": "https://raw.githubusercontent.com/facebook/buck2/5d36df573fad3fbdc29808ce18880c6e9f8cd0f8/LICENSE-APACHE"
+        }
+      ]
+    },
+    {
+      "package": "opentelemetry",
+      "version": "0.31.0",
+      "license": "Apache-2.0",
+      "commit": "285dc925f98403ff426acc70968f104dc820d4f2",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/open-telemetry-opentelemetry-rust-285dc925/LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "url": "https://raw.githubusercontent.com/open-telemetry/opentelemetry-rust/285dc925f98403ff426acc70968f104dc820d4f2/LICENSE"
+        }
+      ]
+    },
+    {
+      "package": "opentelemetry-appender-tracing",
+      "version": "0.31.1",
+      "license": "Apache-2.0",
+      "commit": "00f97c948e95beb7b2c966fcdb5f946c2a89baeb",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/open-telemetry-opentelemetry-rust-00f97c94/LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "url": "https://raw.githubusercontent.com/open-telemetry/opentelemetry-rust/00f97c948e95beb7b2c966fcdb5f946c2a89baeb/LICENSE"
+        }
+      ]
+    },
+    {
+      "package": "opentelemetry-http",
+      "version": "0.31.0",
+      "license": "Apache-2.0",
+      "commit": "285dc925f98403ff426acc70968f104dc820d4f2",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/open-telemetry-opentelemetry-rust-285dc925/LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "url": "https://raw.githubusercontent.com/open-telemetry/opentelemetry-rust/285dc925f98403ff426acc70968f104dc820d4f2/LICENSE"
+        }
+      ]
+    },
+    {
+      "package": "opentelemetry-otlp",
+      "version": "0.31.0",
+      "license": "Apache-2.0",
+      "commit": "285dc925f98403ff426acc70968f104dc820d4f2",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/open-telemetry-opentelemetry-rust-285dc925/LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "url": "https://raw.githubusercontent.com/open-telemetry/opentelemetry-rust/285dc925f98403ff426acc70968f104dc820d4f2/LICENSE"
+        }
+      ]
+    },
+    {
+      "package": "opentelemetry-proto",
+      "version": "0.31.0",
+      "license": "Apache-2.0",
+      "commit": "285dc925f98403ff426acc70968f104dc820d4f2",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/open-telemetry-opentelemetry-rust-285dc925/LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "url": "https://raw.githubusercontent.com/open-telemetry/opentelemetry-rust/285dc925f98403ff426acc70968f104dc820d4f2/LICENSE"
+        }
+      ]
+    },
+    {
+      "package": "opentelemetry-semantic-conventions",
+      "version": "0.31.0",
+      "license": "Apache-2.0",
+      "commit": "285dc925f98403ff426acc70968f104dc820d4f2",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/open-telemetry-opentelemetry-rust-285dc925/LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "url": "https://raw.githubusercontent.com/open-telemetry/opentelemetry-rust/285dc925f98403ff426acc70968f104dc820d4f2/LICENSE"
+        }
+      ]
+    },
+    {
+      "package": "opentelemetry_sdk",
+      "version": "0.31.0",
+      "license": "Apache-2.0",
+      "commit": "285dc925f98403ff426acc70968f104dc820d4f2",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/open-telemetry-opentelemetry-rust-285dc925/LICENSE",
+          "sha256": "c71d239df91726fc519c6eb72d318ec65820627232b2f796219e87dcf35d0ab4",
+          "url": "https://raw.githubusercontent.com/open-telemetry/opentelemetry-rust/285dc925f98403ff426acc70968f104dc820d4f2/LICENSE"
+        }
+      ]
+    },
+    {
+      "package": "pagable",
+      "version": "0.4.1",
+      "license": "Apache-2.0",
+      "commit": "8978f3cd91b2908e1e61f6b58f84293097abf8f1",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/facebook-starlark-rust-8978f3cd/LICENSE",
+          "sha256": "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a",
+          "url": "https://raw.githubusercontent.com/facebook/starlark-rust/8978f3cd91b2908e1e61f6b58f84293097abf8f1/LICENSE"
+        }
+      ]
+    },
+    {
+      "package": "pagable_derive",
+      "version": "0.4.1",
+      "license": "Apache-2.0",
+      "commit": "8978f3cd91b2908e1e61f6b58f84293097abf8f1",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/facebook-starlark-rust-8978f3cd/LICENSE",
+          "sha256": "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a",
+          "url": "https://raw.githubusercontent.com/facebook/starlark-rust/8978f3cd91b2908e1e61f6b58f84293097abf8f1/LICENSE"
+        }
+      ]
+    },
+    {
+      "package": "rama-core",
+      "version": "0.3.0-alpha.4",
+      "license": "MIT OR Apache-2.0",
+      "commit": "4733273a10a791762e2b7727850032b0c9b8536d",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-MIT",
+          "sha256": "1fa7e078de3f9165a1c6742359307711e91652f035dc37a32376ca0023483e63",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-MIT"
+        },
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-APACHE",
+          "sha256": "95bd3988beee069fa2848f648dab43cc6e0b2add2ad6bcb17360caf749802bcc",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-APACHE"
+        }
+      ]
+    },
+    {
+      "package": "rama-dns",
+      "version": "0.3.0-alpha.4",
+      "license": "MIT OR Apache-2.0",
+      "commit": "4733273a10a791762e2b7727850032b0c9b8536d",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-MIT",
+          "sha256": "1fa7e078de3f9165a1c6742359307711e91652f035dc37a32376ca0023483e63",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-MIT"
+        },
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-APACHE",
+          "sha256": "95bd3988beee069fa2848f648dab43cc6e0b2add2ad6bcb17360caf749802bcc",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-APACHE"
+        }
+      ]
+    },
+    {
+      "package": "rama-error",
+      "version": "0.3.0-alpha.4",
+      "license": "MIT OR Apache-2.0",
+      "commit": "4733273a10a791762e2b7727850032b0c9b8536d",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-MIT",
+          "sha256": "1fa7e078de3f9165a1c6742359307711e91652f035dc37a32376ca0023483e63",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-MIT"
+        },
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-APACHE",
+          "sha256": "95bd3988beee069fa2848f648dab43cc6e0b2add2ad6bcb17360caf749802bcc",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-APACHE"
+        }
+      ]
+    },
+    {
+      "package": "rama-http",
+      "version": "0.3.0-alpha.4",
+      "license": "MIT OR Apache-2.0",
+      "commit": "4733273a10a791762e2b7727850032b0c9b8536d",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-MIT",
+          "sha256": "1fa7e078de3f9165a1c6742359307711e91652f035dc37a32376ca0023483e63",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-MIT"
+        },
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-APACHE",
+          "sha256": "95bd3988beee069fa2848f648dab43cc6e0b2add2ad6bcb17360caf749802bcc",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-APACHE"
+        }
+      ]
+    },
+    {
+      "package": "rama-http-backend",
+      "version": "0.3.0-alpha.4",
+      "license": "MIT OR Apache-2.0",
+      "commit": "4733273a10a791762e2b7727850032b0c9b8536d",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-MIT",
+          "sha256": "1fa7e078de3f9165a1c6742359307711e91652f035dc37a32376ca0023483e63",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-MIT"
+        },
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-APACHE",
+          "sha256": "95bd3988beee069fa2848f648dab43cc6e0b2add2ad6bcb17360caf749802bcc",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-APACHE"
+        }
+      ]
+    },
+    {
+      "package": "rama-http-core",
+      "version": "0.3.0-alpha.4",
+      "license": "MIT OR Apache-2.0",
+      "commit": "4733273a10a791762e2b7727850032b0c9b8536d",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-MIT",
+          "sha256": "1fa7e078de3f9165a1c6742359307711e91652f035dc37a32376ca0023483e63",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-MIT"
+        },
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-APACHE",
+          "sha256": "95bd3988beee069fa2848f648dab43cc6e0b2add2ad6bcb17360caf749802bcc",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-APACHE"
+        }
+      ]
+    },
+    {
+      "package": "rama-http-headers",
+      "version": "0.3.0-alpha.4",
+      "license": "MIT OR Apache-2.0",
+      "commit": "4733273a10a791762e2b7727850032b0c9b8536d",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-MIT",
+          "sha256": "1fa7e078de3f9165a1c6742359307711e91652f035dc37a32376ca0023483e63",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-MIT"
+        },
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-APACHE",
+          "sha256": "95bd3988beee069fa2848f648dab43cc6e0b2add2ad6bcb17360caf749802bcc",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-APACHE"
+        }
+      ]
+    },
+    {
+      "package": "rama-http-types",
+      "version": "0.3.0-alpha.4",
+      "license": "MIT OR Apache-2.0",
+      "commit": "4733273a10a791762e2b7727850032b0c9b8536d",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-MIT",
+          "sha256": "1fa7e078de3f9165a1c6742359307711e91652f035dc37a32376ca0023483e63",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-MIT"
+        },
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-APACHE",
+          "sha256": "95bd3988beee069fa2848f648dab43cc6e0b2add2ad6bcb17360caf749802bcc",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-APACHE"
+        }
+      ]
+    },
+    {
+      "package": "rama-macros",
+      "version": "0.3.0-alpha.4",
+      "license": "MIT OR Apache-2.0",
+      "commit": "4733273a10a791762e2b7727850032b0c9b8536d",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-MIT",
+          "sha256": "1fa7e078de3f9165a1c6742359307711e91652f035dc37a32376ca0023483e63",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-MIT"
+        },
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-APACHE",
+          "sha256": "95bd3988beee069fa2848f648dab43cc6e0b2add2ad6bcb17360caf749802bcc",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-APACHE"
+        }
+      ]
+    },
+    {
+      "package": "rama-net",
+      "version": "0.3.0-alpha.4",
+      "license": "MIT OR Apache-2.0",
+      "commit": "4733273a10a791762e2b7727850032b0c9b8536d",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-MIT",
+          "sha256": "1fa7e078de3f9165a1c6742359307711e91652f035dc37a32376ca0023483e63",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-MIT"
+        },
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-APACHE",
+          "sha256": "95bd3988beee069fa2848f648dab43cc6e0b2add2ad6bcb17360caf749802bcc",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-APACHE"
+        }
+      ]
+    },
+    {
+      "package": "rama-socks5",
+      "version": "0.3.0-alpha.4",
+      "license": "MIT OR Apache-2.0",
+      "commit": "4733273a10a791762e2b7727850032b0c9b8536d",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-MIT",
+          "sha256": "1fa7e078de3f9165a1c6742359307711e91652f035dc37a32376ca0023483e63",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-MIT"
+        },
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-APACHE",
+          "sha256": "95bd3988beee069fa2848f648dab43cc6e0b2add2ad6bcb17360caf749802bcc",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-APACHE"
+        }
+      ]
+    },
+    {
+      "package": "rama-tcp",
+      "version": "0.3.0-alpha.4",
+      "license": "MIT OR Apache-2.0",
+      "commit": "4733273a10a791762e2b7727850032b0c9b8536d",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-MIT",
+          "sha256": "1fa7e078de3f9165a1c6742359307711e91652f035dc37a32376ca0023483e63",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-MIT"
+        },
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-APACHE",
+          "sha256": "95bd3988beee069fa2848f648dab43cc6e0b2add2ad6bcb17360caf749802bcc",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-APACHE"
+        }
+      ]
+    },
+    {
+      "package": "rama-tls-rustls",
+      "version": "0.3.0-alpha.4",
+      "license": "MIT OR Apache-2.0",
+      "commit": "4733273a10a791762e2b7727850032b0c9b8536d",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-MIT",
+          "sha256": "1fa7e078de3f9165a1c6742359307711e91652f035dc37a32376ca0023483e63",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-MIT"
+        },
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-APACHE",
+          "sha256": "95bd3988beee069fa2848f648dab43cc6e0b2add2ad6bcb17360caf749802bcc",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-APACHE"
+        }
+      ]
+    },
+    {
+      "package": "rama-udp",
+      "version": "0.3.0-alpha.4",
+      "license": "MIT OR Apache-2.0",
+      "commit": "4733273a10a791762e2b7727850032b0c9b8536d",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-MIT",
+          "sha256": "1fa7e078de3f9165a1c6742359307711e91652f035dc37a32376ca0023483e63",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-MIT"
+        },
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-APACHE",
+          "sha256": "95bd3988beee069fa2848f648dab43cc6e0b2add2ad6bcb17360caf749802bcc",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-APACHE"
+        }
+      ]
+    },
+    {
+      "package": "rama-unix",
+      "version": "0.3.0-alpha.4",
+      "license": "MIT OR Apache-2.0",
+      "commit": "4733273a10a791762e2b7727850032b0c9b8536d",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-MIT",
+          "sha256": "1fa7e078de3f9165a1c6742359307711e91652f035dc37a32376ca0023483e63",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-MIT"
+        },
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-APACHE",
+          "sha256": "95bd3988beee069fa2848f648dab43cc6e0b2add2ad6bcb17360caf749802bcc",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-APACHE"
+        }
+      ]
+    },
+    {
+      "package": "rama-utils",
+      "version": "0.3.0-alpha.4",
+      "license": "MIT OR Apache-2.0",
+      "commit": "4733273a10a791762e2b7727850032b0c9b8536d",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-MIT",
+          "sha256": "1fa7e078de3f9165a1c6742359307711e91652f035dc37a32376ca0023483e63",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-MIT"
+        },
+        {
+          "path": "third_party/licenses/sandbox/plabayo-rama-4733273a/LICENSE-APACHE",
+          "sha256": "95bd3988beee069fa2848f648dab43cc6e0b2add2ad6bcb17360caf749802bcc",
+          "url": "https://raw.githubusercontent.com/plabayo/rama/4733273a10a791762e2b7727850032b0c9b8536d/LICENSE-APACHE"
+        }
+      ]
+    },
+    {
+      "package": "schemafy_core",
+      "version": "0.5.2",
+      "license": "MIT",
+      "commit": "5f835025d16d691f168315dda93efc52ae1e4e5e",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/Marwes-schemafy-5f835025/LICENSE",
+          "sha256": "a11232911aa0d746688b560af367728021184084eeb6328a1922d60925c5eda0",
+          "url": "https://raw.githubusercontent.com/Marwes/schemafy/5f835025d16d691f168315dda93efc52ae1e4e5e/LICENSE"
+        }
+      ]
+    },
+    {
+      "package": "schemafy_lib",
+      "version": "0.5.2",
+      "license": "MIT",
+      "commit": "5f835025d16d691f168315dda93efc52ae1e4e5e",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/Marwes-schemafy-5f835025/LICENSE",
+          "sha256": "a11232911aa0d746688b560af367728021184084eeb6328a1922d60925c5eda0",
+          "url": "https://raw.githubusercontent.com/Marwes/schemafy/5f835025d16d691f168315dda93efc52ae1e4e5e/LICENSE"
+        }
+      ]
+    },
+    {
+      "package": "sorted_vector_map",
+      "version": "0.2.1",
+      "license": "MIT OR Apache-2.0",
+      "commit": "756ae7daba100d194aa0260131937b7d96672549",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/facebookexperimental-rust-shed-756ae7da/LICENSE-MIT",
+          "sha256": "52412d7bc7ce4157ea628bbaacb8829e0a9cb3c58f57f99176126bc8cf2bfc85",
+          "url": "https://raw.githubusercontent.com/facebookexperimental/rust-shed/756ae7daba100d194aa0260131937b7d96672549/LICENSE-MIT"
+        },
+        {
+          "path": "third_party/licenses/sandbox/facebookexperimental-rust-shed-756ae7da/LICENSE-APACHE",
+          "sha256": "bb28c48e3e078166e91cfc2b6db7ffebb8a0973b9e23b3df060561292d8d69ec",
+          "url": "https://raw.githubusercontent.com/facebookexperimental/rust-shed/756ae7daba100d194aa0260131937b7d96672549/LICENSE-APACHE"
+        }
+      ]
+    },
+    {
+      "package": "starlark",
+      "version": "0.14.2",
+      "license": "Apache-2.0",
+      "commit": "0c8d107ab963362ba47ee3ab9e0173bc39bd101d",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/facebook-starlark-rust-0c8d107a/LICENSE",
+          "sha256": "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a",
+          "url": "https://raw.githubusercontent.com/facebook/starlark-rust/0c8d107ab963362ba47ee3ab9e0173bc39bd101d/LICENSE"
+        }
+      ]
+    },
+    {
+      "package": "starlark_derive",
+      "version": "0.14.2",
+      "license": "Apache-2.0",
+      "commit": "0c8d107ab963362ba47ee3ab9e0173bc39bd101d",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/facebook-starlark-rust-0c8d107a/LICENSE",
+          "sha256": "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a",
+          "url": "https://raw.githubusercontent.com/facebook/starlark-rust/0c8d107ab963362ba47ee3ab9e0173bc39bd101d/LICENSE"
+        }
+      ]
+    },
+    {
+      "package": "starlark_map",
+      "version": "0.14.2",
+      "license": "Apache-2.0",
+      "commit": "0c8d107ab963362ba47ee3ab9e0173bc39bd101d",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/facebook-starlark-rust-0c8d107a/LICENSE",
+          "sha256": "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a",
+          "url": "https://raw.githubusercontent.com/facebook/starlark-rust/0c8d107ab963362ba47ee3ab9e0173bc39bd101d/LICENSE"
+        }
+      ]
+    },
+    {
+      "package": "starlark_syntax",
+      "version": "0.14.2",
+      "license": "Apache-2.0",
+      "commit": "0c8d107ab963362ba47ee3ab9e0173bc39bd101d",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/facebook-starlark-rust-0c8d107a/LICENSE",
+          "sha256": "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a",
+          "url": "https://raw.githubusercontent.com/facebook/starlark-rust/0c8d107ab963362ba47ee3ab9e0173bc39bd101d/LICENSE"
+        }
+      ]
+    },
+    {
+      "package": "static_interner",
+      "version": "0.1.2",
+      "license": "MIT OR Apache-2.0",
+      "commit": "5d36df573fad3fbdc29808ce18880c6e9f8cd0f8",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/facebook-buck2-5d36df57/LICENSE-MIT",
+          "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93",
+          "url": "https://raw.githubusercontent.com/facebook/buck2/5d36df573fad3fbdc29808ce18880c6e9f8cd0f8/LICENSE-MIT"
+        },
+        {
+          "path": "third_party/licenses/sandbox/facebook-buck2-5d36df57/LICENSE-APACHE",
+          "sha256": "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a",
+          "url": "https://raw.githubusercontent.com/facebook/buck2/5d36df573fad3fbdc29808ce18880c6e9f8cd0f8/LICENSE-APACHE"
+        }
+      ]
+    },
+    {
+      "package": "strong_hash",
+      "version": "0.1.0",
+      "license": "MIT OR Apache-2.0",
+      "commit": "5d36df573fad3fbdc29808ce18880c6e9f8cd0f8",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/facebook-buck2-5d36df57/LICENSE-MIT",
+          "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93",
+          "url": "https://raw.githubusercontent.com/facebook/buck2/5d36df573fad3fbdc29808ce18880c6e9f8cd0f8/LICENSE-MIT"
+        },
+        {
+          "path": "third_party/licenses/sandbox/facebook-buck2-5d36df57/LICENSE-APACHE",
+          "sha256": "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a",
+          "url": "https://raw.githubusercontent.com/facebook/buck2/5d36df573fad3fbdc29808ce18880c6e9f8cd0f8/LICENSE-APACHE"
+        }
+      ]
+    },
+    {
+      "package": "strong_hash_derive",
+      "version": "0.1.0",
+      "license": "MIT OR Apache-2.0",
+      "commit": "5d36df573fad3fbdc29808ce18880c6e9f8cd0f8",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/facebook-buck2-5d36df57/LICENSE-MIT",
+          "sha256": "da6d3703ed11cbe42bd212c725957c98da23cbff1998c05fa4b3d976d1a58e93",
+          "url": "https://raw.githubusercontent.com/facebook/buck2/5d36df573fad3fbdc29808ce18880c6e9f8cd0f8/LICENSE-MIT"
+        },
+        {
+          "path": "third_party/licenses/sandbox/facebook-buck2-5d36df57/LICENSE-APACHE",
+          "sha256": "50e6751797c50dedd75ef1b8a0d9e42f5f8472e9fbce91f34718e9f97b0c780a",
+          "url": "https://raw.githubusercontent.com/facebook/buck2/5d36df573fad3fbdc29808ce18880c6e9f8cd0f8/LICENSE-APACHE"
+        }
+      ]
+    },
+    {
+      "package": "tonic-prost",
+      "version": "0.14.3",
+      "license": "MIT",
+      "commit": "ed4bafc35af7a284357cf4e77e26b9c3eb0266ca",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/hyperium-tonic-ed4bafc3/LICENSE",
+          "sha256": "e24a56698aa6feaf3a02272b3624f9dc255d982970c5ed97ac4525a95056a5b3",
+          "url": "https://raw.githubusercontent.com/hyperium/tonic/ed4bafc35af7a284357cf4e77e26b9c3eb0266ca/LICENSE"
+        }
+      ]
+    },
+    {
+      "package": "tracelogging",
+      "version": "1.2.3",
+      "license": "MIT",
+      "commit": "4d3c8b02da568d34daf977db7052a819ab4b18ec",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/microsoft-tracelogging-4d3c8b02/LICENSE",
+          "sha256": "7dc541691bf807a74bf7c1090662712af131571f9be8fb8a6f6c1e6dbfbe2fbb",
+          "url": "https://raw.githubusercontent.com/microsoft/tracelogging/4d3c8b02da568d34daf977db7052a819ab4b18ec/LICENSE"
+        }
+      ]
+    },
+    {
+      "package": "tracelogging_macros",
+      "version": "1.2.3",
+      "license": "MIT",
+      "commit": "4d3c8b02da568d34daf977db7052a819ab4b18ec",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/microsoft-tracelogging-4d3c8b02/LICENSE",
+          "sha256": "7dc541691bf807a74bf7c1090662712af131571f9be8fb8a6f6c1e6dbfbe2fbb",
+          "url": "https://raw.githubusercontent.com/microsoft/tracelogging/4d3c8b02da568d34daf977db7052a819ab4b18ec/LICENSE"
+        }
+      ]
+    },
+    {
+      "package": "ts-rs",
+      "version": "11.1.0",
+      "license": "MIT",
+      "commit": "1dce5297090804082e9639d2b7d851ba815aa359",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/Aleph-Alpha-ts-rs-1dce5297/LICENSE",
+          "sha256": "db7f7f8e7236a2d0b41b855b2501b7b913caebbcda6ce498637a304ad1706ce1",
+          "url": "https://raw.githubusercontent.com/Aleph-Alpha/ts-rs/1dce5297090804082e9639d2b7d851ba815aa359/LICENSE"
+        }
+      ]
+    },
+    {
+      "package": "ts-rs-macros",
+      "version": "11.1.0",
+      "license": "MIT",
+      "commit": "1dce5297090804082e9639d2b7d851ba815aa359",
+      "files": [
+        {
+          "path": "third_party/licenses/sandbox/Aleph-Alpha-ts-rs-1dce5297/LICENSE",
+          "sha256": "db7f7f8e7236a2d0b41b855b2501b7b913caebbcda6ce498637a304ad1706ce1",
+          "url": "https://raw.githubusercontent.com/Aleph-Alpha/ts-rs/1dce5297090804082e9639d2b7d851ba815aa359/LICENSE"
+        }
+      ]
+    }
+  ]
+}

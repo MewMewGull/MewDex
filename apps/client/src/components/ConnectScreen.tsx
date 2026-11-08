@@ -3,6 +3,8 @@ import { useEffect, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, Monitor } from "lucide-react";
 import { MewDexClient, MewDexError, type ServerInfo } from "@mewdex/sdk";
 import type { Connection } from "../platform";
+import { hubDisplayURL } from "../platform";
+import { hasHostedChannels } from "../localDevice";
 import { readConnection } from "../connectionRead";
 import { Brand } from "./Brand";
 
@@ -74,6 +76,10 @@ export function ConnectScreen({
     if (server) userInput.current?.focus();
   }, [server, mode]);
   function reset() {
+    if (hasHostedChannels()) {
+      window.location.assign("/__mewdex/settings");
+      return;
+    }
     request.current?.abort();
     setServer(null);
     setPaired(null);
@@ -185,7 +191,7 @@ export function ConnectScreen({
               {t("MewDex Hub 地址")}
               <input
                 type="url"
-                value={url}
+                value={hubDisplayURL(url)}
                 disabled={busy}
                 onChange={(event) => {
                   setURL(event.target.value);
@@ -201,7 +207,7 @@ export function ConnectScreen({
           ) : (
             <>
               <p className="connection-server-address">
-                {t("已连接：{0}", url)}
+                {t("已连接：{0}", hubDisplayURL(url))}
               </p>
               {server.authentication.methods.length > 1 && (
                 <label>

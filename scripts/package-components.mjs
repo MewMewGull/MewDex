@@ -85,6 +85,15 @@ const resources = path.join(
   "service-resources",
   `${target.label}-${engineVersion}`,
 );
+const nativeSandbox =
+  JSON.parse(
+    await readFile(path.join(root, "tools/sandbox.lock.json"), "utf8"),
+  ).supportedTargets.includes(targetKey) && components.includes("executor");
+const sandboxResources = path.join(
+  root,
+  ".state/sandbox-resources",
+  target.label,
+);
 const platformDirectory = target.os === "darwin" ? "macos" : target.os;
 const output = path.join(root, "dist", platformDirectory);
 
@@ -124,6 +133,10 @@ async function notices(destination, web) {
     "mewdex.product.json",
     "docs/architecture.md",
     "docs/licensing.md",
+    "docs/evaluations.md",
+    "docs/evaluations/core.example.json",
+    "docs/evaluations/ordered.example.json",
+    "docs/linux-sandbox.md",
     "docs/dependency-licenses.json",
   ]) {
     await mkdir(path.dirname(path.join(destination, name)), {
@@ -210,11 +223,23 @@ async function exists(file) {
 
 await mkdir(path.join(root, ".state"), { recursive: true });
 await mkdir(output, { recursive: true });
-if (components.some((component) => component !== "web")) {
+if (
+  components.some(
+    (component) =>
+      component === "hub" || (component === "executor" && !nativeSandbox),
+  )
+) {
   run(process.execPath, [
     path.join(root, "scripts/prepare-service-resources.mjs"),
     `--target=${targetKey}`,
     `--output=${path.relative(root, resources)}`,
+  ]);
+}
+if (nativeSandbox) {
+  run("python", [
+    path.join(root, "scripts/prepare-sandbox-resources.py"),
+    `--target=${targetKey}`,
+    `--output=${path.relative(root, sandboxResources)}`,
   ]);
 }
 if (components.includes("web")) {
@@ -238,17 +263,22 @@ try {
     const stage = path.join(scratch, name);
     await mkdir(stage);
     const binary = `mewdex-${component}${target.extension}`;
+    const iconRole = component === "web" ? "input" : component;
+    const goPackage = component === "web" ? "./cmd/mewdex-web" : "./cmd/mewdex";
     run(
       "go",
       [
         "build",
         "-trimpath",
-        ...(component === "web"
-          ? []
-          : [`-ldflags=-X main.distributionRole=${component}`]),
+        `-ldflags=${[
+          ...(target.os === "windows" ? ["-H=windowsgui"] : []),
+          ...(component === "web"
+            ? []
+            : [`-X main.distributionRole=${component}`]),
+        ].join(" ")}`,
         "-o",
         path.join(stage, binary),
-        component === "web" ? "./cmd/mewdex-web" : "./cmd/mewdex",
+        goPackage,
       ],
       {
         env: {
@@ -259,14 +289,59 @@ try {
         },
       },
     );
+    if (target.os === "windows") {
+      const iconBuild = path.join(scratch, `icon-${component}`);
+      await mkdir(iconBuild);
+      await copy(
+        path.join(root, "internal/servicetray/icons", `${iconRole}.ico`),
+        path.join(iconBuild, "icon.ico"),
+      );
+      const definition = path.join(iconBuild, "winres.json");
+      await writeFile(
+        definition,
+        JSON.stringify({ RT_GROUP_ICON: { APP: { "0000": "icon.ico" } } }),
+      );
+      run("go", [
+        "run",
+        "github.com/tc-hib/go-winres@v0.3.3",
+        "patch",
+        "--in",
+        definition,
+        "--no-backup",
+        path.join(stage, binary),
+      ]);
+    }
     if (component === "web")
       await copy(path.join(root, "apps/client/dist"), path.join(stage, "ui"));
+    else if (component === "executor" && nativeSandbox)
+      await copy(
+        path.join(sandboxResources, "sandbox"),
+        path.join(stage, "sandbox"),
+      );
     else await copy(path.join(resources, "engine"), path.join(stage, "engine"));
+    if (target.os === "darwin") {
+      const bundle = path.join(stage, `MewDex ${title}.app`, "Contents");
+      await mkdir(path.join(bundle, "MacOS"), { recursive: true });
+      await mkdir(path.join(bundle, "Resources"));
+      await copy(
+        path.join(root, "internal/servicetray/icons", `${iconRole}.icns`),
+        path.join(bundle, "Resources/icon.icns"),
+      );
+      await writeFile(
+        path.join(bundle, "Info.plist"),
+        `<?xml version="1.0" encoding="UTF-8"?><plist version="1.0"><dict><key>CFBundleExecutable</key><string>launch</string><key>CFBundleIdentifier</key><string>app.mewdex.${component}</string><key>CFBundleName</key><string>MewDex ${title}</string><key>CFBundleIconFile</key><string>icon.icns</string><key>CFBundlePackageType</key><string>APPL</string><key>CFBundleShortVersionString</key><string>${version}</string><key>LSUIElement</key><true/></dict></plist>\n`,
+      );
+      await writeFile(
+        path.join(bundle, "MacOS/launch"),
+        `#!/bin/sh\nset -eu\ncomponent_dir=$(CDPATH= cd -- "$(dirname -- "$0")/../../.." && pwd -P)\nexec "$component_dir/${binary}"\n`,
+        { mode: 0o755 },
+      );
+    }
     await notices(stage, component === "web");
     const instructions = {
-      hub: `${binary} init -config .local/hub/device.json\n${binary} account -config .local/hub/device.json\n${binary} serve -config .local/hub/device.json\n\nProvide account JSON on standard input for the account command. Configure listen and allowedOrigins in device.json for your deployment.\n`,
-      executor: `${binary} panel -root .local/executor\n\nOpen http://127.0.0.1:47832 and use .local/executor/panel-token. Configure the Hub URL and an executor invitation, add local directories, then start the executor. This node connects to Hub over WebSocket.\n`,
-      web: `${binary} -hub-url https://your-hub.example.com -listen 127.0.0.1:47831\n\nDeploy this web service independently. Set the public web origin in Hub allowedOrigins. The ui directory contains the shared input terminal.\n`,
+      hub: `双击 ${target.os === "darwin" ? "MewDex Hub.app" : binary} 打开本机控制面板，创建或启动 Hub。运行后从系统托盘查看状态、控制面板和开机自启动。\n\n命令行部署\n${binary} init -config .local/hub/device.json\n${binary} account -config .local/hub/device.json\n${binary} serve -config .local/hub/device.json\naccount 命令从标准输入读取账号 JSON。按部署设置 listen 和 allowedOrigins。\n`,
+      executor: `双击 ${target.os === "darwin" ? "MewDex Executor.app" : binary} 打开本机控制面板。填写 Hub 地址和执行端配对码，添加本机目录，再启动执行端。运行后从系统托盘查看状态、控制面板和开机自启动。\n\n指定已有配置目录\n${binary} panel -root .local/executor -open\n此节点通过 WebSocket 连接 Hub。\n`,
+      web: `双击 ${target.os === "darwin" ? "MewDex Web.app" : binary}，填写 Hub 地址后进入工作台。运行后托盘显示“网页输入端”，可打开工作台、调整 Hub 地址、设置开机自启动或退出。\n\nAPP 与网页版任选其一。网页版自带消息渠道连接器，关闭浏览器后由托盘服务保持连接。退出账号或退出服务会断开此输入端的渠道。\n\n命令行部署\n${binary} -hub-url https://your-hub.example.com -listen 127.0.0.1:47831\n\n在 Hub 的 allowedOrigins 中允许网页入口。ui 目录随独立网页包部署。Windows 后台组件不创建控制台窗口。\n`,
     };
     await writeFile(
       path.join(stage, "START-HERE.txt"),
@@ -283,32 +358,31 @@ try {
           os: platformDirectory,
           arch: target.arch === "amd64" ? "x64" : target.arch,
           configuration: "Release",
-          engineVersion: component === "web" ? undefined : engineVersion,
+          engineVersion:
+            component === "web" || (component === "executor" && nativeSandbox)
+              ? undefined
+              : engineVersion,
+          sandboxVersion:
+            component === "executor" && nativeSandbox
+              ? JSON.parse(
+                  await readFile(
+                    path.join(root, "tools/sandbox.lock.json"),
+                    "utf8",
+                  ),
+                ).runtimeVersion
+              : undefined,
         },
         null,
         2,
       ) + "\n",
     );
     const archive = path.join(scratch, `${name}.zip`);
-    const zipProgram = `
-import pathlib
-import sys
-import zipfile
-
-source = pathlib.Path(sys.argv[1])
-with zipfile.ZipFile(sys.argv[2], "x", zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
-    for file in sorted(source.rglob("*")):
-        if file.is_file():
-            archive.write(file, file.relative_to(source.parent))
-with zipfile.ZipFile(sys.argv[2]) as archive:
-    if archive.testzip() is not None:
-        raise RuntimeError("Package archive failed CRC validation")
-`;
     run(process.platform === "win32" ? "python" : "python3", [
-      "-c",
-      zipProgram,
+      path.join(root, "scripts/archive-component.py"),
       stage,
       archive,
+      platformDirectory,
+      binary,
     ]);
     const destination = path.join(output, name);
     const destinationArchive = `${destination}.zip`;

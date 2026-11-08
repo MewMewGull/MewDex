@@ -40,23 +40,41 @@ func (h *Hub) visibleDevices(id protocol.Identity) ([]protocol.Device, error) {
 	if err != nil {
 		return nil, err
 	}
+	hubProjects := []protocol.Project{}
+	if h.coordinatorID != "" {
+		hubProjects, err = h.store.HubProjects()
+		if err != nil {
+			return nil, err
+		}
+	}
+	// Project readers need the presence of their execution nodes. The projection
+	// includes only that project's bindings and grants no direct node access.
+	linked := map[string]map[string]bool{}
+	for _, project := range hubProjects {
+		if !id.Access.Allows(h.coordinatorID, project.ID) {
+			continue
+		}
+		for _, directory := range project.Directories {
+			if linked[directory.DeviceID] == nil {
+				linked[directory.DeviceID] = map[string]bool{}
+			}
+			linked[directory.DeviceID][directory.ProjectID] = true
+		}
+	}
 	visible := []protocol.Device{}
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	for _, device := range devices {
-		if !id.Access.Allows(device.ID, "") {
+		if !id.Access.Allows(device.ID, "") && len(linked[device.ID]) == 0 {
 			continue
 		}
 		device.Online = device.ID == h.coordinatorID && h.coordinator != nil || device.ID == h.config.DeviceID && h.local != nil || h.peers[device.ID] != nil
 		if device.ID == h.coordinatorID {
-			device.Projects, err = h.store.HubProjects()
-			if err != nil {
-				return nil, err
-			}
+			device.Projects = hubProjects
 		}
 		projects := []protocol.Project{}
 		for _, project := range device.Projects {
-			if id.Access.Allows(device.ID, project.ID) {
+			if id.Access.Allows(device.ID, project.ID) || linked[device.ID][project.ID] {
 				projects = append(projects, project)
 			}
 		}

@@ -120,7 +120,12 @@ func (m *Manager) stop(ctx context.Context, instance string) error {
 		return err
 	}
 	if state.State == "stopped" {
-		return nil
+		installation, err := lifecycle.Installation(m.options.Root)
+		if err != nil {
+			return errors.New("local service changed; refresh before stopping")
+		}
+		defer installation.Close()
+		return m.pauseStartupRecovery()
 	}
 	if state.State == "unknown" {
 		return errors.New("local control channel is unavailable; no process was killed")
@@ -134,6 +139,9 @@ func (m *Manager) stop(ctx context.Context, instance string) error {
 	}
 	if record.DeviceID != c.DeviceID || record.InstanceID != state.InstanceID {
 		return errors.New("local service instance changed; no stop was sent")
+	}
+	if err = m.pauseStartupRecovery(); err != nil {
+		return err
 	}
 	if _, err = lifecycle.Call(ctx, record, true); err != nil {
 		return err

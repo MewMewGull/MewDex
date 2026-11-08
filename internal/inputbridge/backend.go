@@ -1,4 +1,4 @@
-// Package inputbridge runs message platform connections inside an APP-owned helper.
+// Package inputbridge runs message platform connections inside an input-owned service.
 package inputbridge
 
 import (

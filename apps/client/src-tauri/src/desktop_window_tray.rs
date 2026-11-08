@@ -1,5 +1,4 @@
-//! Window behavior belongs to the Windows input. Closing the workbench never
-//! stops an execution service; the tray's explicit quit ends only this input.
+//! The input window and its message connections share this tray's lifetime.
 use crate::desktop_window::Preferences;
 use std::{
     fs, io,

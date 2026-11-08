@@ -1,0 +1,18 @@
+{
+  "format": 1,
+  "name": "Hub reply contract",
+  "projectId": "your-hub-project-id",
+  "models": [{ "id": "your-model-id" }],
+  "cases": [
+    {
+      "id": "literal-reply",
+      "prompt": "Reply with exactly MEWDEX_EVAL_OK. Use no tools.",
+      "policy": { "accessMode": "read-only" },
+      "checks": [
+        { "kind": "assistant.equals", "value": "MEWDEX_EVAL_OK" },
+        { "kind": "tool.count", "toolType": "commandExecution", "count": 0 },
+        { "kind": "tool.count", "toolType": "computerUse", "count": 0 }
+      ]
+    }
+  ]
+}

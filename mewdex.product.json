@@ -14,7 +14,8 @@
       "label": "执行终端",
       "sources": [
         "internal/executor",
-        "internal/engine"
+        "internal/engine",
+        "apps/sandbox"
       ],
       "purpose": "接收 Hub 指令，在本机项目目录中执行命令和回传文件"
     },
@@ -33,7 +34,7 @@
       "sources": [
         "apps/client/src/hub-controller"
       ],
-      "purpose": "通过 Hub 管理网络账号、项目、授权和在线 APP 的消息渠道"
+      "purpose": "通过 Hub 管理网络账号、项目、授权和在线输入端的消息渠道"
     },
     "message-connector": {
       "name": "Message Connector",
@@ -42,7 +43,7 @@
         "internal/inputbridge",
         "internal/messaging"
       ],
-      "purpose": "随桌面 APP 连接 QQ、微信和飞书，处理消息并经普通输入接口提交给 Hub"
+      "purpose": "随 APP 或独立网页输入服务连接 QQ、微信和飞书，处理消息并经普通输入接口提交给 Hub"
     },
     "executor-panel": {
       "name": "Executor Control Panel",
@@ -153,7 +154,8 @@
       "name": "Web Input",
       "components": [
         "input-terminal",
-        "hub-controller"
+        "hub-controller",
+        "message-connector"
       ]
     },
     "hub": {

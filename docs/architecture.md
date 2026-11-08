@@ -2,22 +2,25 @@
 
 ## 角色
 
-MewDex 独立发布 APP、网页输入端、Hub 与执行端。APP 和网页端共用输入界面与网络 SDK，桌面 APP 负责消息渠道连接，执行端提供独立网页控制面板。
+MewDex 独立发布 APP、网页输入端、Hub 与执行端。APP 和网页端共用输入界面与网络 SDK，APP 与独立网页输入服务都能保持消息渠道连接，执行端提供独立网页控制面板。
 
 | 组件 | 代码归属 | 职责 |
 | --- | --- | --- |
 | Input Terminal（输入终端） | `apps/client/src/input-terminal/` | 用户输入、对话、结果与交互 |
 | Execute Terminal（执行终端） | `internal/executor/terminal.go`、`internal/engine/sandbox.go` | 本机沙箱执行、目录绑定、任务状态与文件回传 |
 | Hub（管理终端） | `internal/hub/`、`internal/transport/` | 项目、模型账号、对话编排、设备连接与事件历史 |
-| Hub Controller（管理终端的管理器） | `apps/client/src/hub-controller/` | Hub 账号、项目、设备授权与在线 APP 的渠道管理 |
-| Message Connector（消息连接器） | `internal/inputbridge/`、`internal/messaging/` | 桌面 APP 的平台连接、消息处理、持久收发与 Hub 输入 |
+| Hub Controller（管理终端的管理器） | `apps/client/src/hub-controller/` | Hub 账号、项目、设备授权与在线输入端的渠道管理 |
+| Message Connector（消息连接器） | `internal/inputbridge/`、`internal/messaging/` | 输入端的平台连接、消息处理、持久收发与 Hub 输入 |
 | Executor Control Panel（执行端控制面板） | `internal/executorpanel/`、`internal/localnode/` | 独立执行端的本机配置、配对、启停与目录管理 |
 
 Windows、macOS、Linux 桌面 APP 组合输入工作台、网络管理界面和消息连接器。Hub、网页服务器和执行端分别部署。原生 APP 使用 Tauri 承载共享界面，分发包携带专用消息连接器。组件与产物边界以 `mewdex.product.json` 的 `components`、`platforms` 和 `distributions` 为准。
 
-`mewdex-input-bridge` 随 APP 生命周期运行，保存该 APP 的渠道配置、平台凭据、入站消息与回复回执，并建立到 Hub 的认证 WebSocket 管理连接。APP 和网页端复用 `/v1/messaging`，Hub 根据当前身份和所选 APP 转发管理操作。渠道指令继续使用按项目限定的普通输入身份，经 Hub 的原有指令接口处理。多个在线 APP 显式选择渠道归属。关闭 APP 后，该 APP 的平台连接结束。
+`mewdex-input-bridge` 随 APP 生命周期运行，保存该 APP 的渠道配置、平台凭据、入站消息与回复回执，并建立到 Hub 的认证 WebSocket 管理连接。APP 和网页端复用 `/v1/messaging`，Hub 根据当前身份和所选输入端转发管理操作。渠道指令继续使用按项目限定的普通输入身份，经 Hub 的原有指令接口处理。多个在线输入端显式选择渠道归属。APP 关闭至托盘后保持连接，退出 APP 会结束其连接。独立网页服务内置同一连接器，关闭浏览器后保持连接，退出账号或网页服务后结束连接。
 
 独立 `mewdex-web` 从 `ui/` 读取输入页面，将 API 和 WebSocket 请求转发给部署时指定的 Hub。Hub 提供中央 API。执行端通过原有 `/v1/node/ws` 主动连接 Hub，独立面板复用 `internal/localnode` 管理本机配对、服务和目录。
+
+Windows 和 macOS 的 APP、Hub、执行端和独立网页输入服务均提供系统托盘或菜单栏图标。服务图标提供角色、控制入口、自启动设置和退出确认。Windows 服务使用 GUI subsystem，登录启动时不创建控制台。macOS 服务由私有管道连接原生 AppKit 菜单栏子进程。网页服务把 Hub 地址与启动配置保存在自身目录，登录后的消息连接按 Hub 和身份隔离保存，Windows 使用当前用户 DPAPI 加密连接凭据，POSIX 使用 0700 目录与 0600 文件权限。托盘打开的本机浏览器可恢复该连接，退出登录会断开并移除保存的连接凭据。
+
 
 组件名与协议身份分别建模。现有协议中的 `client` / `admin` 表示输入和管理身份，`executor` 表示节点身份，Hub Controller 使用已有的登录和授权接口。Hub 持有模型引擎，执行端通过已配对的控制连接接收命令。
 
@@ -31,7 +34,17 @@ MewDex 账号、密码哈希及项目展示元数据保存在 Hub。输入终端
 
 Hub 的协调器复用现有执行器中的会话、队列、策略、回执及历史管理，使用独立的 `coordinator/coordinator.db`。其协议设备编号为 Hub 编号加 `.hub`，供共享 SDK 保持稳定的会话归属。输入端以 Hub 项目为导航入口，原设备对话可从历史区域读取。
 
-Hub 通过 `dynamicTools` 提供 `mewdex_exec`、`mewdex_wait`、`mewdex_stop`。工具调用按当前项目目录组解析到已配对节点，通过现有 WebSocket 控制连接下发。执行节点使用固定版 `codex sandbox` 执行 argv，保存指令回执、进程输出和任务状态。模型会话及 ChatGPT 登录位于 Hub。
+Hub 通过 `dynamicTools` 提供 `mewdex_exec`、`mewdex_wait`、`mewdex_stop`。工具调用按当前项目目录组解析到已配对节点，通过现有 WebSocket 控制连接下发。执行节点使用固定版本的本机沙箱执行 argv，保存指令回执、进程输出和任务状态。模型会话及 ChatGPT 登录位于 Hub。
+
+项目设置中的指令、Skills、脚本和工作流采用格式 1，由 Hub 保存不可变内容哈希及递增修订历史。脚本保存原始 argv、相对工作目录、超时及执行设备和目录绑定。工作流保存有序脚本引用，由 Agent 按定义调用现有执行工具，并等待步骤成功后继续。此阶段的工作流依赖模型遵循配置，独立的确定性调度与工作流恢复记录仍待实现。
+
+每个 Hub 回合在实际启动时保存项目目录组、配置版本和注入指令快照，重试继续使用原快照。引擎适配器通过 `additionalContext` 的 `application` 片段传递该文档，以 UTF-8 字节分段适配固定版本引擎的单片段长度限制。执行结果记录该配置版本，运行中修改应用于后续回合。配置编辑使用项目与配置双修订号检查，回退产生新修订并保留历史。SDK 提供 `projectHarness`、`saveProjectHarness`、`projectHarnessHistory`、`projectTurnContext`，对应 `/v1/projects/<id>/harness`、`/history` 和 `/turn?sessionId=...`。读取沿用项目访问范围，写入需要管理员身份。
+
+Computer Use 原型由 Hub 的 `mewdex_computer` 工具选择项目目录所属执行端，复用已配对连接和持久指令回执。执行端本机面板为具体对话选择并授权一个窗口，授权时长为 15 至 900 秒。Windows 驱动通过有界本机子进程读取该窗口图像和发送输入，使用桌面命名互斥及物理 Escape 处理。每次操作引用最近的观察编号，窗口句柄、进程、位置、尺寸与焦点会在输入前检查。停止等待本机工作进程结束，断线收回授权，重启将旧会话标为结果待核对。未知结果保留原编号。
+
+输入端可在项目执行端列表查看窗口控制状态并停止会话，工具历史记录目标机器、目录、窗口及项目配置版本。`computeruse.Driver` 为本机适配接口，`NewTerminalWithOptions` 接受受信任的本机驱动。当前原生实现覆盖 Windows 64 位交互桌面，macOS 与 Linux 返回未支持原因。新增动态工具在新建对话时注册。真实原生窗口输入、硬件 Escape 和其他平台仍需验收。接口形式参考 OpenAI 的自定义界面工具集成文档。[Computer Use 集成文档](https://developers.openai.com/api/docs/guides/tools-computer-use-integration)
+
+`internal/evaluation` 通过正常 Hub 输入接口运行版本化任务集，保存项目和配置快照、模型提供方、初始化后的运行时标识及完整分页事件。终端历史保留原始参数数组，评测按机器、目录、参数、权限和结果核对。原始指令在提交前持久化，恢复时按原编号读取回执，未知结果阻止继续。报告提供逐项检查和证据链接，供人工审阅项目配置改动并重跑比较。运行记录存于专用输出目录，输入凭据只保存在内存。当前基准为固定版 Codex 适配器，其他提供方及 Agent 运行时需要分别验证。使用方式见 [任务评测](evaluations.md)。
 
 执行权限在节点上由真实绑定目录生成。同一项目在同一机器上的多个目录共同进入执行范围，策略控制写入和网络访问，节点私有数据继续作为排除项。运行中和结果未确认的任务占用重叠目录。停止操作先保存回合停止标记，再结束对应进程，后续迟到的同回合指令会被拒绝。
 
@@ -175,7 +188,7 @@ Hub 和执行端分别声明 `collaboration-modes`；输入端取两端能力的
 
 独立服务继续复用 `internal/localnode` 的配置、配对、启停、目录绑定和生命周期核对。执行端通过本机网页面板管理，API 使用面板密钥与 Origin 检查。发布包固定 Hub 或执行端角色，原开发 CLI 保留旧合并配置兼容路径。旧配置、服务数据及未完成任务由原位置保留，采用拆分部署时准备各自单角色配置。
 
-Hub 与执行端携带各自完整的固定版 `engine/` 资源。APP 和网页输入通过 Hub 使用模型与执行能力。
+Hub 携带固定版 `engine/` 模型资源。Windows x64、macOS ARM64 和 Linux x64 执行端携带独立 `sandbox/`，共用版本化 stdin 协议接收命令、目录和权限。Windows 和 Linux 复用固定修订的 Codex 模块，macOS 复用固定修订的 MXC SDK。Linux 同包携带经哈希校验的 Bubblewrap，原生宿主按 MUSL 目标构建。其他执行端目标仍携带完整 `engine/` 资源。APP 和网页输入通过 Hub 使用模型与执行能力。
 
 共享输入 UI 的 `inputViewport.ts` 处理触控编辑、键盘可见区域和消息区尺寸变化，SDK 保持不依赖 DOM。输入聚焦时按可见区域放置工作台，阅读区原本接近底部时保持最新回复可见。可见区域的语义参考 [VisualViewport](https://developer.mozilla.org/en-US/docs/Web/API/VisualViewport)；目标设备的实际布局仍由原生运行检查确认。
 
@@ -191,7 +204,11 @@ Hub 与执行端携带各自完整的固定版 `engine/` 资源。APP 和网页�
 
 项目目录绑定与重叠锁负责调度，操作系统沙箱负责读写和网络边界。新建、恢复和基础指令分叉选择并核对命名配置；每回合复查本机范围指纹，并沿用已核对的活动配置。不能在 `turn/start` 重新选择只存在于该对话覆盖层中的配置名称，因为引擎可能从进程配置重载并丢失其定义。缺失配置回执不创建可用对话。原始账号/数据路径、命令环境限制和 Windows 沙箱实现进入范围指纹；变化后不能沿用旧编号。
 
-Windows 源码选择固定引擎 0.162.1 的 MXC，并显式禁止静默回退到旧沙箱。已授权的 0.154.0 elevated 准备已完成，但实际工具只能证明私有路径禁止读取，未守住完整的目录读取白名单；因此不以该准备成功替代隔离实现。独立 MXC 命令已证明工作目录可读、目录外标记不可读，正式执行器的新版适配仍在继续。MXC 不支持的设备须显示不可用原因，不能隐式放宽权限。
+Windows x64 独立沙箱复用 Codex 0.162.1 的 MXC 权限转换与启动模块，要求系统提供原生 PSEC 支持。运行资源经过内容哈希校验，宿主启动程序在沙箱外运行，工具进程获得明确的文件与网络权限。独立沙箱已通过真实 Hub 命令路由、目录读写边界、私有路径隔离和子进程停止验证。其他 Windows 架构继续使用固定引擎的 MXC 路径。MXC 不支持的设备显示不可用原因。
+
+macOS ARM64 独立沙箱通过 MXC SDK 执行 Seatbelt 文件与网络策略，工具输入为 EOF。停止时，宿主启动器先接收终止信号，调用 SDK 按运行标记回收该任务的进程，再由 Go 确认退出并执行进程组清理。已验证上下文取消、显式停止和主进程退出后的子进程回收，包括脱离原会话的子进程。SDK 报告的回收异常会保留在标准错误中，宿主异常退出使任务保持未确认，并阻止同一目录的后续指令。
+
+Linux x64 独立宿主将执行权限转换为 Codex `PermissionProfile`，由固定修订的 Linux 沙箱建立文件、进程和网络隔离。内部阶段使用逐指令的临时启动副本，文件以只读方式授权，原安装目录继续受私有路径规则保护。副本随宿主完成后回收，系统需要提供可执行且位于私有路径之外的临时目录。每次指令的宿主作为 subreaper 接管脱离会话的后代，停止时先通知内部沙箱，再回收并等待全部后代。只有内核确认已无子进程时才返回已确认退出，回收超时或宿主异常退出使任务保持未确认。网络授权沿用现有的完整网络开关，包含主机回环地址。目标系统需要支持相应的命名空间和安全策略。
 
 模型可读的会话附件视图须与私有数据目录分开；固定版本 Linux 沙箱不能在禁止的父目录内重新开放只读子目录。只有本机管理层可提供运行资源和数据路径，输入协议只传附件编号，不接受任意路径或权限配置表。数据与运行资源的具体布局必须在接入正式执行器前核对，避免将整个安装目录授予读取权限。
 

@@ -19,10 +19,12 @@ type File struct {
 	Bytes  int64  `json:"bytes"`
 }
 type Manifest struct {
-	Format  int    `json:"format"`
-	Version string `json:"version"`
-	Target  string `json:"target"`
-	Files   []File `json:"files"`
+	Format         int    `json:"format"`
+	Version        string `json:"version"`
+	Kind           string `json:"kind,omitempty"`
+	RuntimeVersion string `json:"runtimeVersion,omitempty"`
+	Target         string `json:"target"`
+	Files          []File `json:"files"`
 }
 
 func digest(reader io.Reader) (string, error) {

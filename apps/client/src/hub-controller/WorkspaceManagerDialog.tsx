@@ -21,6 +21,7 @@ import {
 } from "@mewdex/sdk";
 import { useDialogReturnFocus } from "../useDialogReturnFocus";
 import { WorkspaceFolderPicker } from "../components/WorkspaceFolderPicker";
+import { ProjectHarnessDialog } from "./ProjectHarnessDialog";
 
 interface DirectoryDraft {
   key: string;
@@ -74,6 +75,7 @@ export function WorkspaceManagerDialog({
     })),
   );
   const [picker, setPicker] = useState<string | null>(null);
+  const [harnessOpen, setHarnessOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [unconfirmed, setUnconfirmed] = useState(false);
@@ -352,6 +354,11 @@ export function WorkspaceManagerDialog({
               ))}
             </datalist>
           </label>
+          {existing && hub?.capabilities?.includes("project-harness-v1") && (
+            <button disabled={busy} onClick={() => setHarnessOpen(true)}>
+              {t("项目指令与自动化")}
+            </button>
+          )}
           {!hub && (
             <p className="error">{t("请更新 Hub 后使用跨机器项目。")}</p>
           )}
@@ -389,6 +396,15 @@ export function WorkspaceManagerDialog({
                 setPicker(null);
               }}
               onClose={() => setPicker(null)}
+            />
+          )}
+          {harnessOpen && existing && (
+            <ProjectHarnessDialog
+              key={existing.id}
+              client={client}
+              project={existing}
+              devices={devices}
+              onClose={() => setHarnessOpen(false)}
             />
           )}
         </Dialog.Content>

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { MewDexClient } from "@mewdex/sdk";
 import { CopyButton } from "../components/CopyButton";
+import { hubDisplayURL } from "../platform";
 
 export function MewDexAccountSettings({
   client,
@@ -66,13 +67,13 @@ export function MewDexAccountSettings({
       <h3>{t("MewDex 账号")}</h3>
       <p className="muted">
         {t(
-          "登录中央后端后，可统一管理所有执行节点和项目。各节点的 ChatGPT 订阅独立管理。",
+          "MewDex 账号用于登录输入端并管理项目与执行端。GPT 账号统一由 Hub 连接。",
         )}
       </p>
       <dl className="connection-details">
         <div>
           <dt>{t("中央后端")}</dt>
-          <dd>{baseURL}</dd>
+          <dd>{hubDisplayURL(baseURL)}</dd>
         </div>
         {account.data && (
           <>
@@ -208,7 +209,9 @@ export function MewDexAccountSettings({
         {t("退出 MewDex")}
       </button>
       <p className="muted">
-        {t("退出会清除当前网络的本机草稿，不退出执行节点的 ChatGPT 账号。")}
+        {t(
+          "退出会清除当前网络在此输入端保存的草稿。Hub 的 GPT 账号由 Hub 设置管理。",
+        )}
       </p>
     </section>
   );

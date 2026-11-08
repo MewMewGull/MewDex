@@ -113,6 +113,7 @@ func (f *fixtureEngine) Call(_ context.Context, method string, params any, outpu
 		var requested map[string]any
 		_ = json.Unmarshal(protocol.JSON(params), &requested)
 		response := value.(map[string]any)
+		response["modelProvider"] = "fixture-provider"
 		profile := requested["permissions"]
 		if scopeResponseDrift {
 			profile = ":workspace"

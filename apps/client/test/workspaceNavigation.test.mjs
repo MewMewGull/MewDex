@@ -5,8 +5,54 @@ import {
   conversationHubProject,
   orderedDevices,
   quickSwitchGroups,
+  workspaceConversationGroups,
 } from "../src/workspaceNavigation.ts";
 import { deviceDescription } from "../src/devicePresence.ts";
+
+test("unassigned conversations form a flat recent list below authoritative Hub projects", () => {
+  const project = { id: "work", name: "Current project", path: "" };
+  const hub = { id: "hub", roles: ["coordinator"], projects: [project] };
+  const legacy = {
+    id: "legacy",
+    roles: ["executor"],
+    projects: [{ ...project, name: "Old local project" }],
+  };
+  const current = { id: "current", deviceId: hub.id, projectId: project.id };
+  const old = { id: "old", deviceId: legacy.id, projectId: project.id };
+  const missingProject = {
+    id: "orphan",
+    deviceId: hub.id,
+    projectId: "removed",
+  };
+  const missingDevice = {
+    id: "missing",
+    deviceId: "removed",
+    projectId: "work",
+  };
+  const sessions = [old, current, missingProject, missingDevice];
+  const result = workspaceConversationGroups([legacy, hub], sessions);
+  assert.equal(result.groups.length, 1);
+  assert.deepEqual(result.groups[0].sessions, [current]);
+  assert.deepEqual(result.recent, [old, missingProject, missingDevice]);
+  assert.deepEqual(sessions, [old, current, missingProject, missingDevice]);
+});
+
+test("direct-device navigation also retains conversations whose project or device is missing", () => {
+  const device = {
+    id: "windows",
+    roles: ["executor"],
+    projects: [{ id: "work", name: "Work", path: "D:\\Work" }],
+  };
+  const current = { id: "current", deviceId: device.id, projectId: "work" };
+  const orphan = { id: "orphan", deviceId: device.id, projectId: "removed" };
+  const result = workspaceConversationGroups([device], [current, orphan]);
+  assert.deepEqual(result.groups[0].sessions, [current]);
+  assert.deepEqual(result.recent, [orphan]);
+  assert.deepEqual(workspaceConversationGroups([], [orphan]), {
+    groups: [],
+    recent: [orphan],
+  });
+});
 
 test("legacy conversations find their Hub project after a verified device identity replacement", () => {
   const old = {

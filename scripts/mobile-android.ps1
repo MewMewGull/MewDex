@@ -44,6 +44,14 @@ try {
         if ($LASTEXITCODE -ne 0) { throw "Android project initialization exited with code $LASTEXITCODE" }
     } elseif ($Action -eq 'BuildArm64') {
         $taskAndroid = Join-Path (Get-Location).Path 'src-tauri\gen\android'
+        $taskIconRoot = Join-Path (Get-Location).Path 'src-tauri\icons\android'
+        $taskResourceRoot = Join-Path $taskAndroid 'app\src\main\res'
+        foreach ($taskIconFile in Get-ChildItem -LiteralPath $taskIconRoot -File -Recurse) {
+            $taskIconRelative = $taskIconFile.FullName.Substring($taskIconRoot.Length).TrimStart('\','/')
+            $taskIconDestination = Join-Path $taskResourceRoot $taskIconRelative
+            [IO.Directory]::CreateDirectory((Split-Path $taskIconDestination -Parent)) | Out-Null
+            Copy-Item -LiteralPath $taskIconFile.FullName -Destination $taskIconDestination -Force
+        }
         $taskModule = Join-Path $taskAndroid 'app\build.gradle.kts'
         $taskProperties = Join-Path $taskAndroid 'gradle.properties'
         $taskWrapper = Join-Path $taskAndroid 'gradle\wrapper\gradle-wrapper.properties'
@@ -88,13 +96,22 @@ try {
             $taskBuild | ConvertTo-Json | Set-Content -LiteralPath $taskStatusPath -Encoding utf8
             $taskLog = Join-Path $taskRoot '.state\android-arm64-build.log'
             Write-Output 'Building one development target: Android / arm64 / Debug APK. Log: .state/android-arm64-build.log'
-            npm run tauri -- android build --debug --target aarch64 --apk --ci *> $taskLog
-            $taskExit = $LASTEXITCODE
+            $taskNativePreference = $ErrorActionPreference
+            try {
+                $ErrorActionPreference = 'Continue'
+                npm run tauri -- android build --debug --target aarch64 --apk --ci *> $taskLog
+                $taskExit = $LASTEXITCODE
+            } finally { $ErrorActionPreference = $taskNativePreference }
             $taskBuild.state = if ($taskExit -eq 0) { 'succeeded' } else { 'failed' }
             $taskBuild.exitCode = $taskExit
             $taskBuild.finishedAt = [DateTime]::UtcNow.ToString('o')
             $taskBuild | ConvertTo-Json | Set-Content -LiteralPath $taskStatusPath -Encoding utf8
             if ($taskExit -ne 0) { throw "Android development build exited with code $taskExit; inspect $taskLog" }
+        } catch {
+            $taskBuild.state = 'failed'
+            $taskBuild.finishedAt = [DateTime]::UtcNow.ToString('o')
+            $taskBuild | ConvertTo-Json | Set-Content -LiteralPath $taskStatusPath -Encoding utf8
+            throw
         } finally { $taskBuildLock.Dispose() }
         } finally { $taskSdkLock.Dispose() }
     } else {

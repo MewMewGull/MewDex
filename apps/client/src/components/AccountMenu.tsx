@@ -66,8 +66,6 @@ export function AccountMenu({
 }: {
   client: MewDexClient;
   devices: Device[];
-  selectedDeviceId: string;
-  localAvailable: boolean;
   connected: boolean;
   admin: boolean;
   onLogin: (deviceId: string) => void;

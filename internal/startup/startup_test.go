@@ -142,3 +142,65 @@ func TestStartupRejectsProgramOutsideTheInstallation(t *testing.T) {
 		t.Fatal("external program was registered")
 	}
 }
+
+type recoveryFixtureBackend struct {
+	*fixtureBackend
+	session string
+	err     error
+}
+
+func (b *recoveryFixtureBackend) recoverySession() (string, error) {
+	return b.session, b.err
+}
+
+func TestRecoveryHonorsAnExplicitStopUntilStartOrANewLogin(t *testing.T) {
+	c, fixture, program, binding := fixtureController(t)
+	b := &recoveryFixtureBackend{fixtureBackend: fixture, session: "first-login"}
+	c.backend = b
+	ctx := context.Background()
+	if err := c.PauseRecovery(); err != nil {
+		t.Fatal("an installation without startup registration could not stop", err)
+	}
+	if _, err := c.Apply(ctx, true, program, binding); err != nil {
+		t.Fatal(err)
+	}
+	record, _, err := c.read()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := c.Authorized(record.Definition.Owner, program, binding); err != nil || !ok {
+		t.Fatal("existing records without a pause could not start", err)
+	}
+	if err := c.PauseRecovery(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.Apply(ctx, true, program, binding); err != nil {
+		t.Fatal(err)
+	}
+	if ok, err := c.Authorized(record.Definition.Owner, program, binding); err != nil || ok {
+		t.Fatal("repeated startup registration lost the explicit stop", err)
+	}
+	changed := binding
+	changed.ProfileSHA256 = Fingerprint([]byte("another profile"))
+	if err := c.Start(ctx, changed); err == nil {
+		t.Fatal("changed profile cleared the stop intent")
+	}
+	if ok, _ := c.Authorized(record.Definition.Owner, program, binding); ok {
+		t.Fatal("failed start cleared the stop intent")
+	}
+	b.session = "second-login"
+	if ok, err := c.Authorized(record.Definition.Owner, program, binding); err != nil || !ok {
+		t.Fatal("a new login could not honor startup preference", err)
+	}
+	b.err = errors.New("login identity unavailable")
+	if ok, err := c.Authorized(record.Definition.Owner, program, binding); err == nil || ok {
+		t.Fatal("unknown login identity was accepted")
+	}
+	b.session, b.err = "first-login", nil
+	if err := c.Start(ctx, binding); err != nil || b.starts != 1 {
+		t.Fatal("explicit start did not resume the registered service", err)
+	}
+	if ok, err := c.Authorized(record.Definition.Owner, program, binding); err != nil || !ok {
+		t.Fatal("explicit start retained the stopped-login marker", err)
+	}
+}

@@ -65,6 +65,13 @@ type Device struct {
 	Capabilities    []string  `json:"capabilities,omitempty"`
 }
 
+type NodeConnection struct {
+	State   string `json:"state"`
+	Error   string `json:"error,omitempty"`
+	At      string `json:"at"`
+	RetryAt string `json:"retryAt,omitempty"`
+}
+
 type Policy struct {
 	Mode              string  `json:"mode"`
 	NoTests           bool    `json:"noTests"`
@@ -93,6 +100,7 @@ type Session struct {
 	PolicyInstructions string             `json:"policyInstructions"`
 	BaseVersion        string             `json:"baseVersion"`
 	Model              string             `json:"model"`
+	ModelProvider      string             `json:"modelProvider,omitempty"`
 	DefaultModel       string             `json:"defaultModel"`
 	TurnID             string             `json:"turnId"`
 	LastStartID        string             `json:"lastStartId,omitempty"`
@@ -144,6 +152,7 @@ type Input struct {
 }
 
 type Command struct {
+	Computer              *ComputerRequest  `json:"computer,omitempty"`
 	Terminal              *TerminalRequest  `json:"terminal,omitempty"`
 	Workspace             *WorkspaceRequest `json:"workspace,omitempty"`
 	Models                *ModelListRequest `json:"models,omitempty"`

@@ -10,7 +10,7 @@ MewDex 的组件和平台组成由根目录 `mewdex.product.json` 定义。平�
 | Android | Input Terminal、Hub Controller | `.apk` |
 | iOS / iPadOS | Input Terminal、Hub Controller | 已签名 `.ipa` |
 
-APP、Hub、网页输入端和执行端分别打包。APP 与网页端共用输入界面。桌面 APP 随包提供消息连接器，Hub 与执行端各自携带完整引擎。执行端包包含其独立网页控制面板。
+APP、Hub、网页输入端和执行端分别打包。APP 与网页端共用输入界面。桌面 APP 随包提供消息连接器。Hub 携带模型引擎，Windows x64、macOS ARM64 和 Linux x64 执行端携带独立沙箱，其他执行端目标目前携带完整引擎。执行端包包含其独立网页控制面板。
 
 ## 准备平台产物
 
@@ -39,7 +39,21 @@ npm run package:web
 npm run package:services -- --target=linux:x64
 ```
 
-支持 Windows、macOS、Linux 的 x64 和 ARM64 服务目标。各包包含 `component.json`、`START-HERE.txt` 和第三方许可。网页包携带 `ui/`，Hub 与执行端携带 `engine/`。默认生成对应目录与 ZIP，导出报告位于目标目录的 `component-packages.json`。服务包固定运行角色，执行端通过 `mewdex-executor panel` 配置 Hub WebSocket 连接和本机目录。
+支持 Windows、macOS、Linux 的 x64 和 ARM64 服务目标。各包包含 `component.json`、`START-HERE.txt` 和第三方许可。网页包携带 `ui/`，Hub 携带 `engine/`，Windows x64、macOS ARM64 和 Linux x64 执行端携带 `sandbox/`，其他执行端目标目前携带 `engine/`。默认生成对应目录与 ZIP，导出报告位于目标目录的 `component-packages.json`。服务包固定运行角色，执行端通过 `mewdex-executor panel` 配置 Hub WebSocket 连接和本机目录。
+
+独立沙箱的构建使用目标平台的项目内 Rust 工具链。`scripts/prepare-sandbox-resources.py` 按 `tools/sandbox.lock.json` 校验源码归档、源码文件和许可材料，组件打包命令会自动调用它。跨平台打包需要先将目标平台生成的 `sandbox/` 放入对应的 `.state/sandbox-resources/<target>/`，脚本会核对当前源码指纹、目标平台和全部资源哈希。运行时目录已由执行端管理的已有安装可使用设备数据管理中的准备升级与应用升级流程切换运行时，升级计划保留原任务记录和网络身份。引用外部 APP 引擎的旧配置需要先完成运行时归属迁移。
+
+已有 CLI 安装可用新执行端包的 `upgrade` 命令迁移原配置。先确认任务已停止并退出原服务，再依次运行 `prepare`、检查结果和 `apply`。各阶段使用同一个 32 位十六进制升级编号和原设备编号，`status` 可读取同一升级记录。原配置的文件名保持可供原服务入口继续使用。旧版共享 Codex CLI 仅接受已支持的历史版本，数据与网络凭据需要位于该配置所属的安装目录中。
+
+```sh
+./mewdex-executor upgrade -config /path/to/install/device.json -phase prepare -id 0123456789abcdef0123456789abcdef -expected-device-id existing-device
+./mewdex-executor upgrade -config /path/to/install/device.json -phase status -id 0123456789abcdef0123456789abcdef -expected-device-id existing-device
+./mewdex-executor upgrade -config /path/to/install/device.json -phase apply -id 0123456789abcdef0123456789abcdef -expected-device-id existing-device
+```
+
+Linux x64 沙箱使用 MUSL 静态目标构建，并携带校验固定的 Bubblewrap。系统仍需允许用户、挂载和 PID 命名空间，以及固定沙箱使用的内核安全接口。Bubblewrap 的许可、固定修订中的源码与构建文件、完整上游归档的来源和哈希随包放在 `sandbox/licenses/bubblewrap/`。
+
+启用 AppArmor 非特权用户命名空间限制的 Linux 主机提供 `sandbox-setup` 准备入口。默认输出只读预览，管理员核对固定辅助程序哈希与完整授权配置后显式应用，再以执行服务账号运行 `doctor -engine` 检查本机沙箱。步骤见 [Linux 沙箱部署](linux-sandbox.md)。
 
 macOS 和 Linux 在对应系统准备依赖和桌面资源后构建。平台配置默认生成 macOS DMG 和 Linux AppImage，可通过 Tauri 的 `--bundles` 选择其他支持的格式。
 
@@ -75,7 +89,7 @@ Android 使用 `scripts/mobile-android.ps1` 准备项目并构建 APK。iOS 在 
 }
 ```
 
-`distribution` 可为 `app`、`hub`、`web` 或 `executor`，缺省为 `app`。服务与网页包使用 `kind: "portable"`，组件分别为 `["hub"]`、`["input-terminal", "hub-controller"]` 和 `["execute-terminal", "executor-panel"]`。预览版可单独发布这些便携包。发布 APP 时，所声明平台仍需 APP 安装包。正式版覆盖五个系统的 APP 安装包。
+`distribution` 可为 `app`、`hub`、`web` 或 `executor`，缺省为 `app`。服务与网页包使用 `kind: "portable"`，组件分别为 `["hub"]`、`["input-terminal", "hub-controller", "message-connector"]` 和 `["execute-terminal", "executor-panel"]`。预览版可单独发布这些便携包。发布 APP 时，所声明平台仍需 APP 安装包。正式版覆盖五个系统的 APP 安装包。
 
 移动端的组件清单为 `input-terminal` 和 `hub-controller`。iOS 产物还需 `signed: true` 和 `installation`，后者描述签名所对应的分发及安装方式。架构、构建类型和签名声明必须与实际产物一致。
 
@@ -95,6 +109,12 @@ npm run release:prepare -- path/to/release.json
 - `SHA256SUMS` 提供发布附件的校验值。
 
 创建 GitHub Release 时采用生成的说明，并上传 manifest 中列出的全部安装包、附加包、`release-manifest.json` 与 `SHA256SUMS`。Tag 与所有平台产物对应同一版本源码。平台构建未完成时，预览版发布定义列出已完成的平台。
+
+## 执行端服务恢复
+
+Windows 执行端启用登录自启动后，同一任务登记还包含每分钟一次的恢复触发。健康服务通过任务的单实例规则和安装租约保持唯一实例。恢复启动继续核对原有的安装所有权、程序和配置绑定，以及执行清理状态。
+
+用户手动停止服务后，自动恢复在当前 Windows 登录会话内暂停。明确启动服务会解除暂停，新的 Windows 登录会话仍按登录自启动选择处理。暂停标记绑定系统启动身份和登录身份，保存在该安装的 `startup.json` 中。系统实际触发时间受任务计划程序和登录状态影响。
 
 ## 应用内更新
 

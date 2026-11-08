@@ -1,0 +1,22 @@
+{
+  "protocolVersion": 1,
+  "runtimeVersion": "0.1.2",
+  "codexVersion": "0.162.1",
+  "sourceCommit": "092d3acd6bec3e3a14bdc7e7a2810ab628ab759d",
+  "sourceArchiveSha256": "79c8ea8547e1dd9969f63ef6b76a4fb0d1a024ef36c0c627fbcd2ffb658d9312",
+  "mxcSource": {
+    "sourceCommit": "46cd65c262fa41d260060bd77d2fbf676610ab58",
+    "sourceArchiveSha256": "161e68f754234759a24a73967aa278ee08e54425066d67017423ff8d49fbb1fe"
+  },
+  "linuxResources": {
+    "x86_64-unknown-linux-musl": {
+      "packageVersion": "0.162.1-linux-x64",
+      "archiveURL": "https://registry.npmjs.org/@openai/codex/-/codex-0.162.1-linux-x64.tgz",
+      "integrity": "sha512-cjK2mdHIfEepZ1lQ1MX3aTQC+8ncIsvnacl/6vI2dIIcfP8/MrhTQ2+qRlkXFNDzJSj1d36quIszP+3/4CUJWQ==",
+      "archivePath": "package/vendor/x86_64-unknown-linux-musl/codex-resources/bwrap",
+      "sha256": "01fb705f067bd5365b63d8ad2323a61c8d007733ca5e649437e086f3fb9935d8",
+      "bytes": 529776
+    }
+  },
+  "supportedTargets": ["win32:x64", "darwin:arm64", "linux:x64"]
+}

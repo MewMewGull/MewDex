@@ -39,6 +39,7 @@ type Config struct {
 	// InstallationRoot is supplied by the trusted native host, never by a profile.
 	InstallationRoot string   `json:"-"`
 	PrivatePaths     []string `json:"-"`
+	DisableTray      bool     `json:"-"`
 	// ProfilePath is set by the local loader, never accepted from a profile.
 	ProfilePath      string             `json:"-"`
 	HostID           string             `json:"-"`

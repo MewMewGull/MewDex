@@ -44,6 +44,32 @@ export function conversationContext(session: Session, device?: Device) {
   };
 }
 
+export function workspaceConversationGroups(
+  devices: Device[],
+  sessions: Session[],
+) {
+  const hub = devices.find((device) => device.roles.includes("coordinator"));
+  const groups = (hub ? [hub] : devices).flatMap((device) =>
+    device.projects.map((project) => ({
+      key: `${device.id}:${project.id}`,
+      device,
+      projectId: project.id,
+      name: project.name,
+      category: project.category || t("项目"),
+      path: project.path,
+      sessions: sessions.filter(
+        (session) =>
+          session.deviceId === device.id && session.projectId === project.id,
+      ),
+    })),
+  );
+  const projects = new Set(groups.map((group) => group.key));
+  const recent = sessions.filter(
+    (session) => !projects.has(`${session.deviceId}:${session.projectId}`),
+  );
+  return { groups, recent };
+}
+
 export function conversationHubProject(devices: Device[], session: Session) {
   const hub = devices.find((device) => device.roles.includes("coordinator"));
   if (!hub) return undefined;

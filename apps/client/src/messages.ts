@@ -1,5 +1,6 @@
 import { t } from "./localization.ts";
-import type { Event, Input } from "@mewdex/sdk";
+import type { Event, ExecutionTarget, Input } from "@mewdex/sdk";
+import { executionTargetFrom } from "./executionTarget.ts";
 
 export interface Message {
   id: string;
@@ -8,7 +9,8 @@ export interface Message {
   text: string;
   status?: string;
   partial?: boolean;
-  toolKind?: "commandExecution" | "fileChange" | "mcpToolCall";
+  toolKind?: "commandExecution" | "fileChange" | "mcpToolCall" | "computerUse";
+  executionTarget?: ExecutionTarget;
   attachmentIds?: string[];
 }
 type Payload = Record<string, unknown>;
@@ -68,7 +70,8 @@ export function messagesFrom(events: Event[], sessionId: string): Message[] {
       } else if (
         type === "commandExecution" ||
         type === "fileChange" ||
-        type === "mcpToolCall"
+        type === "mcpToolCall" ||
+        type === "computerUse"
       ) {
         const message =
           items.get(id) ??
@@ -79,8 +82,20 @@ export function messagesFrom(events: Event[], sessionId: string): Message[] {
             item.tool ??
             (type === "fileChange" ? t("文件变更") : type),
         );
+        if (type === "computerUse") {
+          message.text = [
+            t("窗口控制"),
+            item.operation,
+            item.window,
+            item.error,
+          ]
+            .filter((value) => typeof value === "string" && value)
+            .join(" · ");
+        }
         message.status = String(item.status ?? "inProgress");
         message.toolKind = type;
+        message.executionTarget =
+          executionTargetFrom(item.executionTarget) ?? message.executionTarget;
       }
     } else if (event.kind === "engine.error" || event.kind === "queue.failed") {
       add({

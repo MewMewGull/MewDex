@@ -94,6 +94,13 @@ func (m *Manager) setup(ctx context.Context, setup *Setup) error {
 	}
 	enginePath := m.options.Engine
 	if setup.Executor || setup.Hub {
+		kind, kindErr := runtimefiles.EngineKind(m.options.Engine)
+		if kindErr != nil {
+			return kindErr
+		}
+		if setup.Hub && kind != "codex" {
+			return errors.New("a Hub requires its bundled model runtime")
+		}
 		enginePath, err = runtimefiles.Engine(m.options.Root, m.options.Engine, engine.CompatibleVersion)
 		if err != nil {
 			return err
@@ -102,6 +109,9 @@ func (m *Manager) setup(ctx context.Context, setup *Setup) error {
 	c := config.Config{DeviceID: protocol.ID(), Name: name, DataDir: filepath.Join(m.options.Root, "data"), Listen: listen, Hub: setup.Hub, Executor: setup.Executor, HubURL: setup.HubURL, Projects: projects,
 		AllowedOrigins: []string{"tauri://localhost", "http://tauri.localhost", "https://tauri.localhost", "http://127.0.0.1:1420", "http://localhost:1420"},
 		Engine:         config.Engine{Executable: enginePath, Home: filepath.Join(m.options.Root, "engine-home")}}
+	if c.Hub {
+		c.AllowedOrigins = append(c.AllowedOrigins, "http://127.0.0.1:47831", "http://localhost:47831")
+	}
 	if !c.Hub {
 		if err := config.ValidateURL(c.HubURL, false); err != nil {
 			return err

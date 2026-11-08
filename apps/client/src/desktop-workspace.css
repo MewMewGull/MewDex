@@ -52,6 +52,24 @@
   color: var(--text-muted);
   font-size: calc(10px * var(--ui-scale, 1));
 }
+@container settings-frame (max-width: 660px) {
+  .terminal-settings .settings-navigation-group {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    white-space: nowrap;
+    padding: 0 10px;
+  }
+}
+.recent-conversations {
+  margin-top: 18px;
+  padding-top: 12px;
+  border-top: 1px solid var(--panel-border);
+}
+.recent-conversations > h2 {
+  margin: 0 0 6px;
+  font-weight: 500;
+}
 .sidebar-device .device-picker-trigger {
   margin: 0;
   padding: 8px 9px;
@@ -677,6 +695,77 @@ button:disabled {
   }
 }
 
+/* Execution-node presence follows the selected project. */
+.executor-status {
+  margin: 0 12px;
+  padding: 8px 10px;
+  border: 1px solid var(--panel-border);
+  border-bottom: 0;
+  background: var(--panel-subtle);
+  font-size: calc(11px * var(--ui-scale, 1));
+}
+.executor-status-heading,
+.executor-status-node,
+.executor-status-presence {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.executor-status-heading {
+  justify-content: space-between;
+  color: var(--text-muted);
+}
+.executor-status ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.executor-status li {
+  flex: 1 1 160px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 6px 8px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+}
+.executor-status-node > svg,
+.executor-status-presence {
+  flex-shrink: 0;
+}
+.executor-status-name,
+.executor-status-path {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.executor-status-name {
+  flex: 1;
+  min-width: 0;
+}
+.executor-status-presence,
+.executor-status-path {
+  color: var(--text-muted);
+}
+.executor-status li[data-online="true"] .executor-status-presence {
+  color: var(--status-success-text);
+}
+.executor-status-path {
+  display: block;
+  margin-top: 3px;
+}
+.executor-status > p {
+  margin: 6px 0 0;
+}
+@media (max-width: 640px) {
+  .executor-status {
+    margin: 0;
+    border-radius: 10px 10px 0 0;
+  }
+}
+
 /* Policy and model controls share the composer toolbar. */
 .composer .composer-toolbar {
   display: flex;
@@ -1045,9 +1134,6 @@ button:disabled {
   flex: 1;
   min-width: 0;
 }
-.hub-network-summary {
-  cursor: default;
-}
 .project-create-dialog .project-name-field {
   display: flex;
   flex-direction: row;
@@ -1219,6 +1305,155 @@ button:disabled {
   min-width: 110px;
   margin: 0;
   color: var(--accent-contrast);
+}
+.computer-use-details {
+  display: grid;
+  grid-template-columns: minmax(90px, 130px) minmax(0, 1fr);
+  gap: 12px;
+  margin: 20px 0;
+}
+.computer-use-details dt {
+  color: var(--text-muted);
+}
+.computer-use-details dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+.computer-use-entry {
+  font-size: 11px;
+  color: var(--accent-text);
+  padding: 2px 5px;
+  border: 1px solid var(--panel-border);
+  border-radius: 4px;
+}
+.settings-dialog.project-harness-dialog {
+  display: flex;
+  flex-direction: column;
+  width: min(1000px, calc(100vw - 32px));
+  height: min(820px, 90dvh);
+  overflow: hidden;
+  padding: 24px;
+}
+.project-harness-dialog > p {
+  margin: 8px 0;
+}
+.project-harness-version,
+.project-harness-sections {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 8px 0;
+}
+.project-harness-version code {
+  color: var(--text-muted);
+}
+.project-harness-sections button,
+.project-harness-content button {
+  padding: 8px 10px;
+  border: 1px solid var(--panel-border);
+  border-radius: 7px;
+}
+.project-harness-dialog button[aria-pressed="true"] {
+  color: var(--accent-text);
+  background: var(--accent-surface);
+  border-color: var(--accent-border);
+}
+.project-harness-content {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  margin: 8px 0 0;
+  padding: 0;
+  border: 0;
+  overflow: auto;
+}
+.project-harness-content label {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+.project-harness-content input,
+.project-harness-content textarea,
+.project-harness-content select {
+  width: 100%;
+  min-width: 0;
+}
+.project-harness-content textarea {
+  resize: vertical;
+  line-height: 1.6;
+}
+.project-harness-assets,
+.project-harness-history {
+  display: grid;
+  grid-template-columns: minmax(140px, 210px) minmax(0, 1fr);
+  align-items: start;
+  gap: 20px;
+}
+.project-harness-content aside,
+.project-harness-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+.project-harness-content aside > button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.project-harness-content aside small {
+  color: var(--text-muted);
+}
+.project-script-arguments {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.project-script-arguments > div,
+.project-workflow-step {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 8px;
+}
+.project-script-arguments textarea {
+  min-height: 54px;
+  font-family: var(--font-mono, ui-monospace, monospace);
+}
+.project-harness-history pre {
+  padding: 14px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.project-harness-dialog .project-dialog-footer {
+  flex-wrap: wrap;
+  padding-top: 12px;
+}
+@media (max-width: 640px) {
+  .settings-dialog.project-harness-dialog {
+    padding: 16px;
+  }
+  .project-harness-assets,
+  .project-harness-history {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .project-harness-content aside {
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: 5px;
+  }
+  .project-harness-content aside > button {
+    flex-shrink: 0;
+    max-width: 200px;
+  }
 }
 .settings-dialog .local-device-actions > .primary {
   color: var(--accent-contrast);

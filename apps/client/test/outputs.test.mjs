@@ -17,6 +17,36 @@ const item = (id, command, extra = {}) => ({
   item: { id, type: "commandExecution", command, cwd: "D:\\work", ...extra },
 });
 
+test("command output keeps the owning machine and original permission snapshot", () => {
+  const target = {
+    deviceId: "node",
+    deviceName: "Build machine",
+    projectId: "project",
+    accessMode: "workspace-network",
+    workspace: "/work/project",
+  };
+  const commands = commandOutputsFrom(
+    [
+      event(
+        "start",
+        "engine.item/started",
+        item("job", "build", { executionTarget: target, status: "inProgress" }),
+      ),
+      event(
+        "end",
+        "engine.item/completed",
+        item("job", "build", { status: "completed", aggregatedOutput: "done" }),
+      ),
+    ],
+    "work",
+  );
+  assert.equal(commands.length, 1);
+  assert.equal(commands[0].executionTarget.deviceId, "node");
+  assert.equal(commands[0].executionTarget.deviceName, "Build machine");
+  assert.equal(commands[0].executionTarget.accessMode, "workspace-network");
+  assert.equal(commands[0].executionTarget.workspace, "/work/project");
+});
+
 test("command snapshots replace fragments and simultaneous commands keep their own output", () => {
   const events = [
     event(

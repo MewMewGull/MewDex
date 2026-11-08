@@ -5,14 +5,14 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>MewDex 执行端</title>
     <link rel="stylesheet" href="/panel.css" />
-    <script src="/panel.js" defer></script>
+    <script src="/panel.js" type="module"></script>
   </head>
   <body>
     <main>
       <header>
-        <span class="eyebrow">MewDex Executor</span>
-        <h1>执行端控制面板</h1>
-        <p>配置这台设备，连接 Hub，管理可执行的项目目录。</p>
+        <span class="eyebrow">MewDex</span>
+        <h1 id="heading">执行端控制面板</h1>
+        <p id="description">配置这台设备，连接 Hub，管理可执行的项目目录。</p>
       </header>
       <section>
         <h2>面板登录</h2>
@@ -25,7 +25,7 @@
               required /></label
           ><button>连接面板</button>
         </form>
-        <p>密钥保存在启动命令显示的 panel-token 文件中。</p>
+        <p>从托盘打开时自动连接。本机面板密钥保存在组件配置目录的 panel-token 文件中。</p>
       </section>
       <p id="feedback" role="status" aria-live="polite"></p>
       <section id="device" hidden>
@@ -40,11 +40,47 @@
         </div>
         <p>执行端主动通过 WebSocket 连接 Hub。运行日志保存在设备数据目录。</p>
       </section>
+      <section id="computer-section" hidden>
+        <div class="heading">
+          <h2>Computer Use</h2>
+          <button id="computer-refresh" type="button">刷新窗口控制</button>
+        </div>
+        <p>
+          由 Hub
+          对话申请控制，在本机选择并授权一个窗口。授权到期、断线或按下物理
+          Escape 后结束控制。
+        </p>
+        <dl id="computer-status"></dl>
+        <button id="computer-stop" type="button" disabled>停止窗口控制</button>
+        <form id="computer-grant" hidden>
+          <button id="computer-windows" type="button">读取本机窗口列表</button>
+          <label
+            >授权窗口<select id="computer-window" required>
+              <option value="">请选择窗口</option>
+            </select></label
+          >
+          <label
+            >授权时长<select id="computer-duration">
+              <option value="60">1 分钟</option>
+              <option value="300" selected>5 分钟</option>
+              <option value="900">15 分钟</option>
+            </select></label
+          >
+          <label class="checkbox"
+            ><input
+              id="computer-consent"
+              type="checkbox"
+              required
+            />我允许此对话读取所选窗口图像并发送键鼠输入。涉及账号、外发或删除等操作，仍须在任务中单独确认。</label
+          >
+          <button id="computer-approve">授权所选窗口</button>
+        </form>
+      </section>
       <section id="setup-section" hidden>
-        <h2>连接 Hub</h2>
+        <h2 id="setup-heading">连接 Hub</h2>
         <form id="setup">
           <label>设备名称<input id="name" required /></label
-          ><label
+          ><div id="executor-setup"><label
             >Hub 地址<input
               id="hub"
               type="url"
@@ -57,7 +93,12 @@
               autocomplete="off"
               required
           /></label>
-          <p>在输入端的设备配对设置中生成执行端配对码。</p>
+          <p>在输入端的设备配对设置中生成执行端配对码。</p></div>
+          <div id="hub-setup" hidden>
+            <label>管理员账号<input id="account" autocomplete="username" /></label>
+            <label>管理员密码<input id="password" type="password" autocomplete="new-password" minlength="8" /></label>
+            <p>创建后在输入端登录此 Hub，再连接 GPT 账号和配置项目。</p>
+          </div>
           <button>保存并配对</button>
         </form>
       </section>

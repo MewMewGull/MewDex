@@ -19,14 +19,30 @@ type HubProjectRequest struct {
 // Terminal requests are issued by the Hub over a paired control connection.
 // Input adapters cannot submit these operations directly.
 type TerminalRequest struct {
-	WorkspaceIDs []string `json:"workspaceIds,omitempty"`
-	OwnerID      string   `json:"ownerId"`
-	JobID        string   `json:"jobId,omitempty"`
-	Command      []string `json:"command,omitempty"`
-	Cwd          string   `json:"cwd,omitempty"`
-	AccessMode   string   `json:"accessMode,omitempty"`
-	TimeoutMS    int64    `json:"timeoutMs,omitempty"`
-	YieldMS      int64    `json:"yieldMs,omitempty"`
+	WorkspaceIDs    []string `json:"workspaceIds,omitempty"`
+	OwnerID         string   `json:"ownerId"`
+	JobID           string   `json:"jobId,omitempty"`
+	Command         []string `json:"command,omitempty"`
+	Cwd             string   `json:"cwd,omitempty"`
+	AccessMode      string   `json:"accessMode,omitempty"`
+	TimeoutMS       int64    `json:"timeoutMs,omitempty"`
+	YieldMS         int64    `json:"yieldMs,omitempty"`
+	HarnessVersion  string   `json:"harnessVersion,omitempty"`
+	HarnessRevision int64    `json:"harnessRevision,omitempty"`
+}
+
+// ExecutionTarget captures the machine and workspace at dispatch time so
+// historical output remains attributable after a device or project is renamed.
+type ExecutionTarget struct {
+	DeviceID        string `json:"deviceId"`
+	DeviceName      string `json:"deviceName,omitempty"`
+	Platform        string `json:"platform,omitempty"`
+	ProjectID       string `json:"projectId"`
+	ProjectName     string `json:"projectName,omitempty"`
+	Workspace       string `json:"workspace,omitempty"`
+	AccessMode      string `json:"accessMode,omitempty"`
+	HarnessVersion  string `json:"harnessVersion,omitempty"`
+	HarnessRevision int64  `json:"harnessRevision,omitempty"`
 }
 
 type TerminalJob struct {

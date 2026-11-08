@@ -553,8 +553,8 @@ export function DeviceDataPanel({
               "原配置和数据目录保留。旧网络授权失效，需要重新配对；任务队列保持冻结。",
             )}
           </p>
-          {plan.requiresModelLogin && (
-            <p className="muted">{t("模型账号需在恢复后的执行端重新登录。")}</p>
+          {plan.requiresModelLogin && plan.hub && (
+            <p className="muted">{t("模型账号需在恢复后的 Hub 重新登录。")}</p>
           )}
           {plan.applied ? (
             <section

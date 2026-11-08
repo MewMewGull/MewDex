@@ -79,6 +79,10 @@ def package_payload(source, stage, report):
         "docs/hub-startup-20261102.md",
         "docs/dependency-licenses.json",
         "docs/licensing.md",
+        "docs/evaluations.md",
+        "docs/evaluations/core.example.json",
+        "docs/evaluations/ordered.example.json",
+        "docs/linux-sandbox.md",
         "third_party/hermes-agent/LICENSE",
         "third_party/hermes-agent/README.md",
         "third_party/tauri-plugin-notification/LICENSE_APACHE-2.0",
@@ -114,7 +118,7 @@ def package_payload(source, stage, report):
     (stage / "START-HERE.txt").write_text(
         "MewDex Windows x64 Debug 开发测试包\n\n"
         "解压后启动 mewdex-client.exe。\n"
-        "APP 是输入终端，连接独立部署的 Hub。\n"
+        "APP 与网页版可任选其一，均为连接独立 Hub 的输入终端。\n"
         "QQ、微信和飞书由本 APP 的消息连接器接入，使用时保持 APP 运行。\n"
         "在设置中的消息渠道选择本 APP，保存平台凭据、允许用户和 Hub 项目。\n"
         "Hub、网页输入端和执行端分别使用独立发布包部署。\n"

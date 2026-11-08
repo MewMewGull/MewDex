@@ -19,6 +19,7 @@ import (
 
 	"mewdex/internal/childprocess"
 	"mewdex/internal/config"
+	"mewdex/internal/protocol"
 )
 
 type rpcMessage struct {
@@ -92,16 +93,11 @@ func StartWithOptions(ctx context.Context, c config.Engine, options StartOptions
 	if err != nil {
 		return nil, err
 	}
-	versionCtx, versionCancel := context.WithTimeout(ctx, 10*time.Second)
-	versionArgs := append(append([]string{}, args...), "--version")
-	versionCommand := exec.CommandContext(versionCtx, exe, versionArgs...)
-	versionCommand.Env = independentEngineEnvironment(os.Environ())
-	versionOutput, versionErr := childprocess.OutputContext(versionCtx, versionCommand, 64<<10)
-	versionCancel()
+	version, versionErr := executableVersion(ctx, exe, args)
 	if versionErr != nil {
 		return nil, errors.New("cannot determine Codex engine version")
 	}
-	if strings.TrimSpace(string(versionOutput)) != "codex-cli "+CompatibleVersion {
+	if version != "codex-cli "+CompatibleVersion {
 		return nil, fmt.Errorf("this adapter requires Codex %s; configure a project-local engine without replacing the system installation", CompatibleVersion)
 	}
 	if runtime.GOOS == "windows" {
@@ -279,7 +275,10 @@ func (e *Codex) Reject(ctx context.Context, id json.RawMessage, message string) 
 	}
 }
 func (e *Codex) Notifications() <-chan Notification { return e.notifications }
-func (e *Codex) Done() <-chan struct{}              { return e.done }
+func (e *Codex) ModelRuntime() protocol.ModelRuntime {
+	return protocol.ModelRuntime{Adapter: "codex-app-server", Version: CompatibleVersion, Transport: "jsonrpc-stdio"}
+}
+func (e *Codex) Done() <-chan struct{} { return e.done }
 func (e *Codex) read(r io.ReadCloser) {
 	defer r.Close()
 	defer close(e.done)

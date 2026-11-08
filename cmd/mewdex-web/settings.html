@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>MewDex 网页输入端</title>
+  <script src="/__mewdex/settings.js" defer></script>
+  <style>
+    :root { color-scheme: dark light; font: 16px/1.6 system-ui, sans-serif; }
+    body { margin: 8vh auto; padding: 24px; max-width: 640px; }
+    label, input { display: block; width: 100%; box-sizing: border-box; }
+    input, button { padding: 12px; border-radius: 8px; border: 1px solid #8693a3; font: inherit; }
+    button { cursor: pointer; margin-top: 20px; }
+    p { color: #8895a6; }
+    #message { white-space: pre-wrap; color: #bc8dcd; }
+  </style>
+</head>
+<body>
+  <h1>MewDex 网页输入端</h1>
+  <p>填写负责账号、项目和调度的 Hub 地址，保存后进入工作台。</p>
+  <form id="settings">
+    <label>Hub 地址<input id="hub" type="url" placeholder="https://hub.example.com" required autocomplete="url"></label>
+    <button>保存并打开工作台</button>
+  </form>
+  <p id="message" role="status" aria-live="polite"></p>
+  <p>服务运行时，托盘会显示“网页输入端”。关闭浏览器后，消息渠道连接会继续运行。托盘菜单可管理开机自启动和退出服务。</p>
+</body>
+</html>

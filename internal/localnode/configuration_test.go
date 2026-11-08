@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
 	"sync/atomic"
 	"testing"
 
@@ -75,6 +76,11 @@ func TestFirstHubSetupCreatesMewDexAccountWithoutSavingPasswordInProfile(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
+	for _, origin := range []string{"http://127.0.0.1:47831", "http://localhost:47831"} {
+		if !slices.Contains(c.AllowedOrigins, origin) {
+			t.Fatal("new Hub is missing the local web input origin", origin)
+		}
+	}
 	s, err := store.Open(filepath.Join(c.DataDir, "hub.db"))
 	if err != nil {
 		t.Fatal(err)
@@ -105,6 +111,30 @@ func fixtureEngine(t *testing.T, m *Manager) {
 		t.Fatal(err)
 	}
 	m.options.Engine = filepath.Join(root, entry)
+}
+
+func TestHubSetupRejectsExecutionOnlySandbox(t *testing.T) {
+	m := testManager(t)
+	manifestPath := filepath.Join(filepath.Dir(filepath.Dir(m.options.Engine)), "mewdex-engine.json")
+	raw, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var manifest runtimefiles.Manifest
+	if err = json.Unmarshal(raw, &manifest); err != nil {
+		t.Fatal(err)
+	}
+	manifest.Kind, manifest.RuntimeVersion = "sandbox", engine.NativeSandboxVersion
+	if err = replaceJSON(manifestPath, manifest); err != nil {
+		t.Fatal(err)
+	}
+	_, err = m.Handle(context.Background(), Request{Operation: "setup", Setup: &Setup{Hub: true, Listen: "127.0.0.1:0"}})
+	if err == nil {
+		t.Fatal("an execution-only runtime was accepted for Hub model sessions")
+	}
+	if _, err = os.Stat(m.profile()); !os.IsNotExist(err) {
+		t.Fatal("rejected runtime created a Hub configuration", err)
+	}
 }
 
 func TestRemoteSetupUsesHubWithoutAForwardingGrant(t *testing.T) {

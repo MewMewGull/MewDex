@@ -11,6 +11,15 @@ import (
 )
 
 func (h *Hub) projectsAPI(w http.ResponseWriter, r *http.Request) {
+	parts := strings.Split(strings.TrimPrefix(r.URL.Path, "/v1/projects/"), "/")
+	if len(parts) == 2 && parts[1] == "computer" {
+		h.computerAPI(w, r, parts[0])
+		return
+	}
+	if len(parts) >= 2 && parts[1] == "harness" {
+		h.projectHarnessAPI(w, r, parts)
+		return
+	}
 	if identity(r).Role != "admin" {
 		problem(w, 403, errors.New("只有管理员可以管理 Hub 项目"))
 		return

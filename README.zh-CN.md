@@ -6,9 +6,9 @@
 
 [English](README.md) | **简体中文**
 
-MewDex 分别发布 APP、网页输入端、Hub 和执行端。APP 与网页端共用输入工作台、对话、项目和网络管理功能。桌面 APP 连接 QQ、微信和飞书，将收到的消息处理后提交给 Hub。Hub 负责模型、会话和调度，执行端主动通过 WebSocket 连接 Hub。
+MewDex 分别发布 APP、网页输入端、Hub 和执行端。APP 与网页端共用输入工作台、对话、项目和网络管理功能。桌面 APP 或独立网页输入服务连接 QQ、微信和飞书，将收到的消息处理后提交给 Hub。Hub 负责模型、会话和调度，执行端主动通过 WebSocket 连接 Hub。
 
-消息渠道在 **设置 → 消息渠道** 中选择负责连接的在线 APP，并配置平台凭据及允许用户。使用渠道时需保持该 APP 运行。连接方式见 [消息渠道接入](docs/messaging.md)。
+消息渠道在 **设置 → 消息渠道** 中选择负责连接的在线输入端，并配置平台凭据及允许用户。使用渠道时需保持对应 APP 或网页输入服务运行。连接方式见 [消息渠道接入](docs/messaging.md)。
 
 ## 获取源码与许可
 
@@ -26,11 +26,11 @@ MewDex 自有代码采用 [Apache License 2.0](LICENSE)。第三方代码、依�
 | 产物 | 内容 | Windows x64 包名 |
 | --- | --- | --- |
 | APP | 输入终端、网络管理界面、桌面消息连接器 | `MewDex-Windows-x64` |
-| 网页输入端 | 与 APP 共用的输入界面、独立网页服务器 | `MewDex-Web-Windows-x64` |
+| 网页输入端 | 与 APP 共用的输入界面、独立网页服务器、消息连接器 | `MewDex-Web-Windows-x64` |
 | Hub | 中央 API、模型引擎、会话和项目调度 | `MewDex-Hub-Windows-x64` |
 | 执行端 | WebSocket 节点、本地沙箱、独立网页控制面板 | `MewDex-Executor-Windows-x64` |
 
-APP 使用 Tauri 界面，与网页输入端共用 React 和 SDK。桌面 APP 包中包含 `mewdex-client.exe` 和 `mewdex-input-bridge.exe`。Hub 与执行端分别携带完整 `engine/` 目录。模型引擎版本以 [引擎锁定文件](engine.lock.json) 为准，组件清单见 `mewdex.product.json`。
+APP 使用 Tauri 界面，与网页输入端共用 React 和 SDK。桌面 APP 包中包含 `mewdex-client.exe` 和 `mewdex-input-bridge.exe`。Hub 的模型引擎位于 `engine/`。Windows x64、macOS ARM64 和 Linux x64 执行端使用独立的 `sandbox/` 运行时。Windows 复用固定版本的 Codex 沙箱模块，macOS 使用固定版本的 MXC SDK 与 Seatbelt，Linux 使用固定版本的 Codex Linux 沙箱模块和随包校验的 Bubblewrap。其他执行端目标目前使用完整 `engine/` 运行时。模型引擎版本以 `engine.lock.json` 为准，独立沙箱版本见 `tools/sandbox.lock.json`，组件清单见 `mewdex.product.json`。
 
 ### 构建与导出
 
@@ -41,6 +41,8 @@ npm run package:services
 ```
 
 Windows 输出位于 `dist/windows`。APP 使用 `MewDex-Windows-x64` 目录、同名 ZIP 和安装程序。`package:hub`、`package:web`、`package:executor` 可单独生成服务包，支持 `--target=linux:x64` 等目标。完整流程见 [发布与安装包](docs/releases.md)。
+
+Windows 和 macOS 可双击服务程序或对应 `.app` 启动器打开面板。托盘使用三种图标：输入端为蓝色对话气泡，Hub 为绿色连接节点，执行端为橙色终端。托盘提供状态、开机自启动设置与退出入口。
 
 ### 启动 Hub
 
@@ -60,6 +62,8 @@ Windows 输出位于 `dist/windows`。APP 使用 `MewDex-Windows-x64` 目录、�
 
 打开 `http://127.0.0.1:47832`，使用 `.local/executor/panel-token` 登录。填写 Hub 地址与从输入端生成的执行端配对码，配置本机目录，启动执行服务。执行端使用自己的配置、身份和数据库，通过 WebSocket 连接 Hub。面板只监听本机地址，可通过 SSH 转发访问远程设备的面板。
 
+Linux 主机启用 AppArmor 用户命名空间限制时，普通服务账号需要管理员完成沙箱准备。执行包提供只读预览与本机沙箱诊断入口，步骤见 [Linux 沙箱部署](docs/linux-sandbox.md)。
+
 ### 启动网页输入端
 
 ```powershell
@@ -68,11 +72,17 @@ Windows 输出位于 `dist/windows`。APP 使用 `MewDex-Windows-x64` 目录、�
 
 网页服务器与 `ui/` 一同部署。它将 `/v1/` 和 `/health` 转发给指定 Hub，包括 WebSocket 升级，其余请求读取独立网页资源。将网页公开 Origin 加入 Hub 的 `allowedOrigins` 后，从网页服务地址登录。
 
-同一台电脑可分别部署 Hub 与执行端，两者使用独立目录和单角色配置。旧版合并配置与数据库保留在原处。旧 Hub 中的消息渠道需要在选定 APP 上重新配置，渠道凭据和收发状态由该 APP 保存。
+同一台电脑可分别部署 Hub 与执行端，两者使用独立目录和单角色配置。旧版合并配置与数据库保留在原处。旧 Hub 中的消息渠道需要在选定输入端上重新配置，渠道凭据和收发状态由该输入端保存。
 
 ### Hub 项目与连接
 
 一个项目包含名称、分类和项目目录组。目录引用由执行设备编号和该设备上的持久目录绑定组成。同一项目可以包含一台机器上的多个目录，也可以包含多台机器上的目录。项目元数据保存在 Hub 数据库。
+
+项目设置可管理指令、Skills、绑定到具体机器目录的脚本，以及 Agent 按顺序执行的工作流。Hub 保存版本历史，每个回合固定使用启动时的配置，工具结果显示对应版本。工作流目前采用模型驱动的执行原型。
+
+Computer Use 原型通过 Hub 新建对话申请目标执行端的窗口控制，由执行端本机面板选择窗口并限时授权。输入端显示授权、状态及停止入口。当前原生驱动面向 Windows 64 位交互桌面，真实窗口输入及物理 Escape 仍待验收，macOS 和 Linux 驱动待实现。
+
+Hub 发布包提供可恢复的任务评测命令，保存模型运行时、项目配置与工具调用证据，核对明确的任务约束，并导出可审阅报告供比较改动前后的结果。使用方式见 [任务评测](docs/evaluations.md)。
 
 | 组件 | 职责 |
 | --- | --- |
@@ -104,6 +114,7 @@ Windows 输出位于 `dist/windows`。APP 使用 `MewDex-Windows-x64` 目录、�
 ## 技术与边界
 
 - Go 负责执行端服务、Hub 调度和 Codex stdio 适配。
+- Rust 负责 Tauri 原生外壳和独立沙箱运行时，沙箱通过操作系统执行项目目录权限。
 - React / TypeScript：桌面、手机与网页共享的输入端及独立通信 SDK。
 - Tauri 2：平台外壳，不承担网络路由或任务执行业务。
 - SQLite：配置以外的持久状态；附件独立存储。

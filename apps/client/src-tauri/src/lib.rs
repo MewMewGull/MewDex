@@ -23,8 +23,8 @@ mod input_channels;
 mod desktop_notifications;
 #[cfg(desktop)]
 mod desktop_window;
-#[cfg(target_os = "windows")]
-mod desktop_window_windows;
+#[cfg(any(target_os = "windows", target_os = "macos"))]
+mod desktop_window_tray;
 #[cfg(debug_assertions)]
 mod diagnostics;
 
@@ -40,7 +40,7 @@ fn input_capabilities(app: tauri::AppHandle) -> serde_json::Value {
     value["notifications"] = serde_json::json!(true);
     value["notificationActions"] = serde_json::json!(true);
     value["desktopNotifications"] = serde_json::json!(cfg!(target_os = "windows"));
-    value["desktopPreferences"] = serde_json::json!(cfg!(target_os = "windows"));
+    value["desktopPreferences"] = serde_json::json!(cfg!(any(target_os = "windows", target_os = "macos")));
     value["attachmentSave"] = serde_json::json!(cfg!(desktop));
     value["projectDirectory"] = serde_json::json!(false);
     value["messagingBridge"] = serde_json::json!(cfg!(desktop));
@@ -55,10 +55,13 @@ fn input_capabilities(app: tauri::AppHandle) -> serde_json::Value {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default();
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     let builder = builder.plugin(tauri_plugin_single_instance::init(|app, args, _cwd| {
+        #[cfg(target_os = "windows")]
         notification_windows::activate(app, args);
-        desktop_window_windows::show(app);
+        #[cfg(not(target_os = "windows"))]
+        let _ = args;
+        desktop_window_tray::show(app);
     }));
     #[cfg(target_os = "windows")]
     let builder = builder.plugin(
@@ -116,8 +119,8 @@ pub fn run() {
         .setup(|app| {
             #[cfg(desktop)]
             app.manage(input_channels::Channels::default());
-            #[cfg(target_os = "windows")]
-            desktop_window_windows::install(app)?;
+            #[cfg(any(target_os = "windows", target_os = "macos"))]
+            desktop_window_tray::install(app)?;
             notification_actions::install(app.handle());
             #[cfg(target_os = "windows")]
             notification_windows::activate(app.handle(), std::env::args());
@@ -128,8 +131,8 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            #[cfg(target_os = "windows")]
-            desktop_window_windows::window_event(window, event);
+            #[cfg(any(target_os = "windows", target_os = "macos"))]
+            desktop_window_tray::window_event(window, event);
             if matches!(event, tauri::WindowEvent::Focused(true)) {
                 let _ = window.emit("mewdex://resume", ());
             }

@@ -10,3 +10,17 @@ func EngineVersion(source string) (string, error) {
 	defer set.close()
 	return set.manifest.Version, nil
 }
+
+// EngineKind identifies an integrity-checked runtime before selecting its role.
+// Older manifests describe the complete Codex runtime implicitly.
+func EngineKind(source string) (string, error) {
+	set, err := openEngine(source, "")
+	if err != nil {
+		return "", err
+	}
+	defer set.close()
+	if set.manifest.Kind == "" {
+		return "codex", nil
+	}
+	return set.manifest.Kind, nil
+}

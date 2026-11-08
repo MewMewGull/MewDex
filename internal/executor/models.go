@@ -47,6 +47,10 @@ func (x *Executor) modelList(ctx context.Context, c protocol.Command) protocol.C
 		return commandFailure(err)
 	}
 	page := protocol.ModelPage{Models: []protocol.ModelOption{}, NextCursor: response.NextCursor}
+	if adapter, ok := x.engine.(interface{ ModelRuntime() protocol.ModelRuntime }); ok {
+		runtime := adapter.ModelRuntime()
+		page.Runtime = &runtime
+	}
 	for _, model := range response.Data {
 		if !model.Hidden {
 			page.Models = append(page.Models, model.ModelOption)

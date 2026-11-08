@@ -24,6 +24,15 @@ const remoteCapabilities: InputCapabilities = {
   enginePresent: false,
 };
 
+export function hasHostedChannels(): boolean {
+  return (
+    !isTauri() &&
+    document
+      .querySelector('meta[name="mewdex-input-channels"]')
+      ?.getAttribute("content") === "hosted"
+  );
+}
+
 export const localServiceStates: Record<string, string> = {
   get unconfigured() {
     return t("尚未配置");
@@ -55,7 +64,10 @@ let capabilities: Promise<InputCapabilities> | undefined;
 export function inputCapabilities(): Promise<InputCapabilities> {
   return (capabilities ??= isTauri()
     ? invoke<InputCapabilities>("input_capabilities")
-    : Promise.resolve(remoteCapabilities));
+    : Promise.resolve({
+        ...remoteCapabilities,
+        messagingBridge: hasHostedChannels(),
+      }));
 }
 
 export async function deviceRequest(request: Request): Promise<Result> {

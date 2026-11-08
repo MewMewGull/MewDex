@@ -1,9 +1,29 @@
 const byID = (id) => document.getElementById(id);
 let snapshot;
-let token = sessionStorage.getItem("mewdex.executor-panel") || "";
+let busy = false;
+let refreshing = false;
+let requestVersion = 0;
+let token = location.hash.slice(1) || sessionStorage.getItem("mewdex.executor-panel") || "";
+if (location.hash) history.replaceState(null, "", location.pathname);
+const panel = await fetch("/api/panel").then((response) => response.json());
+const isHub = panel.role === "hub";
+if (isHub) {
+  document.title = "MewDex Hub";
+  byID("heading").textContent = "Hub 控制面板";
+  byID("description").textContent = "管理 Hub 服务。GPT 账号与项目由 Hub 提供给输入端。";
+  byID("start").textContent = "启动 Hub";
+  byID("stop").textContent = "停止 Hub";
+  byID("setup-heading").textContent = "创建 Hub";
+}
+byID("executor-setup").hidden = isHub;
+byID("hub-setup").hidden = !isHub;
+for (const field of byID("executor-setup").querySelectorAll("input")) field.required = !isHub;
+for (const field of byID("hub-setup").querySelectorAll("input")) field.required = isHub;
+let computer;
 byID("token").value = token;
 
 async function request(operation, extra = {}) {
+  const version = ++requestVersion;
   const response = await fetch("/api/device", {
     method: "POST",
     headers: {
@@ -20,26 +40,151 @@ async function request(operation, extra = {}) {
     throw new Error(await response.text());
   const body = await response.json();
   if (!response.ok || !body.ok) throw new Error(body.error || "操作失败");
-  snapshot = body.result.snapshot;
-  render();
+  if (version === requestVersion) {
+    snapshot = body.result.snapshot;
+    if (body.result.computer) computer = body.result.computer;
+    render();
+    renderComputer();
+  }
   return body.result;
 }
+
+function renderComputer() {
+  byID("computer-section").hidden = isHub || !snapshot?.ready;
+  const value = computer?.status;
+  const session = value?.session;
+  const state =
+    {
+      pending: "等待本机选择窗口并授权",
+      approved: "已授权，等待观察",
+      ready: "窗口控制已就绪",
+      stopping: "正在停止",
+      stopped: "已停止",
+      expired: "已到期",
+      unknown: "结果尚未确认，需要核对并停止",
+    }[session?.state] || "尚无窗口控制请求";
+  const rows = [
+    [
+      "可用性",
+      value?.supported ? "Windows 原生窗口驱动" : value?.reason || "等待刷新",
+    ],
+    ["控制状态", state],
+  ];
+  if (session) {
+    rows.push(
+      ["请求原因", session.reason],
+      ["所属对话", session.ownerId],
+      ["窗口", session.window?.title || "尚未选择"],
+      ["到期时间", new Date(session.expiresAt).toLocaleString()],
+    );
+    if (session.lastActionState)
+      rows.push(["最近操作", session.lastActionState]);
+    if (session.error) rows.push(["详情", session.error]);
+  }
+  byID("computer-status").replaceChildren(
+    ...rows.flatMap(([name, value]) => {
+      const term = document.createElement("dt");
+      term.textContent = name;
+      const detail = document.createElement("dd");
+      detail.textContent = value;
+      return [term, detail];
+    }),
+  );
+  byID("computer-grant").hidden =
+    !value?.supported || session?.state !== "pending";
+  byID("computer-stop").disabled =
+    !session || ["stopped", "expired", "stopping"].includes(session.state);
+  byID("computer-approve").disabled =
+    !value?.supported || session?.state !== "pending";
+}
+
+async function refreshComputer() {
+  if (!isHub && snapshot?.ready) await request("computer.status");
+}
+
+byID("computer-refresh").addEventListener(
+  "click",
+  () => void perform(refreshComputer),
+);
+byID("computer-windows").addEventListener(
+  "click",
+  () =>
+    void perform(async () => {
+      const result = await request("computer.windows");
+      const placeholder = document.createElement("option");
+      placeholder.value = "";
+      placeholder.textContent = "请选择窗口";
+      const options = (result.computer?.windows || []).map((window) => {
+        const option = document.createElement("option");
+        option.value = window.id;
+        option.textContent = `${window.title} · PID ${window.processId}`;
+        return option;
+      });
+      byID("computer-window").replaceChildren(placeholder, ...options);
+      byID("computer-consent").checked = false;
+    }),
+);
+byID("computer-grant").addEventListener("submit", (event) => {
+  event.preventDefault();
+  const session = computer?.status.session;
+  if (!session || !byID("computer-consent").checked) return;
+  void perform(() =>
+    request("computer.approve", {
+      computer: {
+        sessionId: session.id,
+        expectedRevision: session.revision,
+        windowId: byID("computer-window").value,
+        durationSeconds: Number(byID("computer-duration").value),
+      },
+    }),
+  );
+});
+byID("computer-stop").addEventListener("click", () => {
+  const session = computer?.status.session;
+  if (session)
+    void perform(() =>
+      request("computer.stop", { computer: { sessionId: session.id } }),
+    );
+});
 
 function render() {
   byID("device").hidden = false;
   byID("setup-section").hidden = snapshot.configured;
-  byID("projects-section").hidden = !snapshot.configured;
-  byID("pairing-section").hidden = !snapshot.configured;
+  byID("projects-section").hidden = isHub || !snapshot.configured;
+  byID("pairing-section").hidden = isHub || !snapshot.configured;
+  const connection = snapshot.hubConnection;
+  let connectionLabel = snapshot.ready
+    ? "等待连接 Hub"
+    : snapshot.state === "stopped"
+      ? "执行服务已停止"
+      : "等待执行服务就绪";
+  if (snapshot.ready && connection) {
+    connectionLabel =
+      {
+        connected: "已连接",
+        connecting: "正在连接",
+        reconnecting: "连接中断，正在自动重连",
+        disconnected: "连接中断，正在自动重连",
+        "pairing-required": "配对凭据失效，请停止执行端后重新配对",
+      }[connection.state] || connection.state;
+    if (connection.retryAt && connection.state !== "connected") {
+      connectionLabel += ` · 下次尝试 ${new Date(connection.retryAt).toLocaleTimeString()}`;
+    }
+  }
   const values = [
     ["设备", snapshot.name || "尚未配置"],
     ["状态", snapshot.state],
-    ["Hub", snapshot.hubUrl || "尚未连接"],
+    ["Hub", isHub ? "本机 Hub" : snapshot.hubUrl || "尚未连接"],
+    ["连接状态", isHub ? (snapshot.ready ? "Hub 已就绪" : "等待启动") : connectionLabel],
     ["设备编号", snapshot.deviceId || "—"],
     [
       "连接与服务",
       snapshot.message || (snapshot.ready ? "执行服务已就绪" : "等待启动"),
     ],
   ];
+  if (snapshot.ready && connection?.error) {
+    values.push(["连接详情", connection.error]);
+  }
   byID("status").replaceChildren(
     ...values.flatMap(([name, value]) => {
       const term = document.createElement("dt");
@@ -57,6 +202,7 @@ function render() {
 }
 
 async function perform(action) {
+  busy = true;
   byID("feedback").className = "";
   byID("feedback").textContent = "正在处理…";
   document.querySelectorAll("button").forEach((button) => {
@@ -69,10 +215,12 @@ async function perform(action) {
     byID("feedback").textContent = error.message;
     byID("feedback").className = "error";
   } finally {
+    busy = false;
     document.querySelectorAll("button").forEach((button) => {
       button.disabled = false;
     });
     if (snapshot) render();
+    renderComputer();
   }
 }
 
@@ -81,6 +229,7 @@ byID("login").addEventListener("submit", (event) => {
   token = byID("token").value.trim();
   void perform(async () => {
     await request("status");
+    await refreshComputer();
     sessionStorage.setItem("mewdex.executor-panel", token);
     byID("paths").value = (snapshot.projects || [])
       .map((project) => project.path)
@@ -97,10 +246,10 @@ byID("start").addEventListener(
 );
 byID("stop").addEventListener(
   "click",
-  () =>
-    void perform(() =>
-      request("stop", { expectedInstanceId: snapshot.instanceId }),
-    ),
+  () => {
+    if (confirm("停止服务将中断此组件进行中的任务。是否继续？"))
+      void perform(() => request("stop", { expectedInstanceId: snapshot.instanceId }));
+  },
 );
 byID("setup").addEventListener("submit", (event) => {
   event.preventDefault();
@@ -108,15 +257,17 @@ byID("setup").addEventListener("submit", (event) => {
     await request("setup", {
       setup: {
         name: byID("name").value.trim(),
-        hub: false,
-        executor: true,
+        hub: isHub,
+        executor: !isHub,
         gateway: false,
-        hubUrl: byID("hub").value.trim(),
-        invitation: byID("invitation").value.trim(),
+        hubUrl: isHub ? "" : byID("hub").value.trim(),
+        invitation: isHub ? "" : byID("invitation").value.trim(),
+        account: isHub ? { username: byID("account").value.trim(), password: byID("password").value } : undefined,
         projects: [],
       },
     });
     byID("invitation").value = "";
+    byID("password").value = "";
   });
 });
 byID("projects").addEventListener("submit", (event) => {
@@ -152,3 +303,25 @@ byID("pairing").addEventListener("submit", (event) => {
   });
 });
 if (token) byID("login").requestSubmit();
+setInterval(() => {
+  if (
+    token &&
+    snapshot &&
+    !busy &&
+    !refreshing &&
+    document.visibilityState !== "hidden"
+  ) {
+    refreshing = true;
+    void request("status")
+      .then(refreshComputer)
+      .catch((error) => {
+        if (!busy) {
+          byID("feedback").textContent = error.message;
+          byID("feedback").className = "error";
+        }
+      })
+      .finally(() => {
+        refreshing = false;
+      });
+  }
+}, 5000);

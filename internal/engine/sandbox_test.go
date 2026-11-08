@@ -31,7 +31,7 @@ func TestStandaloneSandboxNeedsNoModelAccount(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	profile, err := executionscope.Build(executionscope.Spec{DeviceID: "model-free-node", ProjectID: "project", EngineVersion: CompatibleVersion, Workspace: root, Private: environment.Private, ReadOnly: environment.RuntimeReadOnly})
+	profile, err := executionscope.Build(executionscope.Spec{DeviceID: "model-free-node", ProjectID: "project", EngineVersion: sandbox.Version(), Workspace: root, Private: environment.Private, ReadOnly: environment.RuntimeReadOnly})
 	if err != nil {
 		t.Fatal(err)
 	}

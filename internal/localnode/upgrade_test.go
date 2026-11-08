@@ -169,6 +169,82 @@ func TestUpgradePreservesOriginalStateAndCurrentAuthorization(t *testing.T) {
 	}
 }
 
+func TestExistingCLIProfileUpgradesInPlaceFromASharedBareRuntime(t *testing.T) {
+	m, c, _ := upgradeFixture(t)
+	defaultProfile, err := os.ReadFile(m.profile())
+	if err != nil {
+		t.Fatal(err)
+	}
+	program, err := os.Executable()
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.Engine.Executable = program
+	legacy := filepath.Join(m.options.Root, "legacy-executor.json")
+	if err = createJSON(legacy, c); err != nil {
+		t.Fatal(err)
+	}
+	before, _ := os.ReadFile(legacy)
+	database, _ := os.ReadFile(filepath.Join(c.DataDir, "executor.db"))
+	request := Request{Operation: "upgrade.prepare", ExpectedDeviceID: c.DeviceID, Upgrade: &UpgradeRequest{ID: protocol.ID()}}
+	prepared, err := UpgradeProfile(context.Background(), legacy, m.options.Program, m.options.Engine, request)
+	if err != nil || prepared.Upgrade == nil || prepared.Upgrade.SourceEngineVersion != engine.CompatibleVersion || prepared.Upgrade.Applied {
+		t.Fatal("existing bare runtime did not produce a reviewed upgrade", err)
+	}
+	unchanged, _ := os.ReadFile(legacy)
+	if !bytes.Equal(before, unchanged) {
+		t.Fatal("preparation changed the existing CLI profile")
+	}
+	if _, err = m.Handle(context.Background(), Request{Operation: "upgrade.status", Upgrade: request.Upgrade}); err == nil || !strings.Contains(err.Error(), "another profile file") {
+		t.Fatal("reviewed upgrade could be reused for a different profile", err)
+	}
+	for _, operation := range []string{"upgrade.apply", "upgrade.apply", "upgrade.prepare", "upgrade.status"} {
+		request.Operation = operation
+		result, err := UpgradeProfile(context.Background(), legacy, m.options.Program, m.options.Engine, request)
+		if err != nil || result.Upgrade == nil || !result.Upgrade.Applied {
+			t.Fatal("CLI profile upgrade could not recover the same stable operation", operation, err)
+		}
+	}
+	adopted, err := config.Read(legacy)
+	if err != nil || adopted.DeviceID != c.DeviceID || adopted.NodeTokenFile != c.NodeTokenFile || adopted.DataDir == c.DataDir || adopted.Engine.Home != c.Engine.Home {
+		t.Fatal("existing identity, credentials or storage ownership changed", err)
+	}
+	retainedDefault, _ := os.ReadFile(m.profile())
+	retainedDatabase, _ := os.ReadFile(filepath.Join(c.DataDir, "executor.db"))
+	if !bytes.Equal(retainedDefault, defaultProfile) || !bytes.Equal(retainedDatabase, database) {
+		t.Fatal("CLI upgrade changed another profile or the original database")
+	}
+	request.ExpectedDeviceID = "another-device"
+	if _, err = UpgradeProfile(context.Background(), legacy, m.options.Program, m.options.Engine, request); err == nil {
+		t.Fatal("another device identity was accepted")
+	}
+	request.ExpectedDeviceID, request.Operation = c.DeviceID, "start"
+	if _, err = UpgradeProfile(context.Background(), legacy, m.options.Program, m.options.Engine, request); err == nil {
+		t.Fatal("alternate profile migration accepted a service operation")
+	}
+}
+
+func TestExistingPreparedUpgradeKeepsItsDefaultProfileBinding(t *testing.T) {
+	m, _, _ := upgradeFixture(t)
+	request := Request{Operation: "upgrade.prepare", Upgrade: &UpgradeRequest{ID: protocol.ID()}}
+	if _, err := m.Handle(context.Background(), request); err != nil {
+		t.Fatal(err)
+	}
+	record, err := m.loadUpgrade(request.Upgrade)
+	if err != nil {
+		t.Fatal(err)
+	}
+	record.ProfileFile = ""
+	if err = replaceJSON(m.upgradeRecord(request.Upgrade.ID), record); err != nil {
+		t.Fatal(err)
+	}
+	request.Operation = "upgrade.apply"
+	result, err := m.Handle(context.Background(), request)
+	if err != nil || result.Upgrade == nil || !result.Upgrade.Applied {
+		t.Fatal("a preparation created before profile binding could not complete", err)
+	}
+}
+
 func TestUpgradeRejectsReviewDriftAndLeavesCurrentProfile(t *testing.T) {
 	for _, kind := range []string{"data", "prepared", "program", "credentials", "engine"} {
 		t.Run(kind, func(t *testing.T) {

@@ -50,13 +50,18 @@ type Backend interface {
 	Stop(context.Context, Definition) error
 }
 
+type recoveryBackend interface {
+	recoverySession() (string, error)
+}
+
 type Record struct {
-	Format     int        `json:"format"`
-	Definition Definition `json:"definition"`
-	Binding    Binding    `json:"binding"`
-	Enabled    bool       `json:"enabled"`
-	Pending    bool       `json:"pending"`
-	UpdatedAt  string     `json:"updatedAt"`
+	Format        int        `json:"format"`
+	Definition    Definition `json:"definition"`
+	Binding       Binding    `json:"binding"`
+	Enabled       bool       `json:"enabled"`
+	Pending       bool       `json:"pending"`
+	UpdatedAt     string     `json:"updatedAt"`
+	PausedSession string     `json:"pausedSession,omitempty"`
 }
 
 type Info struct {
@@ -279,7 +284,7 @@ func (c *Controller) Apply(ctx context.Context, enabled bool, program string, bi
 }
 
 func (c *Controller) Start(ctx context.Context, binding Binding) error {
-	record, _, err := c.read()
+	record, before, err := c.read()
 	if err != nil {
 		return err
 	}
@@ -293,7 +298,38 @@ func (c *Controller) Start(ctx context.Context, binding Binding) error {
 	if !entry.Present || entry.Owner != record.Definition.Owner || !entry.Enabled || !entry.Matches {
 		return errors.New("startup entry is missing or belongs to another installation")
 	}
+	if record.PausedSession != "" {
+		record.PausedSession = ""
+		if err = c.save(before, record); err != nil {
+			return err
+		}
+	}
 	return c.backend.Start(ctx, record.Definition)
+}
+
+// PauseRecovery preserves an explicit stop for the current Windows login.
+// A fresh login can still honor the separately configured startup preference.
+func (c *Controller) PauseRecovery() error {
+	backend, supported := c.backend.(recoveryBackend)
+	if !supported {
+		return nil
+	}
+	record, before, err := c.read()
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	if err != nil || !record.Enabled {
+		return err
+	}
+	session, err := backend.recoverySession()
+	if err != nil {
+		return err
+	}
+	if session == "" {
+		return errors.New("startup recovery could not identify the current login")
+	}
+	record.PausedSession = session
+	return c.save(before, record)
 }
 
 // Authorized is used by the foreground OS entry under the installation lease.
@@ -303,5 +339,16 @@ func (c *Controller) Authorized(owner, program string, binding Binding) (bool, e
 	if err != nil {
 		return false, err
 	}
-	return record.Enabled && record.Definition.Owner == owner && record.Definition.Program == program && record.Binding == binding, nil
+	if !record.Enabled || record.Definition.Owner != owner || record.Definition.Program != program || record.Binding != binding {
+		return false, nil
+	}
+	if record.PausedSession == "" {
+		return true, nil
+	}
+	backend, supported := c.backend.(recoveryBackend)
+	if !supported {
+		return false, errors.New("startup recovery cannot verify the paused login")
+	}
+	session, err := backend.recoverySession()
+	return err == nil && session != "" && session != record.PausedSession, err
 }

@@ -41,6 +41,7 @@ export function ModelSettings({
     online && catalogSupported,
   );
   const model = selectedModel(models, value.model, inheritedModel);
+  const runtime = catalog.data?.pages[0]?.runtime;
   const custom =
     manual ||
     (!!value.model && !models.some((item) => item.model === value.model));
@@ -52,7 +53,7 @@ export function ModelSettings({
   }
   const defaultLabel = inheritedModel
     ? t("继承 {0}", inheritedModel)
-    : t("执行端默认模型");
+    : t("Hub 默认模型");
   return (
     <div className="model-policy-controls">
       <div className="model-policy-heading">
@@ -63,7 +64,7 @@ export function ModelSettings({
             className="model-catalog-action"
             disabled={!online || catalog.isFetching}
             onClick={() => void catalog.refetch()}
-            aria-label={t("刷新执行端模型目录")}
+            aria-label={t("刷新 Hub 模型目录")}
           >
             <RefreshCw size={12} />
             {catalog.isFetching ? t("读取中…") : t("刷新目录")}
@@ -117,7 +118,7 @@ export function ModelSettings({
                 onChange({ reasoningEffort: event.target.value || undefined })
               }
             >
-              <option value="">{t("由执行端决定")}</option>
+              <option value="">{t("留空由 Hub 决定")}</option>
               {value.reasoningEffort && !knownEffort && (
                 <option value={value.reasoningEffort}>
                   {t("当前设置 · {0}", reasoningLabel(value.reasoningEffort))}
@@ -146,7 +147,7 @@ export function ModelSettings({
                 reasoningSupported
                   ? !value.model && !inheritedModel
                     ? t("选择模型后查看支持的强度")
-                    : t("留空由执行端决定")
+                    : t("留空由 Hub 决定")
                   : t("此设备暂不支持设置")
               }
             />
@@ -161,7 +162,7 @@ export function ModelSettings({
             disabled={disabled}
             value={value.model ?? ""}
             maxLength={200}
-            placeholder={t("输入执行端使用的模型标识")}
+            placeholder={t("输入 Hub 使用的模型标识")}
             onChange={(event) => choose(event.target.value)}
           />
         </label>
@@ -181,7 +182,7 @@ export function ModelSettings({
       {!model && !value.model && reasoningSupported && (
         <p className="policy-note">
           {t(
-            "继承模型时由执行端决定推理强度；选择具体模型后可查看其支持的选项。",
+            "继承模型时使用 Hub 的默认思考强度。选择具体模型后可查看其支持的选项。",
           )}
         </p>
       )}
@@ -192,8 +193,15 @@ export function ModelSettings({
               ? t("设备离线，可先修改设置。")
               : catalog.isError
                 ? t("模型目录暂时不可读，可保留设置或填写自定义模型。")
-                : t("目录由当前执行端提供，实际可用性取决于该设备账号。")}
+                : t(
+                    "模型目录由 Hub 提供，实际可用性由对应账号的模型回合验证。",
+                  )}
           </p>
+          {runtime && (
+            <p className="policy-note">
+              {t("Hub 运行时")} · {runtime.adapter} {runtime.version}
+            </p>
+          )}
           {catalog.hasNextPage && (
             <button
               type="button"

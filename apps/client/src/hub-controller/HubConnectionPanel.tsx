@@ -4,6 +4,7 @@ import { Globe2, Network, Sparkles } from "lucide-react";
 import type { Device, Identity, MewDexClient } from "@mewdex/sdk";
 import { CopyButton } from "../components/CopyButton";
 import { ModelAccountCard } from "./ModelAccountCard";
+import { hubDisplayURL } from "../platform";
 
 export function HubConnectionPanel({
   baseURL,
@@ -16,7 +17,8 @@ export function HubConnectionPanel({
   locallyHosted: boolean;
   onChangeHub?: () => void;
 }) {
-  const address = new URL(baseURL);
+  const displayURL = hubDisplayURL(baseURL);
+  const address = new URL(displayURL);
   const localAddress = ["localhost", "127.0.0.1", "[::1]"].includes(
     address.hostname,
   );
@@ -40,8 +42,8 @@ export function HubConnectionPanel({
         <span className="hub-connection-badge">{t("已连接")}</span>
       </div>
       <div className="hub-connection-address">
-        <code>{baseURL}</code>
-        <CopyButton text={baseURL} label={t("复制 Hub 地址")} />
+        <code>{displayURL}</code>
+        <CopyButton text={displayURL} label={t("复制 Hub 地址")} />
       </div>
       <dl className="connection-details hub-connection-facts">
         <div>
@@ -108,7 +110,7 @@ export function HubGPTPanel({
         </p>
         <div className="hub-model-owner">
           <Globe2 size={15} />
-          <code>{baseURL}</code>
+          <code>{hubDisplayURL(baseURL)}</code>
         </div>
         {canManage && hub ? (
           <ModelAccountCard

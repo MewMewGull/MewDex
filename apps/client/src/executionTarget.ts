@@ -1,5 +1,8 @@
 import { t } from "./localization.ts";
-import type { Device } from "@mewdex/sdk";
+import type {
+  Device,
+  ExecutionTarget as ToolExecutionTarget,
+} from "@mewdex/sdk";
 
 export function executionTarget(device: Device | undefined, projectId: string) {
   const project = device?.projects.find((item) => item.id === projectId);
@@ -47,3 +50,30 @@ export function executionTarget(device: Device | undefined, projectId: string) {
 }
 
 export type ExecutionTarget = ReturnType<typeof executionTarget>;
+
+export function executionTargetFrom(
+  value: unknown,
+): ToolExecutionTarget | undefined {
+  if (!value || typeof value !== "object") return;
+  const target = value as Record<string, unknown>;
+  if (typeof target.deviceId !== "string" || !target.deviceId) return;
+  const text = (name: string) =>
+    typeof target[name] === "string" ? (target[name] as string) : undefined;
+  return {
+    deviceId: target.deviceId,
+    projectId: text("projectId") ?? "",
+    deviceName: text("deviceName"),
+    platform: text("platform"),
+    projectName: text("projectName"),
+    workspace: text("workspace"),
+    accessMode: text("accessMode"),
+    ...(text("harnessVersion")
+      ? { harnessVersion: text("harnessVersion") }
+      : {}),
+    ...(typeof target.harnessRevision === "number" &&
+    Number.isSafeInteger(target.harnessRevision) &&
+    target.harnessRevision > 0
+      ? { harnessRevision: target.harnessRevision }
+      : {}),
+  };
+}

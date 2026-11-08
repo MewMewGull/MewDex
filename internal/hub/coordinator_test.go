@@ -53,6 +53,15 @@ func TestCoordinatorSandboxFixture(t *testing.T) {
 		os.Exit(0)
 	}
 	if len(arguments) == 1 && arguments[0] == "slow-payload" {
+		file, err := os.OpenFile("slow-executed.txt", os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0600)
+		if err != nil {
+			os.Exit(2)
+		}
+		_, err = file.WriteString("once\n")
+		file.Close()
+		if err != nil {
+			os.Exit(2)
+		}
 		fmt.Println("background command started")
 		time.Sleep(time.Minute)
 		os.Exit(0)
@@ -98,7 +107,7 @@ func TestHubProjectRoutesOneConversationToMultipleModelFreeNodes(t *testing.T) {
 	if err := h.Device(protocol.Device{ID: h.coordinatorID, Roles: []string{"coordinator", "hub", "executor"}}); err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
 	defer cancel()
 	directories := []protocol.ProjectDirectory{}
 	roots := []string{}
@@ -177,8 +186,23 @@ func TestHubProjectRoutesOneConversationToMultipleModelFreeNodes(t *testing.T) {
 				t.Fatal(err)
 			}
 			var job protocol.TerminalJob
-			if json.Unmarshal(data, &job) != nil || job.State != "completed" || !strings.Contains(job.Stdout, "execution-node-output") {
+			if json.Unmarshal(data, &job) != nil {
+				t.Fatalf("invalid execution result %s", data)
+			}
+			for observation := 0; job.State == "running"; observation++ {
+				wait := remoteToolCall{ThreadID: "hub-thread", TurnID: "turn", CallID: fmt.Sprintf("wait-%d-%d-%d", index, repeat, observation), Tool: "mewdex_wait"}
+				wait.Arguments.Directory, wait.Arguments.JobID, wait.Arguments.YieldMS = &index, job.ID, 2000
+				data, err = bridge.executeTool(ctx, wait)
+				if err != nil || json.Unmarshal(data, &job) != nil {
+					t.Fatalf("execution observation failed %s %v", data, err)
+				}
+			}
+			if job.State != "completed" || !strings.Contains(job.Stdout, "execution-node-output") {
 				t.Fatalf("unexpected execution result %s", data)
+			}
+			var target terminalTarget
+			if err := state.Get("terminal_targets", job.ID, &target); err != nil || target.Execution == nil || target.Execution.DeviceID != directories[index].DeviceID || target.Execution.DeviceName != directories[index].Name || target.Execution.Workspace != root {
+				t.Fatal("execution target was not captured at dispatch", target, err)
 			}
 		}
 		data, err := os.ReadFile(filepath.Join(root, "executed.txt"))
@@ -243,6 +267,49 @@ func TestHubProjectRoutesOneConversationToMultipleModelFreeNodes(t *testing.T) {
 	if json.Unmarshal(data, &running) != nil || running.State != "running" {
 		t.Fatal("background job did not start", string(data))
 	}
+	for {
+		if marker, err := os.ReadFile(filepath.Join(roots[0], "slow-executed.txt")); err == nil && string(marker) == "once\n" {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatal("background process did not start")
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+	h.mu.Lock()
+	previousPeer := h.peers[directories[0].DeviceID]
+	h.mu.Unlock()
+	if err := previousPeer.conn.CloseNow(); err != nil {
+		t.Fatal(err)
+	}
+	for {
+		h.mu.Lock()
+		currentPeer := h.peers[directories[0].DeviceID]
+		h.mu.Unlock()
+		if currentPeer != nil && currentPeer != previousPeer {
+			break
+		}
+		select {
+		case <-ctx.Done():
+			t.Fatal("executor did not reconnect during its background command")
+		case <-time.After(10 * time.Millisecond):
+		}
+	}
+	data, err = bridge.executeTool(ctx, slow)
+	var repeated protocol.TerminalJob
+	if err != nil || json.Unmarshal(data, &repeated) != nil || repeated.ID != running.ID {
+		t.Fatal("reconnection lost the original execution receipt", string(data), err)
+	}
+	poll := remoteToolCall{ThreadID: slow.ThreadID, TurnID: slow.TurnID, CallID: "after-reconnect", Tool: "mewdex_wait"}
+	poll.Arguments.Directory, poll.Arguments.JobID = &selected, running.ID
+	data, err = bridge.executeTool(ctx, poll)
+	if err != nil || json.Unmarshal(data, &repeated) != nil || repeated.State != "running" || !strings.Contains(repeated.Stdout, "background command started") {
+		t.Fatal("reconnected execution lost its running process or output", string(data), err)
+	}
+	if marker, err := os.ReadFile(filepath.Join(roots[0], "slow-executed.txt")); err != nil || string(marker) != "once\n" {
+		t.Fatal("reconnection or duplicate delivery executed the process again", string(marker), err)
+	}
 	if err = h.stopRemoteOwner(ctx, "hub-session"); err != nil {
 		t.Fatal("Hub failed to stop its remote processes", err)
 	}
@@ -253,6 +320,76 @@ func TestHubProjectRoutesOneConversationToMultipleModelFreeNodes(t *testing.T) {
 	events, err := state.Events(0, "hub-session", 100)
 	if err != nil || len(events) < 2 {
 		t.Fatal("execution output did not reach the Hub conversation", err)
+	}
+	for _, event := range events {
+		var payload struct {
+			Item struct {
+				Type      string                    `json:"type"`
+				Execution *protocol.ExecutionTarget `json:"executionTarget"`
+			} `json:"item"`
+		}
+		if json.Unmarshal(event.Payload, &payload) == nil && payload.Item.Type == "commandExecution" && (payload.Item.Execution == nil || payload.Item.Execution.DeviceID == "" || payload.Item.Execution.DeviceName == "") {
+			t.Fatal("remote command output lost its execution target", string(event.Payload))
+		}
+	}
+}
+
+func TestExecutionTargetSnapshotSurvivesRenamesAndLegacyReceipts(t *testing.T) {
+	h, state, _, _ := testHub(t)
+	h.coordinatorID = "local.hub"
+	if err := state.Put("sessions", "session", protocol.Session{ID: "session", DeviceID: h.coordinatorID, EngineID: "thread"}); err != nil {
+		t.Fatal(err)
+	}
+	device := protocol.Device{ID: "node", Name: "Original machine", Platform: "windows/amd64", Projects: []protocol.Project{{ID: "directory", Name: "Original project", Path: `D:\original`}}}
+	if err := state.Put("devices", device.ID, device); err != nil {
+		t.Fatal(err)
+	}
+	for _, legacy := range []bool{false, true} {
+		id := fmt.Sprintf("job-%t", legacy)
+		command := protocol.Command{ID: id, DeviceID: device.ID, ProjectID: "directory", Kind: "terminal.exec", Terminal: &protocol.TerminalRequest{OwnerID: "session:turn", Command: []string{"build"}, AccessMode: "read-only"}}
+		if _, _, err := state.Claim(command); err != nil {
+			t.Fatal(err)
+		}
+		target := terminalTarget{OwnerID: command.Terminal.OwnerID, DeviceID: device.ID, ProjectID: command.ProjectID, JobID: id, State: "unknown"}
+		if !legacy {
+			target.Execution = h.executionTarget(command)
+		}
+		if err := state.Put("terminal_targets", id, target); err != nil {
+			t.Fatal(err)
+		}
+		device.Name, device.Projects[0].Name, device.Projects[0].Path = "Renamed machine", "Renamed project", `D:\changed`
+		if err := state.Put("devices", device.ID, device); err != nil {
+			t.Fatal(err)
+		}
+		job := protocol.TerminalJob{ID: id, OwnerID: target.OwnerID, ProjectID: target.ProjectID, Cwd: `D:\original\src`, State: "completed", UpdatedAt: protocol.Now()}
+		if err := h.recordTerminalJob(device.ID, "result-"+id, job); err != nil {
+			t.Fatal(err)
+		}
+	}
+	events, err := state.Events(0, "session", 10)
+	if err != nil || len(events) != 2 {
+		t.Fatal("expected both new and legacy output events", events, err)
+	}
+	for _, event := range events {
+		var payload struct {
+			Item struct {
+				ID        string                    `json:"id"`
+				Execution *protocol.ExecutionTarget `json:"executionTarget"`
+			} `json:"item"`
+		}
+		if err := json.Unmarshal(event.Payload, &payload); err != nil {
+			t.Fatal(err)
+		}
+		target := payload.Item.Execution
+		if target == nil || target.DeviceID != "node" || target.ProjectID != "directory" || target.AccessMode != "read-only" {
+			t.Fatal("command identity or permission was lost", target)
+		}
+		if payload.Item.ID == "job-false" && (target.DeviceName != "Original machine" || target.ProjectName != "Original project" || target.Workspace != `D:\original`) {
+			t.Fatal("a rename rewrote historical attribution", target)
+		}
+		if payload.Item.ID == "job-true" && (target.DeviceName != "" || target.ProjectName != "" || target.Workspace != "") {
+			t.Fatal("legacy output inherited present-day metadata", target)
+		}
 	}
 }
 

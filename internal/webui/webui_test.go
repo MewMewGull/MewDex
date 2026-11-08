@@ -1,6 +1,7 @@
 package webui
 
 import (
+	"html"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -16,7 +17,7 @@ func TestWebUIIndexAssetsAndMissingFiles(t *testing.T) {
 		"assets/app-abc123.js": {Data: []byte("console.log('workbench')")},
 		".keep":                {},
 	}
-	h := handler(files)
+	h := handler(files, "", false)
 	for _, path := range []string{"/", "/index.html"} {
 		r := httptest.NewRecorder()
 		h.ServeHTTP(r, httptest.NewRequest("GET", path, nil))
@@ -50,9 +51,27 @@ func TestWebUIIndexAssetsAndMissingFiles(t *testing.T) {
 
 func TestMissingWebBuildIsExplicit(t *testing.T) {
 	r := httptest.NewRecorder()
-	handler(fstest.MapFS{}).ServeHTTP(r, httptest.NewRequest("GET", "/", nil))
+	handler(fstest.MapFS{}, "", false).ServeHTTP(r, httptest.NewRequest("GET", "/", nil))
 	if r.Code != http.StatusServiceUnavailable {
 		t.Fatal("missing build was served as a workbench")
+	}
+}
+
+func TestHostedHubURLMetadataIsEscapedAndDoesNotReplaceSameOriginRouting(t *testing.T) {
+	files := fstest.MapFS{"index.html": {Data: []byte("<html><head></head><body>workbench</body></html>")}}
+	for _, address := range []string{"https://hub.example.test/project-api/", `https://hub.example.test/" data-untrusted="<&`} {
+		response := httptest.NewRecorder()
+		handler(files, address, false).ServeHTTP(response, httptest.NewRequest("GET", "/", nil))
+		body := response.Body.String()
+		if response.Code != http.StatusOK || !strings.Contains(body, `<meta name="mewdex-hub" content="same-origin">`) {
+			t.Fatal("hosted transport metadata is missing", response.Code, body)
+		}
+		if !strings.Contains(body, `<meta name="mewdex-hub-url" content="`+html.EscapeString(address)+`">`) {
+			t.Fatal("configured Hub address is missing or unescaped", body)
+		}
+		if strings.Contains(body, ` data-untrusted="`) {
+			t.Fatal("Hub metadata escaped its HTML attribute", body)
+		}
 	}
 }
 

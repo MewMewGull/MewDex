@@ -22,11 +22,20 @@ import (
 var assets embed.FS
 
 func Handler(manager *localnode.Manager, token string) http.Handler {
+	return HandlerForRole(manager, token, "executor")
+}
+
+func HandlerForRole(manager *localnode.Manager, token, role string) http.Handler {
 	var mutation sync.Mutex
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Cache-Control", "no-store")
 		w.Header().Set("X-Content-Type-Options", "nosniff")
 		w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'")
+		if r.URL.Path == "/api/panel" && r.Method == "GET" {
+			w.Header().Set("Content-Type", "application/json")
+			_ = json.NewEncoder(w).Encode(map[string]string{"role": role})
+			return
+		}
 		if r.URL.Path == "/api/device" {
 			if r.Method != "POST" {
 				w.Header().Set("Allow", "POST")
@@ -53,13 +62,17 @@ func Handler(manager *localnode.Manager, token string) http.Handler {
 				return
 			}
 			switch request.Operation {
-			case "status", "setup", "start", "stop", "projects", "startup.status", "startup.apply", "repair.executor":
+			case "status", "setup", "start", "stop", "projects", "startup.status", "startup.apply", "repair.executor", "computer.status", "computer.windows", "computer.approve", "computer.stop":
 			default:
 				http.Error(w, "unsupported executor panel operation", 400)
 				return
 			}
-			if request.Setup != nil && (request.Setup.Hub || !request.Setup.Executor || request.Setup.Gateway) {
-				http.Error(w, "executor role required", 400)
+			if request.Setup != nil && (request.Setup.Gateway || request.Setup.Hub != (role == "hub") || request.Setup.Executor != (role != "hub")) {
+				http.Error(w, "use the panel for this component role", 400)
+				return
+			}
+			if role == "hub" && request.Operation != "status" && request.Operation != "setup" && request.Operation != "start" && request.Operation != "stop" && request.Operation != "startup.status" && request.Operation != "startup.apply" {
+				http.Error(w, "unsupported Hub panel operation", 400)
 				return
 			}
 			mutation.Lock()
@@ -69,8 +82,8 @@ func Handler(manager *localnode.Manager, token string) http.Handler {
 				http.Error(w, err.Error(), 409)
 				return
 			}
-			if current.Snapshot.Configured && (current.Snapshot.Hub || !current.Snapshot.Executor) {
-				http.Error(w, "use a separate executor profile", 409)
+			if current.Snapshot.Configured && (current.Snapshot.Hub != (role == "hub") || role != "hub" && !current.Snapshot.Executor) {
+				http.Error(w, "use a separate component profile", 409)
 				return
 			}
 			if request.Operation != "status" && request.Operation != "setup" && request.ExpectedDeviceID == "" {

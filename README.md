@@ -6,9 +6,9 @@ A Codex-based, cross-platform agent for starting and resuming tasks on your comp
 
 **English** | [简体中文](README.zh-CN.md)
 
-MewDex ships independent **APP**, **Web Input**, **Hub**, and **Executor** packages. The APP and browser share the input workbench, conversations, projects, and network management. The desktop APP owns QQ, Weixin, and Feishu connections and submits processed messages to Hub. Hub owns models, sessions, and coordination. Executors connect to Hub over WebSocket.
+MewDex ships independent **APP**, **Web Input**, **Hub**, and **Executor** packages. The APP and browser share the input workbench, conversations, projects, and network management. The desktop APP or standalone Web Input service owns QQ, Weixin, and Feishu connections and submits processed messages to Hub. Hub owns models, sessions, and coordination. Executors connect to Hub over WebSocket.
 
-Choose the online APP that owns a channel under **Settings → Message channels**. Keep that APP running while using its channels. See the [messaging guide](docs/messaging.md).
+Choose the online input terminal that owns a channel under **Settings → Message channels**. Keep its APP or Web Input service running while using its channels. See the [messaging guide](docs/messaging.md).
 
 ## Source and license
 
@@ -26,11 +26,11 @@ MewDex's original code is licensed under the [Apache License 2.0](LICENSE). Thir
 | Package | Contents | Windows x64 name |
 | --- | --- | --- |
 | APP | Input terminal, network management, desktop message connector | `MewDex-Windows-x64` |
-| Web Input | Shared input UI and a standalone web server | `MewDex-Web-Windows-x64` |
+| Web Input | Shared input UI, standalone web server and message connector | `MewDex-Web-Windows-x64` |
 | Hub | Central API, model runtime, sessions and project coordination | `MewDex-Hub-Windows-x64` |
 | Executor | WebSocket node, local sandbox and its own web control panel | `MewDex-Executor-Windows-x64` |
 
-The Tauri APP shares React code and the SDK with Web Input. Its desktop payload contains `mewdex-client` and `mewdex-input-bridge`. Hub and Executor each ship the complete pinned `engine/` runtime. See `mewdex.product.json` for component and distribution boundaries.
+The Tauri APP shares React code and the SDK with Web Input. Its desktop payload contains `mewdex-client` and `mewdex-input-bridge`. Hub ships the pinned model runtime in `engine/`. Windows x64, macOS ARM64 and Linux x64 Executors ship an independent `sandbox/` runtime. Windows uses pinned Codex sandbox modules, macOS uses the pinned MXC SDK with Seatbelt, and Linux uses pinned Codex Linux sandbox modules with a verified bundled Bubblewrap executable. Other executor targets currently use the complete `engine/` runtime. See `mewdex.product.json` for component and distribution boundaries.
 
 ```powershell
 npm run build:app:windows
@@ -39,6 +39,8 @@ npm run package:services
 ```
 
 Windows packages are exported to `dist/windows`. Use `package:hub`, `package:web`, or `package:executor` to build a single distribution. Service packages accept targets such as `--target=linux:x64`. See the [release guide](docs/releases.md).
+
+On Windows and macOS, double-click a service executable or its `.app` launcher to open its panel. Tray icons distinguish input terminals (blue speech bubble), Hub (green connected nodes), and executors (orange terminal). The tray provides status, startup settings and an exit action.
 
 ### Hub
 
@@ -58,6 +60,8 @@ The account command reads username and password JSON from standard input. Hub de
 
 Open `http://127.0.0.1:47832` and sign in with `.local/executor/panel-token`. Enter the Hub URL and an executor invitation generated in the input terminal, configure local directories, and start the executor. It maintains its own profile and database and connects to Hub over WebSocket. The panel listens on loopback. SSH forwarding can expose a remote device's local panel.
 
+Linux hosts with AppArmor user-namespace restrictions need administrator preparation for ordinary service accounts. The Executor provides a read-only preview and a local sandbox diagnostic. See the [Linux sandbox guide](docs/linux-sandbox.md).
+
 ### Web Input
 
 ```powershell
@@ -66,11 +70,19 @@ Open `http://127.0.0.1:47832` and sign in with `.local/executor/panel-token`. En
 
 Deploy this server together with `ui/`. It forwards `/health` and `/v1/` to the configured Hub, including WebSocket upgrades, and serves the input UI independently. Add the browser's public origin to Hub `allowedOrigins`.
 
-Hub and Executor can share a computer with separate configuration directories. Existing combined profiles and databases remain in their original locations. Split packages use single-role profiles. Reconfigure legacy Hub channels in the selected APP, which owns channel credentials and delivery state.
+The standalone service also provides the message connector. Closing the browser keeps its channels running; signing out or exiting the service disconnects that input terminal's channels. Choose either the desktop APP or Web Input for the same input features.
+
+Hub and Executor can share a computer with separate configuration directories. Existing combined profiles and databases remain in their original locations. Split packages use single-role profiles. Reconfigure legacy Hub channels in the selected input terminal, which owns channel credentials and delivery state.
 
 ### Hub projects and connections
 
 A project has a name, a category, and a directory group. Each directory identifies an execution device and one of its durable directory bindings. One project can contain multiple directories on the same device and directories on several devices. Project metadata is persisted in the Hub database.
+
+Project settings include instructions, Skills, scripts bound to a specific machine directory, and ordered workflows. The Hub retains configuration history and captures the active version when each turn starts. Tool results show that version. Workflows currently use an Agent-driven execution prototype.
+
+The Computer Use prototype lets a new Hub conversation request control of a selected executor's window. The local executor panel selects a window and grants temporary access. Input terminals show status and a stop action. The native driver currently targets 64-bit Windows interactive desktops. Real window input and physical Escape acceptance remain pending, along with macOS and Linux drivers.
+
+The Hub package includes a resumable task evaluator. It captures the model runtime, project configuration and tool traces, checks explicit task contracts, and exports a review report for comparing changes. See [task evaluations](docs/evaluations.md).
 
 | Component | Responsibility |
 | --- | --- |

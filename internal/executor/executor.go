@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"mewdex/internal/attachments"
+	"mewdex/internal/computeruse"
 	"mewdex/internal/config"
 	"mewdex/internal/engine"
 	"mewdex/internal/lifecycle"
@@ -19,6 +20,7 @@ import (
 )
 
 type Executor struct {
+	computer           *computeruse.Manager
 	terminal           *terminalState
 	config             config.Config
 	store              *store.Store
@@ -264,6 +266,9 @@ func (x *Executor) Handle(ctx context.Context, c protocol.Command) protocol.Comm
 
 func (x *Executor) execute(ctx context.Context, c protocol.Command) protocol.CommandResult {
 	fail := commandFailure
+	if strings.HasPrefix(c.Kind, "computer.") {
+		return x.computerCommand(ctx, c)
+	}
 	if strings.HasPrefix(c.Kind, "terminal.") {
 		return x.terminalCommand(ctx, c)
 	}
@@ -477,6 +482,7 @@ func (x *Executor) create(ctx context.Context, c protocol.Command) protocol.Comm
 	s.EngineID, s.ExecutionScopeID = reply.Thread.ID, profile.ID()
 	s.ScopeAccessMode = pol.AccessMode
 	s.Model, s.DefaultModel = reply.Model, reply.Model
+	s.ModelProvider = reply.ModelProvider
 	setPolicy(&s, pol)
 	if s.Title == "" {
 		s.Title = "新对话"
@@ -527,6 +533,7 @@ func (x *Executor) load(ctx context.Context, s *protocol.Session) error {
 		}
 		s.ExecutionScopeID = profile.ID()
 		s.ScopeAccessMode = s.Policy.AccessMode
+		s.ModelProvider = data.ModelProvider
 		if data.Model != "" {
 			s.Model = data.Model
 			if s.DefaultModel == "" {
@@ -561,6 +568,7 @@ func (x *Executor) replaceUnstarted(ctx context.Context, s *protocol.Session) er
 	s.EngineID = result.Thread.ID
 	s.ExecutionScopeID = profile.ID()
 	s.ScopeAccessMode = s.Policy.AccessMode
+	s.ModelProvider = result.ModelProvider
 	if result.Model != "" {
 		s.Model = result.Model
 		if s.DefaultModel == "" {
@@ -769,6 +777,9 @@ func (x *Executor) Close() error {
 	x.mu.Unlock()
 	if x.terminal != nil {
 		x.terminal.cancel()
+		if x.computer != nil {
+			x.computer.Close()
+		}
 		x.active.Wait()
 		x.terminal.mu.Lock()
 		runs := make([]*terminalRun, 0, len(x.terminal.runs))

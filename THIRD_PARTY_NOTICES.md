@@ -45,6 +45,15 @@ Apache-2.0 declaration is not a replacement for those notices.
 
 ## Dependencies obtained by package managers
 
+Windows x64, macOS ARM64 and Linux x64 executors include independent native sandboxes built
+from source revisions pinned in `tools/sandbox.lock.json`. Windows and Linux use Codex
+sandbox modules, and macOS uses Microsoft's MIT-licensed MXC SDK. Each package
+includes `sandbox/dependency-licenses.json` and the dependency license texts.
+Windows and Linux retain the applicable upstream Codex NOTICE files. Linux also
+includes the pinned Bubblewrap executable, its COPYING text, vendored source
+archive and source provenance under `sandbox/licenses/bubblewrap/`. Supplemental license
+sources and content hashes are recorded in `tools/sandbox-license-evidence.json`.
+
 Dependencies installed by npm, Cargo, and Go retain their upstream terms. They
 are not relicensed by the root LICENSE. In particular, MPL-2.0 components must
 retain their license and source availability, and any redistributed CC-BY-4.0

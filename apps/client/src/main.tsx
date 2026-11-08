@@ -38,7 +38,7 @@ import {
   type MessageMatch,
 } from "@mewdex/sdk";
 import type { Connection } from "./platform";
-import { hostedHubURL } from "./platform";
+import { hostedHubURL, hubDisplayURL } from "./platform";
 import { useDesktopTerminals } from "./hub-controller/useDesktopTerminals";
 import { attachInputViewport } from "./inputViewport";
 import {
@@ -66,6 +66,8 @@ import { WorkspaceSidebar } from "./input-terminal/WorkspaceSidebar";
 import { ConversationActions } from "./input-terminal/ConversationActions";
 import { ConversationWelcome } from "./input-terminal/ConversationWelcome";
 import { ConversationComposer } from "./input-terminal/ConversationComposer";
+import { ExecutorStatus } from "./components/ExecutorStatus";
+import { ComputerUseDialog } from "./components/ComputerUseDialog";
 import { DevicePicker } from "./components/DevicePicker";
 import { AssistantActivity } from "./input-terminal/AssistantActivity";
 import { executionTarget } from "./executionTarget";
@@ -431,6 +433,10 @@ function Workspace({
   const [switcher, setSwitcher] = useState(false);
   const [settings, setSettings] = useState(false);
   const [hubControllerOpen, setHubControllerOpen] = useState(false);
+  const [computerDeviceID, setComputerDeviceID] = useState<string>();
+  const [hubControllerSection, setHubControllerSection] = useState<
+    "connection" | undefined
+  >();
   const [modelSettingsDevice, setModelSettingsDevice] = useState<string>();
   const [executorSetup, setExecutorSetup] = useState(false);
   const [conversationOptions, setConversationOptions] = useState(false);
@@ -508,11 +514,10 @@ function Workspace({
     network.ready &&
     network.connected &&
     identity.data.role === "admin" &&
-    !!activeDevice?.online &&
-    target.canExecute;
+    !!hubDevice?.online;
   const { account: modelAccount, pending: pendingModelLogin } = useModelAccount(
     client,
-    state.deviceId,
+    hubDevice?.id ?? "",
     modelStatusEnabled,
   );
   const modelAccountMissing =
@@ -1088,9 +1093,14 @@ function Workspace({
   function focusComposer() {
     requestAnimationFrame(composerPosition.focus);
   }
-  function openHubController(modelDeviceId?: string, setupExecutor = false) {
+  function openHubController(
+    modelDeviceId?: string,
+    setupExecutor = false,
+    section?: "connection",
+  ) {
     setModelSettingsDevice(modelDeviceId);
     setExecutorSetup(setupExecutor);
+    setHubControllerSection(section);
     setHubControllerOpen(true);
   }
   function openReceiptHistory() {
@@ -1296,6 +1306,7 @@ function Workspace({
           setSwitcher(true);
         }}
         onSettings={() => openHubController()}
+        onManageHub={() => openHubController(undefined, false, "connection")}
         onLocalDevice={onLocalDevice}
         onClose={() => setSidebar(false)}
         onDevice={selectDevice}
@@ -1360,8 +1371,6 @@ function Workspace({
           <AccountMenu
             client={client}
             devices={devices.data ?? []}
-            selectedDeviceId={state.deviceId}
-            localAvailable={!!onLocalDevice}
             connected={network.connected}
             admin={identity.data.role === "admin"}
             identity={identity.data}
@@ -1575,15 +1584,13 @@ function Workspace({
                 {historyView.loadingOlder ? (
                   <span>{t("正在加载更早的消息…")}</span>
                 ) : historyView.hasOlder ? (
-                  <button onClick={() => historyView.earlier()}>
-                    {t("向上滚动，读取更早消息")}
-                  </button>
+                  <span>{t("向上滚动，读取更早消息")}</span>
                 ) : (
                   !history.isPending && <span>{t("对话起点")}</span>
                 )}
                 {historyView.target && <span>{t("已定位搜索结果")}</span>}
-                {history.error && (
-                  <button onClick={() => void history.refetch()}>
+                {history.error && !history.isFetchNextPageError && (
+                  <button onClick={historyView.retry}>
                     {t("读取失败，点击重试")}
                   </button>
                 )}
@@ -1639,6 +1646,17 @@ function Workspace({
                     containerRef={interactionList}
                   />
                 )}
+              {(historyView.loadingNewer || history.isFetchNextPageError) && (
+                <div className="history-controls" aria-live="polite">
+                  {historyView.loadingNewer ? (
+                    <span>{t("正在读取对话…")}</span>
+                  ) : (
+                    <button onClick={historyView.retry}>
+                      {t("读取失败，点击重试")}
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -1680,7 +1698,7 @@ function Workspace({
             connected={network.connected}
             reconnecting={network.reconnecting}
             error={network.error}
-            address={connection.baseURL}
+            address={hubDisplayURL(connection.baseURL)}
             localAvailable={!!onLocalDevice}
             onRetry={network.retry}
             onLocalDevice={onLocalDevice}
@@ -1774,7 +1792,7 @@ function Workspace({
               pending={!!pendingModelLogin}
               error={modelAccount.isError}
               refreshing={modelAccount.isFetching}
-              onManage={() => openHubController(state.deviceId)}
+              onManage={() => openHubController(hubDevice?.id)}
               onRefresh={() => {
                 void modelAccount.refetch();
               }}
@@ -1869,12 +1887,29 @@ function Workspace({
           )}
           <ConversationComposer
             projectLabel={target.project?.name ?? t("选择项目")}
+            executorStatus={
+              <ExecutorStatus
+                devices={devices.data ?? []}
+                owner={activeDevice}
+                project={target.project}
+                connected={network.connected}
+                onComputer={
+                  activeSession &&
+                  activeDevice?.capabilities?.includes("computer-use-v1")
+                    ? setComputerDeviceID
+                    : undefined
+                }
+              />
+            }
             deviceControl={
               <DevicePicker
                 devices={devices.data ?? []}
                 selectedId={state.deviceId}
                 connected={network.connected}
                 onSelect={selectDevice}
+                onManageHub={() =>
+                  openHubController(undefined, false, "connection")
+                }
               />
             }
             editor={{
@@ -2149,6 +2184,7 @@ function Workspace({
         onOpenChange={setHubControllerOpen}
         initialModelDeviceId={modelSettingsDevice}
         initialExecutorSetup={executorSetup}
+        initialSection={hubControllerSection}
         alerts={alerts}
         baseURL={connection.baseURL}
         loginKey={connection.credentials.token}
@@ -2182,6 +2218,23 @@ function Workspace({
           onCancel={cancelQueued}
         />
       )}
+      {computerDeviceID &&
+        activeSession &&
+        target.project &&
+        devices.data?.find((device) => device.id === computerDeviceID) && (
+          <ComputerUseDialog
+            key={`${scope}:${activeSession.id}:${computerDeviceID}`}
+            scope={scope}
+            client={client}
+            project={target.project}
+            session={activeSession}
+            device={
+              devices.data.find((device) => device.id === computerDeviceID)!
+            }
+            connected={network.connected}
+            onClose={() => setComputerDeviceID(undefined)}
+          />
+        )}
       <PolicySettings
         client={client}
         open={settings}

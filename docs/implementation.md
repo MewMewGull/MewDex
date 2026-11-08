@@ -219,11 +219,11 @@
 ## 目标设备只读盘点
 
 - Mac Mini：Darwin arm64，Xcode 26.6，Node/Codex 位于 `/opt/homebrew/bin`；非交互 SSH 的默认 PATH 未包含它们。
-- MewGullNest_1：Linux x86_64，现有 Codex 0.157.1，Go 可用。
-- MewGullNest_HighSpeed：Linux x86_64，现有 Codex 0.145.0，Node 可用。
+- Linux 节点 A：Linux x86_64，现有 Codex 0.157.1，Go 可用。
+- Linux 节点 B：Linux x86_64，现有 Codex 0.145.0，Node 可用。
 - 两台服务器现有引擎版本不同；后续为 MewDex 放置项目内固定版本，不升级或替换全局安装，不复制或修改现有账号凭据。
 - 两台 Linux 的开发部署位于 `/root/MewDex/.state/risk-20261028`，未创建系统服务或公网监听；既有全局引擎、账号和业务服务未修改。
-- Mac 的独立执行器位于 `/Users/mewgull/MewDex/.state/risk-20261028`，原生构建目录为同级 `native-risk-20261028`；已通过获批 HTTPS 入口启动联网执行服务，图形客户端尚未运行。
+- Mac 的独立执行器位于 `<project-root>/.state/risk-20261028`，原生构建目录为同级 `native-risk-20261028`；已通过获批 HTTPS 入口启动联网执行服务，图形客户端尚未运行。
 - Mac 使用独立的 `device-https.json` 与已有设备令牌，未复制或替换模型账号。两台 Linux 使用各自新增的 `device-https-hub-gateway.json`；原有配置保留，节点身份与模型目录不变。
 
 ## 工作包
@@ -291,7 +291,7 @@
 
 原候选已获授权并成功执行一次，结果和观察记录保留。实际检查随后发现旧 elevated 未守住完整读取白名单，当前源码已采用 0.162.1 MXC 并完成正式工具接入。旧计划及辅助程序未被改写，不重复运行准备，也不自动卸载或更改已有系统沙箱资源。
 
-受审阅的候选根目录为 `D:\Projects\Others\MewDex\.state\engine-sandbox-setup-895539640`，辅助程序为 `.state/dev/mewdex-engine-sandbox-setup-v2.exe`（SHA-256 `3e9b50348e301b2e14db085c740ea78d39836c6a8046035c119b3c07e870a77a`）。完整计划保存在该目录的 `windows-setup-plan.json`；引擎清单摘要为 `4d5669d55d843a6bc902ca2aeba320832533c8ddf0bce0fa31fc4b368b48f70d`，没有更换全局引擎。
+受审阅的候选根目录为 `<project-root>/.state\engine-sandbox-setup-895539640`，辅助程序为 `.state/dev/mewdex-engine-sandbox-setup-v2.exe`（SHA-256 `3e9b50348e301b2e14db085c740ea78d39836c6a8046035c119b3c07e870a77a`）。完整计划保存在该目录的 `windows-setup-plan.json`；引擎清单摘要为 `4d5669d55d843a6bc902ca2aeba320832533c8ddf0bce0fa31fc4b368b48f70d`，没有更换全局引擎。
 
 获明确授权后，候选仅请求固定引擎的 `windowsSandbox/setupStart`，模式为 `elevated`。官方说明此模式可能创建或更新自己的 Windows 受限账户、文件 ACL、防火墙和本地登录策略，并可能弹出 UAC；这是系统级设置，不能从此前仅允许 MewDex 界面检查或发布域名的授权中推定。UAC 或账号界面由用户手动处理。参考 [OpenAI Docs Windows sandbox](https://learn.chatgpt.com/docs/windows/windows-sandbox)。
 
@@ -327,7 +327,7 @@ stdout 由独立的 `os.Pipe` 提供，主进程等待与流式读取分开；Go
 
 ## HTTPS 开发入口候选
 
-`mewdex.mewgullnest.top` 已确认解析到现有 HighSpeed 服务器。候选配置只追加一个站点，保留既有 Caddyfile 全部原字节，关闭新站点访问日志，经私有 Docker 网关地址 `172.18.0.1:47834` 连接 Windows Hub。Caddy 2.11.4 校验通过；私有监听与容器到 Hub 的 health 请求通过。候选与备份保存在远端 MewDex 的 `.state/ingress-20261028`，本地仅保留新站点片段及无凭据清单。
+`hub.example.com` 已确认解析到部署服务器。候选配置只追加一个站点，保留既有 Caddyfile 全部原字节，关闭新站点访问日志，经私有 Docker 网关地址 `<private-gateway>:47834` 连接 Windows Hub。Caddy 2.11.4 校验通过；私有监听与容器到 Hub 的 health 请求通过。候选与备份保存在远端 MewDex 的 `.state/ingress-20261028`，本地仅保留新站点片段及无凭据清单。
 
 用户已明确批准新增并加载该站点。已重新比对源文件与活动配置，保持原文件 inode 写入候选后加载；活动配置读回与候选一致，原有配置字节全部保留。Let's Encrypt 证书已取得，Mac 和 Windows 的 HTTPS 校验通过，健康检查为 200，未授权接口为 401。证据：`.state/evidence/https-ingress.json`、`public-ingress.json`。
 
@@ -591,10 +591,10 @@ Mac 和两台 Linux 均已通过此入口联机，两台 Linux 在确认没有�
 
 271. 根据用户 Windows 手工测试反馈的 12 项问题实现桌面工作台改造：连续滚轮历史与锚点、外观和动效、分类与工作区创建整理、简化标识、输入区模型/强度/策略/权限/上下文、右侧文件面板和默认应用/右键打开、模型账号与额度、任务与请求、连接状态防闪烁、首字前工作提示与侧栏拖宽。实现复用共享模型目录及原回执机制，新增执行器工作区目录、实际权限模式、token 用量投影与管理员账号额度/退出接口。固定协议没有头像字段，使用邮箱首字母。完整对应见 docs/windows-redesign-20261030.md。
 
-272. 客户端 59 项、SDK 19 项、受影响 Go 包与跨回合权限切换检查通过；隔离浏览器以构造数据检查滚轮、200→400 条历史与阅读位置、侧栏 280→350px 及重开恢复、主题与字号保存、账号额度菜单、工作区浏览、文件面板和首字前工作提示，无运行时异常。Windows x64 Debug 原生编译通过，导出 D:\Projects\Others\MewDex\dist\windows\MewDex-Windows-x64-20261030-025136.zip，52 项文件，压缩包 185397840 字节，SHA256 73990d850310a9c72ff34f4ef925759492e9f2ac993a31124666f5fe6d968666。证据 .state/evidence/windows-redesign-20261030.json。原 GUI PID 76944 与后台 PID 54440 的出生身份和摘要保持，未操作个人窗口、发送真实模型请求或激活新后台；真实系统打开方式、IDE 启动和账号额度仍待手工实测。Mac/服务器执行器没有替换，使用新增后台功能前需分别更新相应执行器。
+272. 客户端 59 项、SDK 19 项、受影响 Go 包与跨回合权限切换检查通过；隔离浏览器以构造数据检查滚轮、200→400 条历史与阅读位置、侧栏 280→350px 及重开恢复、主题与字号保存、账号额度菜单、工作区浏览、文件面板和首字前工作提示，无运行时异常。Windows x64 Debug 原生编译通过，导出 <project-root>/dist\windows\MewDex-Windows-x64-20261030-025136.zip，52 项文件，压缩包 185397840 字节，SHA256 73990d850310a9c72ff34f4ef925759492e9f2ac993a31124666f5fe6d968666。证据 .state/evidence/windows-redesign-20261030.json。原 GUI PID 76944 与后台 PID 54440 的出生身份和摘要保持，未操作个人窗口、发送真实模型请求或激活新后台；真实系统打开方式、IDE 启动和账号额度仍待手工实测。Mac/服务器执行器没有替换，使用新增后台功能前需分别更新相应执行器。
 273. 按用户后续三项截图重做新对话设置语义、单行工具栏与项目流程。模型与强度选择不发送回合，去掉统一的“下一回合生效”；工具栏改为图标与模型/强度组合，常规说明收起。创建项目只指定机器、已有文件夹、名称、分类，本机用系统目录选择，远端用目标目录浏览或 ~/ 路径；左栏默认全设备，支持分类折叠、右键移动和更多按钮改名。新增本机 service.update，由创建流程在旧服务缺少工作区能力时调用，核对身份与任务状态，更新组件及原自动启动入口后重新连接；不迁移配置和账号。不替换真实 Mac/服务器服务。说明见 docs/windows-projects-toolbar-20261030.md。
 
-274. 类型、相关 Go 包、目标 home 与重名检查通过；隔离界面检查确认模型选择没有执行指令、两种尺寸的工具栏均为 34px 一行、远端选择/创建/分类/改名完成。另以真实旧组件 cddbaa… 启动隔离 Windows 服务，新组件 83f3c324cc7a9058526267063c24678c063cc6573a1c09704bcf4001dec3c766 更新后身份、配置摘要保持，实际 Hub 工作区创建与目录发布通过，随后停止隔离服务，零模型回合。原用户窗口 PID 96888 与后台 PID 54440 保持。Windows x64 Debug 编译导出 D:\Projects\Others\MewDex\dist\windows\MewDex-Windows-x64-20261030-033735.zip，52 文件，SHA256 a388d34aac44e0625b8ed5570c0b2af45669ba7913e8344df0440d985f7eebe6。证据 .state/evidence/windows-projects-toolbar-20261030.json；原生系统目录选择和远端真机升级仍待相应设备测试。
+274. 类型、相关 Go 包、目标 home 与重名检查通过；隔离界面检查确认模型选择没有执行指令、两种尺寸的工具栏均为 34px 一行、远端选择/创建/分类/改名完成。另以真实旧组件 cddbaa… 启动隔离 Windows 服务，新组件 83f3c324cc7a9058526267063c24678c063cc6573a1c09704bcf4001dec3c766 更新后身份、配置摘要保持，实际 Hub 工作区创建与目录发布通过，随后停止隔离服务，零模型回合。原用户窗口 PID 96888 与后台 PID 54440 保持。Windows x64 Debug 编译导出 <project-root>/dist\windows\MewDex-Windows-x64-20261030-033735.zip，52 文件，SHA256 a388d34aac44e0625b8ed5570c0b2af45669ba7913e8344df0440d985f7eebe6。证据 .state/evidence/windows-projects-toolbar-20261030.json；原生系统目录选择和远端真机升级仍待相应设备测试。
 
 275. 继续 Windows 数字问答、项目导航与文件阅读接入。先读取最新实施记录及 227–238 项原范围，核对最近导出源码清单：本轮修改前清单内文件摘要均一致，实际图形进程 PID 108196 使用第 274 项导出程序，摘要 f72341…；旧运行记录中的窗口与 Hub PID 已不代表当前状态。本机 47830 无监听、没有 mewdex-node 进程，图形进程没有可见原生窗口。保留该实际状态，没有启动或恢复用户服务、唤起或结束原图形进程。
 

@@ -1,0 +1,43 @@
+[package]
+name = "mewdex-sandbox"
+version = "0.1.2"
+edition = "2021"
+license = "Apache-2.0"
+publish = false
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[target.'cfg(windows)'.dependencies]
+codex-mxc-sandbox = { path = "../../.state/sandbox-source/codex-092d3acd6bec3e3a14bdc7e7a2810ab628ab759d/codex-rs/mxc-sandbox" }
+
+[target.'cfg(any(windows, target_os = "linux"))'.dependencies]
+codex-protocol = { path = "../../.state/sandbox-source/codex-092d3acd6bec3e3a14bdc7e7a2810ab628ab759d/codex-rs/protocol" }
+codex-utils-absolute-path = { path = "../../.state/sandbox-source/codex-092d3acd6bec3e3a14bdc7e7a2810ab628ab759d/codex-rs/utils/absolute-path" }
+
+[target.'cfg(target_os = "linux")'.dependencies]
+codex-linux-sandbox = { path = "../../.state/sandbox-source/codex-092d3acd6bec3e3a14bdc7e7a2810ab628ab759d/codex-rs/linux-sandbox" }
+codex-process-hardening = { path = "../../.state/sandbox-source/codex-092d3acd6bec3e3a14bdc7e7a2810ab628ab759d/codex-rs/process-hardening" }
+# The extracted module needs the static TLS build feature supplied by the CLI.
+openssl = { version = "0.10", features = ["vendored"] }
+libc = "0.2"
+signal-hook = "0.3"
+tempfile = "3"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+mxc-sdk = { path = "../../.state/sandbox-source/mxc-46cd65c262fa41d260060bd77d2fbf676610ab58/src/mxc-sdk" }
+libc = "0.2"
+signal-hook = "0.3"
+
+[patch.crates-io]
+tokio-tungstenite = { git = "https://github.com/openai-oss-forks/tokio-tungstenite", rev = "0e5b2d73aa18dd9f0a50ee9ff199d5aef7594186" }
+tungstenite = { git = "https://github.com/openai-oss-forks/tungstenite-rs", rev = "4fffad30fe373adbdcffab9545e9e9bf4f2fc19f" }
+
+[patch."ssh://git@github.com/openai-oss-forks/tungstenite-rs.git"]
+tungstenite = { git = "https://github.com/openai-oss-forks/tungstenite-rs", rev = "4fffad30fe373adbdcffab9545e9e9bf4f2fc19f" }
+
+[profile.release]
+strip = "symbols"
+debug = false
+

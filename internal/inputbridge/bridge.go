@@ -28,38 +28,17 @@ type Options struct {
 	Token       string `json:"token"`
 	HubDeviceID string `json:"hubDeviceId"`
 	IdentityID  string `json:"identityId"`
+	Name        string `json:"name,omitempty"`
 }
 
 func Run(ctx context.Context, options Options) error {
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	if err := config.ValidateURL(options.BaseURL, false); err != nil {
+	b, identity, err := verifiedBackend(ctx, options)
+	if err != nil {
 		return err
-	}
-	if options.Root == "" || options.Token == "" || options.HubDeviceID == "" || options.IdentityID == "" {
-		return errors.New("a verified APP connection is required")
 	}
 	base := strings.TrimRight(options.BaseURL, "/")
-	b := newBackend(ctx, base, options.Token, nil)
-	// Check the public server identity before sending the APP's credential.
-	request, _ := http.NewRequestWithContext(ctx, "GET", base+"/health", nil)
-	response, err := b.client.Do(request)
-	if err != nil {
-		return errors.New("Hub identity check unavailable")
-	}
-	var server protocol.ServerInfo
-	err = json.NewDecoder(http.MaxBytesReader(nil, response.Body, 64<<10)).Decode(&server)
-	response.Body.Close()
-	if err != nil || response.StatusCode != 200 || server.HubDeviceID != options.HubDeviceID || server.ProtocolVersion != protocol.Version {
-		return errors.New("Hub identity changed")
-	}
-	var identity protocol.Identity
-	if err = b.get("/v1/me", &identity); err != nil {
-		return err
-	}
-	if identity.ID != options.IdentityID || identity.Role != "admin" {
-		return errors.New("an administrator APP connection is required for channels")
-	}
 	digest := sha256.Sum256(protocol.JSON([]string{options.HubDeviceID, options.IdentityID}))
 	directory := filepath.Join(options.Root, hex.EncodeToString(digest[:16]))
 	if err = os.MkdirAll(directory, 0700); err != nil {
@@ -67,7 +46,7 @@ func Run(ctx context.Context, options Options) error {
 	}
 	lease, err := lifecycle.Acquire(directory)
 	if err != nil {
-		return errors.New("APP channel connections are already running for this installation")
+		return errors.New("Input channel connections are already running for this installation")
 	}
 	defer lease.Close()
 	s, err := store.Open(filepath.Join(directory, "channels.db"))
@@ -90,9 +69,10 @@ func Run(ctx context.Context, options Options) error {
 	}
 	manager.Start(ctx)
 	defer func() { cancel(); manager.Close() }()
-	name, _ := os.Hostname()
+	name := options.Name
 	if name == "" {
-		name = "MewDex APP"
+		name, _ = os.Hostname()
+		name += " · APP"
 	}
 	endpoint, _ := url.Parse(base + "/v1/input-bridges/ws")
 	if endpoint.Scheme == "https" {
@@ -108,7 +88,7 @@ func Run(ctx context.Context, options Options) error {
 			serveConnection(ctx, conn, manager, identity.ID)
 			conn.CloseNow()
 		} else if response != nil && (response.StatusCode == 401 || response.StatusCode == 403) {
-			return errors.New("APP channel authorization was revoked")
+			return errors.New("Input channel authorization was revoked")
 		}
 		timer := time.NewTimer(3 * time.Second)
 		select {
@@ -118,6 +98,43 @@ func Run(ctx context.Context, options Options) error {
 		}
 	}
 	return nil
+}
+
+// ValidateConnection verifies the public Hub before sending credentials.
+func ValidateConnection(ctx context.Context, options Options) error {
+	_, _, err := verifiedBackend(ctx, options)
+	return err
+}
+
+func verifiedBackend(ctx context.Context, options Options) (*backend, protocol.Identity, error) {
+	if err := config.ValidateURL(options.BaseURL, false); err != nil {
+		return nil, protocol.Identity{}, err
+	}
+	if options.Root == "" || options.Token == "" || options.HubDeviceID == "" || options.IdentityID == "" {
+		return nil, protocol.Identity{}, errors.New("a verified input connection is required")
+	}
+	base := strings.TrimRight(options.BaseURL, "/")
+	b := newBackend(ctx, base, options.Token, nil)
+	// Check the public server identity before sending the input's credential.
+	request, _ := http.NewRequestWithContext(ctx, "GET", base+"/health", nil)
+	response, err := b.client.Do(request)
+	if err != nil {
+		return nil, protocol.Identity{}, errors.New("Hub identity check unavailable")
+	}
+	var server protocol.ServerInfo
+	err = json.NewDecoder(http.MaxBytesReader(nil, response.Body, 64<<10)).Decode(&server)
+	response.Body.Close()
+	if err != nil || response.StatusCode != 200 || server.HubDeviceID != options.HubDeviceID || server.ProtocolVersion != protocol.Version {
+		return nil, protocol.Identity{}, errors.New("Hub identity changed")
+	}
+	var identity protocol.Identity
+	if err = b.get("/v1/me", &identity); err != nil {
+		return nil, protocol.Identity{}, err
+	}
+	if identity.ID != options.IdentityID || identity.Role != "admin" {
+		return nil, protocol.Identity{}, errors.New("an administrator input connection is required for channels")
+	}
+	return b, identity, nil
 }
 
 func serveConnection(ctx context.Context, conn *websocket.Conn, manager *messaging.Manager, owner string) {

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"mewdex/internal/projectharness"
 	"mewdex/internal/protocol"
 )
 
@@ -80,6 +81,15 @@ func (s *Store) SaveHubProject(hubID, id string, input protocol.HubProjectReques
 		}
 		if !found {
 			return project, errors.New("执行端目录绑定已不可用")
+		}
+	}
+	if prior.ID != "" {
+		configuration, err := projectHarnessState(tx, id, 0)
+		if err != nil {
+			return project, err
+		}
+		if _, err = projectharness.Normalize(configuration.Configuration, project.Directories); err != nil {
+			return project, errors.New("项目脚本仍引用这些目录，请先调整项目自动化配置")
 		}
 	}
 	if project.Name == prior.Name && project.Category == prior.Category && string(protocol.JSON(project.Directories)) == string(protocol.JSON(prior.Directories)) && (input.ExpectedRevision == prior.Revision || input.ExpectedRevision+1 == prior.Revision) {

@@ -39,7 +39,7 @@ for (const name of ['START-HERE.txt', 'component.json', 'licenses', 'third_party
   catch (error) { if (error.code === 'ENOENT') continue; throw error; }
   await copy(name);
 }
-for (const name of ['LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md', 'README.md', 'README.zh-CN.md', 'mewdex.product.json', 'docs/releases.md', 'docs/architecture.md', 'docs/protocol.md', 'docs/messaging.md', 'docs/hub-startup-20261102.md', 'docs/dependency-licenses.json', 'docs/licensing.md']) {
+for (const name of ['LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md', 'README.md', 'README.zh-CN.md', 'mewdex.product.json', 'docs/releases.md', 'docs/architecture.md', 'docs/protocol.md', 'docs/messaging.md', 'docs/hub-startup-20261102.md', 'docs/dependency-licenses.json', 'docs/licensing.md', 'docs/evaluations.md', 'docs/evaluations/core.example.json', 'docs/evaluations/ordered.example.json', 'docs/linux-sandbox.md']) {
   await mkdir(path.dirname(path.join(payload, name)), { recursive: true });
   await copyFile(path.join(root, name), path.join(payload, name));
   files.push(name);

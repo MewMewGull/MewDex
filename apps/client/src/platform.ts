@@ -1,6 +1,7 @@
 import { t } from "./localization.ts";
 import type { Credentials } from "@mewdex/sdk";
 import { isTauri, invoke } from "@tauri-apps/api/core";
+import { nextHostedChannelRequest } from "./inputChannelHost.ts";
 
 export interface Connection {
   baseURL: string;
@@ -16,6 +17,22 @@ export function hostedHubURL(): string | undefined {
   )
     return window.location.origin;
 }
+
+export function hubDisplayURL(baseURL: string): string {
+  const hosted = hostedHubURL();
+  if (!hosted) return baseURL;
+  try {
+    if (new URL(baseURL).href.replace(/\/+$/, "") !== hosted) return baseURL;
+  } catch {
+    return baseURL;
+  }
+  return (
+    document
+      .querySelector('meta[name="mewdex-hub-url"]')
+      ?.getAttribute("content") || baseURL
+  );
+}
+
 export interface CredentialStore {
   load(): Promise<SavedConnection | null>;
   save(value: Connection): Promise<void>;
@@ -38,9 +55,43 @@ const saved = (value: Connection): SavedConnection => ({
   },
 });
 
-// The web development adapter is deliberately session-scoped. Native vaults implement this interface.
+// Standalone web inputs can restore their background connection from a tray-authorized tab.
 const webCredentialStore: CredentialStore = {
   async load() {
+    if (
+      document
+        .querySelector('meta[name="mewdex-input-channels"]')
+        ?.getAttribute("content") === "hosted"
+    ) {
+      const hash = window.location.hash;
+      if (hash?.startsWith("#mewdex-input=")) {
+        sessionStorage.setItem(
+          "mewdex.web-panel-key",
+          hash.slice("#mewdex-input=".length),
+        );
+        history.replaceState(
+          null,
+          "",
+          window.location.pathname + window.location.search,
+        );
+      }
+      const key = sessionStorage.getItem("mewdex.web-panel-key");
+      if (key) {
+        const response = await fetch("/__mewdex/session", {
+          headers: { Authorization: `Bearer ${key}` },
+        });
+        if (response.ok) {
+          const connection = (await response.json()) as SavedConnection | null;
+          if (connection) {
+            sessionStorage.setItem(
+              "mewdex.connection",
+              JSON.stringify(connection),
+            );
+            return connection;
+          }
+        }
+      }
+    }
     const value = sessionStorage.getItem("mewdex.connection");
     if (!value) return null;
     try {
@@ -53,6 +104,27 @@ const webCredentialStore: CredentialStore = {
     sessionStorage.setItem("mewdex.connection", JSON.stringify(saved(value)));
   },
   async clear() {
+    const raw = sessionStorage.getItem("mewdex.connection");
+    if (
+      raw &&
+      document
+        .querySelector('meta[name="mewdex-input-channels"]')
+        ?.getAttribute("content") === "hosted"
+    ) {
+      const connection = JSON.parse(raw) as SavedConnection;
+      const response = await fetch("/__mewdex/channels", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${connection.credentials.token}`,
+        },
+        body: JSON.stringify({
+          operation: "disconnect",
+          ...nextHostedChannelRequest(),
+        }),
+      });
+      if (!response.ok) throw new Error(await response.text());
+    }
     sessionStorage.removeItem("mewdex.connection");
   },
 };

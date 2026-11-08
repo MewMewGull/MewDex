@@ -1,5 +1,6 @@
 import { t } from "./localization.ts";
-import type { Event } from "@mewdex/sdk";
+import type { Event, ExecutionTarget } from "@mewdex/sdk";
+import { executionTargetFrom } from "./executionTarget.ts";
 
 export interface CommandOutput {
   id: string;
@@ -10,6 +11,7 @@ export interface CommandOutput {
   partial: boolean;
   exitCode?: number;
   durationMs?: number;
+  executionTarget?: ExecutionTarget;
 }
 
 const object = (value: unknown): Record<string, unknown> =>
@@ -56,6 +58,8 @@ export function commandOutputsFrom(
       current.cwd = typeof item.cwd === "string" ? item.cwd : current.cwd;
       current.status =
         typeof item.status === "string" ? item.status : current.status;
+      current.executionTarget =
+        executionTargetFrom(item.executionTarget) ?? current.executionTarget;
       if (typeof item.aggregatedOutput === "string") {
         current.output = item.aggregatedOutput;
         current.partial = false;

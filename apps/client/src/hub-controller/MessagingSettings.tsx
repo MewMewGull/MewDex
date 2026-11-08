@@ -518,19 +518,19 @@ export function MessagingSettings({
       </div>
       <p className="muted">
         {t(
-          "由所选 APP 连接微信、QQ 和飞书，消息经 APP 处理后进入 Hub。请保持该 APP 运行。",
+          "由所选输入端连接微信、QQ 和飞书，消息经输入端处理后进入 Hub。请保持该输入端服务运行。",
         )}
       </p>
       <label>
-        {t("渠道所在 APP")}
+        {t("渠道所在输入端")}
         <select
           value={bridgeId}
           onChange={(event) => setBridgeId(event.target.value)}
         >
-          <option value="">{t("选择在线 APP")}</option>
+          <option value="">{t("选择在线输入端")}</option>
           {bridgeId &&
             !bridges.data?.some((bridge) => bridge.id === bridgeId) && (
-              <option value={bridgeId}>{t("所选 APP 已离线")}</option>
+              <option value={bridgeId}>{t("所选输入端已离线")}</option>
             )}
           {bridges.data?.map((bridge) => (
             <option key={bridge.id} value={bridge.id}>
@@ -541,7 +541,7 @@ export function MessagingSettings({
       </label>
       {!bridges.isPending && !bridges.data?.length && (
         <p role="status">
-          {t("请打开已登录此账号的桌面 APP，以连接消息渠道。")}
+          {t("请运行已登录此账号的 APP 或网页输入端服务，以连接消息渠道。")}
         </p>
       )}
       {bridges.error && (

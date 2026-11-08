@@ -1,6 +1,6 @@
 //go:build windows
 
-package hubtray
+package servicetray
 
 import (
 	"context"
@@ -11,15 +11,18 @@ import (
 	"golang.org/x/sys/windows"
 )
 
-func TestHubRegistersItsOwnTrayIconAndRemovesItOnExit(t *testing.T) {
+func TestServiceRegistersItsTrayAndRemovesItOnExit(t *testing.T) {
 	ready := make(chan uintptr, 1)
-	closeTray := start(context.Background(), t.TempDir(), func() {}, func(window uintptr) { ready <- window })
+	closeTray, err := start(context.Background(), Options{Title: "MewDex tray test", Menu: func() []Item { return []Item{{ID: "open", Label: "Open"}} }, Action: func(context.Context, string) (string, error) { return "", nil }}, func(window uintptr) { ready <- window })
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer closeTray()
 	var window uintptr
 	select {
 	case window = <-ready:
 	case <-time.After(5 * time.Second):
-		t.Fatal("Hub tray window was not created")
+		t.Fatal("tray window was not created")
 	}
 	identifier := struct {
 		Size   uint32
@@ -32,11 +35,11 @@ func TestHubRegistersItsOwnTrayIconAndRemovesItOnExit(t *testing.T) {
 	getRect := shell.NewProc("Shell_NotifyIconGetRect")
 	result, _, _ := getRect.Call(uintptr(unsafe.Pointer(&identifier)), uintptr(unsafe.Pointer(&rect)))
 	if int32(result) < 0 {
-		t.Fatalf("Windows did not register the Hub's tray icon: HRESULT=%08x", uint32(result))
+		t.Fatalf("tray icon registration failed HRESULT=%08x", uint32(result))
 	}
 	closeTray()
 	result, _, _ = getRect.Call(uintptr(unsafe.Pointer(&identifier)), uintptr(unsafe.Pointer(&rect)))
 	if int32(result) >= 0 {
-		t.Fatal("Hub exit left a registered tray icon")
+		t.Fatal("service exit left its tray icon registered")
 	}
 }

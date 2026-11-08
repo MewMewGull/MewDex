@@ -15,9 +15,12 @@ import (
 	"syscall"
 	"time"
 
+	"mewdex/internal/config"
 	"mewdex/internal/executorpanel"
+	"mewdex/internal/lifecycle"
 	"mewdex/internal/localnode"
 	"mewdex/internal/protocol"
+	"mewdex/internal/servicetray"
 )
 
 func packagedEngine() string {
@@ -29,16 +32,20 @@ func packagedEngine() string {
 	if filepath.Ext(program) == ".exe" {
 		name += ".exe"
 	}
+	if distributionRole == "executor" {
+		sandbox := filepath.Join(filepath.Dir(program), "sandbox", "bin", "mewdex-sandbox"+filepath.Ext(program))
+		if info, err := os.Stat(sandbox); err == nil && info.Mode().IsRegular() {
+			return sandbox
+		}
+	}
 	return filepath.Join(filepath.Dir(program), "engine", "bin", name)
 }
 
 func panel(args []string) error {
-	if distributionRole == "hub" {
-		return errors.New("the executor package provides its control panel")
-	}
 	flags := flag.NewFlagSet("panel", flag.ContinueOnError)
 	root := flags.String("root", ".local/executor", "executor configuration directory")
-	listen := flags.String("listen", "127.0.0.1:47832", "local control panel listener")
+	listen := flags.String("listen", "127.0.0.1:0", "local control panel listener")
+	open := flags.Bool("open", false, "open the local panel in a browser")
 	engine := flags.String("engine-binary", packagedEngine(), "executor sandbox binary")
 	if err := flags.Parse(args); err != nil {
 		return err
@@ -80,7 +87,54 @@ func panel(args []string) error {
 	if len(strings.TrimSpace(string(raw))) < 32 {
 		return errors.New("executor panel token is invalid")
 	}
-	server := &http.Server{Addr: *listen, Handler: executorpanel.Handler(manager, strings.TrimSpace(string(raw))), ReadHeaderTimeout: 10 * time.Second}
+	key := strings.TrimSpace(string(raw))
+	endpointPath := filepath.Join(*root, "panel.json")
+	lease, err := lifecycle.Acquire(filepath.Join(*root, "panel"))
+	if err != nil {
+		var endpoint struct {
+			URL string `json:"url"`
+		}
+		data, readErr := os.ReadFile(endpointPath)
+		if readErr != nil || json.Unmarshal(data, &endpoint) != nil || !strings.HasPrefix(endpoint.URL, "http://127.0.0.1:") {
+			return err
+		}
+		client := &http.Client{Timeout: 3 * time.Second}
+		request, _ := http.NewRequest("POST", endpoint.URL+"/api/device", strings.NewReader(`{"operation":"status"}`))
+		request.Header.Set("Authorization", "Bearer "+key)
+		response, checkErr := client.Do(request)
+		if checkErr != nil {
+			return err
+		}
+		response.Body.Close()
+		if response.StatusCode != 200 {
+			return err
+		}
+		if *open {
+			return servicetray.OpenURL(endpoint.URL + "#" + key)
+		}
+		fmt.Println("MewDex panel", endpoint.URL)
+		return nil
+	}
+	defer lease.Close()
+	listener, err := net.Listen("tcp", *listen)
+	if err != nil {
+		return err
+	}
+	defer listener.Close()
+	address := "http://" + listener.Addr().String()
+	if err = os.WriteFile(endpointPath, protocol.JSON(map[string]string{"url": address}), 0600); err != nil {
+		return err
+	}
+	defer os.Remove(endpointPath)
+	role := "executor"
+	if distributionRole == "hub" {
+		role = "hub"
+	} else if distributionRole == "combined" {
+		if configuration, readErr := config.Read(filepath.Join(*root, "device.json")); readErr == nil && configuration.Hub {
+			role = "hub"
+		}
+	}
+	server := &http.Server{Handler: executorpanel.HandlerForRole(manager, key, role), ReadHeaderTimeout: 10 * time.Second}
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 	go func() {
@@ -89,9 +143,12 @@ func panel(args []string) error {
 		defer cancel()
 		_ = server.Shutdown(shutdown)
 	}()
-	fmt.Println("MewDex executor panel:", "http://"+*listen)
+	fmt.Println("MewDex component panel:", address)
 	fmt.Println("Panel token file:", tokenPath)
-	err = server.ListenAndServe()
+	if *open {
+		go func() { _ = servicetray.OpenURL(address + "#" + key) }()
+	}
+	err = server.Serve(listener)
 	if errors.Is(err, http.ErrServerClosed) {
 		return nil
 	}

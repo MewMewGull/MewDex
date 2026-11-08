@@ -10,6 +10,7 @@
   ],
   "experimentalParameters": [
     "turn/start.collaborationMode",
+    "turn/start.additionalContext",
     "thread/start.baseInstructions",
     "thread/fork.baseInstructions"
   ],

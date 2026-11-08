@@ -56,6 +56,7 @@ export interface Session {
   policyInstructions: string;
   baseVersion: string;
   model: string;
+  modelProvider?: string;
   defaultModel: string;
   turnId: string;
   lastStartId?: string;
@@ -91,6 +92,7 @@ export interface Input {
 }
 
 export interface Command {
+  computer?: ComputerRequest | null;
   terminal?: TerminalRequest | null;
   workspace?: WorkspaceRequest | null;
   models?: ModelListRequest | null;
@@ -406,11 +408,13 @@ export interface ModelOption {
   isDefault: boolean;
   defaultReasoningEffort: string;
   supportedReasoningEfforts: ReasoningOption[];
+  inputModalities?: string[];
 }
 
 export interface ModelPage {
   models: ModelOption[];
   nextCursor?: string;
+  runtime?: ModelRuntime | null;
 }
 
 export interface TaskPlanStep {
@@ -509,6 +513,20 @@ export interface TerminalRequest {
   accessMode?: string;
   timeoutMs?: number;
   yieldMs?: number;
+  harnessVersion?: string;
+  harnessRevision?: number;
+}
+
+export interface ExecutionTarget {
+  deviceId: string;
+  deviceName?: string;
+  platform?: string;
+  projectId: string;
+  projectName?: string;
+  workspace?: string;
+  accessMode?: string;
+  harnessVersion?: string;
+  harnessRevision?: number;
 }
 
 export interface TerminalJob {
@@ -579,5 +597,173 @@ export interface MessagingLogin {
 export interface InputBridge {
   id: string;
   name: string;
+}
+
+export interface NodeConnection {
+  state: string;
+  error?: string;
+  at: string;
+  retryAt?: string;
+}
+
+export interface ProjectHarness {
+  format: number;
+  instructions: string;
+  skills: ProjectSkill[];
+  scripts: ProjectScript[];
+  workflows: ProjectWorkflow[];
+}
+
+export interface ProjectSkill {
+  id: string;
+  name: string;
+  description: string;
+  instructions: string;
+}
+
+export interface ProjectScript {
+  id: string;
+  name: string;
+  description: string;
+  deviceId: string;
+  projectId: string;
+  command: string[];
+  cwd: string;
+  timeoutMs: number;
+}
+
+export interface ProjectWorkflow {
+  id: string;
+  name: string;
+  description: string;
+  instructions: string;
+  steps: string[];
+}
+
+export interface ProjectHarnessRevision {
+  projectId: string;
+  revision: number;
+  version: string;
+  createdAt: string;
+}
+
+export interface ProjectHarnessState {
+  projectId: string;
+  projectRevision: number;
+  revision: number;
+  version: string;
+  createdAt: string;
+  configuration: ProjectHarness;
+}
+
+export interface ProjectHarnessUpdate {
+  expectedRevision: number;
+  expectedProjectRevision: number;
+  configuration: ProjectHarness;
+}
+
+export interface ProjectHarnessHistory {
+  items: ProjectHarnessRevision[];
+  nextBefore?: number;
+}
+
+export interface ProjectTurnContext {
+  sessionId: string;
+  commandId: string;
+  project: Project;
+  harness: ProjectHarnessState;
+  instructions: string;
+  createdAt: string;
+}
+
+export interface ComputerRequest {
+  ownerId: string;
+  turnId?: string;
+  sessionId?: string;
+  reason?: string;
+  observationId?: string;
+  action?: ComputerAction | null;
+}
+
+export interface ComputerAction {
+  kind: string;
+  x?: number | null;
+  y?: number | null;
+  button?: string;
+  text?: string;
+  keys?: string[];
+  scroll?: number;
+}
+
+export interface ComputerWindow {
+  id: string;
+  processId: number;
+  title: string;
+}
+
+export interface ComputerSession {
+  id: string;
+  deviceId: string;
+  projectId: string;
+  ownerId: string;
+  instanceId: string;
+  reason: string;
+  state: string;
+  revision: number;
+  window?: ComputerWindow | null;
+  expiresAt: string;
+  lastActionId?: string;
+  lastActionState?: string;
+  lastObservationId?: string;
+  error?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ComputerObservation {
+  id: string;
+  sessionId: string;
+  image: string;
+  mimeType: string;
+  width: number;
+  height: number;
+  windowWidth: number;
+  windowHeight: number;
+  createdAt: string;
+}
+
+export interface ComputerStatus {
+  supported: boolean;
+  reason?: string;
+  session?: ComputerSession | null;
+}
+
+export interface ComputerResult {
+  executionTarget?: ExecutionTarget | null;
+  status: ComputerStatus;
+  observation?: ComputerObservation | null;
+}
+
+export interface ComputerApproval {
+  sessionId: string;
+  expectedRevision: number;
+  windowId: string;
+  durationSeconds: number;
+}
+
+export interface ComputerLocalStatus {
+  status: ComputerStatus;
+  windows: ComputerWindow[];
+}
+
+export interface ComputerStopRequest {
+  id: string;
+  sessionId: string;
+}
+
+export interface ModelRuntime {
+  adapter: string;
+  version: string;
+  transport: string;
 }
 

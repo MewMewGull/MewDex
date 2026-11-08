@@ -1,6 +1,6 @@
 [package]
 name = "mewdex-client"
-version = "0.1.2-preview.20261106"
+version = "0.1.11-preview.20261108"
 license = "Apache-2.0"
 repository = "https://github.com/MewMewGull/MewDex"
 description = "MewDex app with composable terminals and Hub Controller"
@@ -51,6 +51,8 @@ getrandom = "=0.3.4"
 url = "=2.5.8"
 
 [target.'cfg(target_os = "macos")'.dependencies]
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-single-instance = "=2.5.1"
 apple-native-keyring-store = { version = "=1.0.2", features = ["keychain"] }
 
 [target.'cfg(target_os = "ios")'.dependencies]

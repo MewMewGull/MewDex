@@ -4,6 +4,7 @@ package webui
 import (
 	"bytes"
 	"encoding/json"
+	"html"
 	"io/fs"
 	"net/http"
 	"os"
@@ -23,10 +24,25 @@ func Enabled(root string) bool {
 	return err == nil && json.Unmarshal(raw, &settings) == nil && settings.Enabled
 }
 
-func Handler(directory string) http.Handler { return handler(os.DirFS(directory)) }
+func Handler(directory string) http.Handler { return HandlerWithHubURL(directory, "") }
 
-func handler(files fs.FS) http.Handler {
+func HandlerWithHubURL(directory, hubURL string) http.Handler {
+	return handler(os.DirFS(directory), hubURL, false)
+}
+
+func HandlerForInput(directory, hubURL string) http.Handler {
+	return handler(os.DirFS(directory), hubURL, true)
+}
+
+func handler(files fs.FS, hubURL string, channels bool) http.Handler {
 	assets := http.FileServerFS(files)
+	metadata := `<meta name="mewdex-hub" content="same-origin">`
+	if hubURL != "" {
+		metadata += `<meta name="mewdex-hub-url" content="` + html.EscapeString(hubURL) + `">`
+	}
+	if channels {
+		metadata += `<meta name="mewdex-input-channels" content="hosted">`
+	}
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			w.Header().Set("Allow", "GET, HEAD")
@@ -42,7 +58,7 @@ func handler(files fs.FS) http.Handler {
 				http.Error(w, "网页资源不可用，请检查独立网页端的 ui 目录。", http.StatusServiceUnavailable)
 				return
 			}
-			index = bytes.Replace(index, []byte("</head>"), []byte(`<meta name="mewdex-hub" content="same-origin"></head>`), 1)
+			index = bytes.Replace(index, []byte("</head>"), []byte(metadata+"</head>"), 1)
 			w.Header().Set("Content-Type", "text/html; charset=utf-8")
 			w.Header().Set("Cache-Control", "no-store")
 			if r.Method != http.MethodHead {

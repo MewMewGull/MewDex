@@ -6,8 +6,10 @@ import { MarkdownBody } from "../components/MarkdownBody";
 import { CopyButton } from "../components/CopyButton";
 import type { MewDexClient } from "@mewdex/sdk";
 import { AttachmentList } from "../components/AttachmentList";
+import { ExecutionTargetDetails } from "../components/ExecutionTargetDetails";
 
 const toolStatus: Record<string, string> = {
+  unknown: t("状态待确认"),
   get inProgress() {
     return t("执行中");
   },
@@ -72,6 +74,7 @@ const MessageItem = memo(
               </small>
             )}
           </div>
+          <ExecutionTargetDetails target={message.executionTarget} />
           <div className="message-text">
             {message.role === "assistant" && message.text ? (
               <MarkdownBody
@@ -132,6 +135,8 @@ const MessageItem = memo(
     before.message.status === after.message.status &&
     before.message.partial === after.message.partial &&
     before.message.toolKind === after.message.toolKind &&
+    JSON.stringify(before.message.executionTarget) ===
+      JSON.stringify(after.message.executionTarget) &&
     before.message.attachmentIds?.join(":") ===
       after.message.attachmentIds?.join(":"),
 );
@@ -178,6 +183,18 @@ export function MessageList({
           (message) => message.status === "inProgress",
         );
         const failed = group.some((message) => message.status === "failed");
+        const targets = new Map(
+          group.flatMap((message) =>
+            message.executionTarget
+              ? [
+                  [
+                    message.executionTarget.deviceId,
+                    message.executionTarget,
+                  ] as const,
+                ]
+              : [],
+          ),
+        );
         return (
           <details
             className={`tool-activity ${running && !historical ? "active" : ""} ${failed ? "failed" : ""}`}
@@ -199,6 +216,21 @@ export function MessageList({
                     : t("工具活动")}
               </span>
               <small>{t("{0} 项", group.length)}</small>
+              {!!targets.size && (
+                <span
+                  className="tool-execution-nodes"
+                  title={[...targets.values()]
+                    .map(
+                      (target) =>
+                        `${target.deviceName || target.deviceId} · ${target.deviceId}`,
+                    )
+                    .join("\n")}
+                >
+                  {[...targets.values()]
+                    .map((target) => target.deviceName || target.deviceId)
+                    .join(" · ")}
+                </span>
+              )}
               <ChevronRight size={14} />
             </summary>
             <div>

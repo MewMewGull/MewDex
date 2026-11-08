@@ -14,6 +14,7 @@ import (
 
 	"mewdex/internal/attachments"
 	"mewdex/internal/childprocess"
+	"mewdex/internal/computeruse"
 	"mewdex/internal/config"
 	"mewdex/internal/engine"
 	"mewdex/internal/executionscope"
@@ -38,6 +39,14 @@ type terminalState struct {
 // NewTerminal is the model-free execution-node entry point. Workspace bindings,
 // command receipts and process results remain durable across reconnections.
 func NewTerminal(ctx context.Context, c config.Config, s *store.Store) (*Executor, error) {
+	return NewTerminalWithOptions(ctx, c, s, TerminalOptions{})
+}
+
+type TerminalOptions struct {
+	ComputerDriver computeruse.Driver
+}
+
+func NewTerminalWithOptions(ctx context.Context, c config.Config, s *store.Store, options TerminalOptions) (*Executor, error) {
 	if c.Engine.Home != "" {
 		if _, err := os.Stat(c.Engine.Home); err == nil {
 			c.PrivatePaths = append(c.PrivatePaths, c.Engine.Home)
@@ -87,6 +96,20 @@ func NewTerminal(ctx context.Context, c config.Config, s *store.Store) (*Executo
 		}
 	}
 	_, err = s.RecoverCommands(c.DeviceID)
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+	program, err := os.Executable()
+	if err != nil {
+		cancel()
+		return nil, err
+	}
+	driver := options.ComputerDriver
+	if driver == nil {
+		driver = computeruse.NewNativeDriver(program)
+	}
+	x.computer, err = computeruse.New(ctx, s, c.DeviceID, driver)
 	if err != nil {
 		cancel()
 		return nil, err
@@ -219,7 +242,7 @@ func (x *Executor) terminalProfile(project protocol.Project, ids []string, acces
 	return executionscope.Build(executionscope.Spec{
 		DeviceID:      x.config.DeviceID,
 		ProjectID:     project.ID,
-		EngineVersion: engine.CompatibleVersion,
+		EngineVersion: x.terminal.sandbox.Version(),
 		Workspace:     project.Path,
 		Workspaces:    roots,
 		ReadOnly:      environment.RuntimeReadOnly,
@@ -304,7 +327,8 @@ func (x *Executor) startTerminal(c protocol.Command) (protocol.TerminalJob, erro
 		return job, err
 	}
 	for _, running := range jobs {
-		if running.OwnerID != r.OwnerID && (running.State == "running" || running.State == "unknown") {
+		// An unconfirmed execution also blocks new work from its own owner.
+		if running.State == "unknown" || (running.OwnerID != r.OwnerID && running.State == "running") {
 			currentRoots, e := x.terminalRoots(job.WorkspaceIDs)
 			otherRoots, otherErr := x.terminalRoots(append([]string{running.ProjectID}, running.WorkspaceIDs...))
 			if e != nil || otherErr != nil {
@@ -390,6 +414,9 @@ func (x *Executor) runTerminal(ctx context.Context, cancel context.CancelFunc, c
 			job.State, job.Error = "stopped", ctx.Err().Error()
 		}
 	}
+	if x.terminal.sandbox.UnconfirmedExit(command) {
+		job.State, job.Error = "unknown", "local sandbox exited before process cleanup was confirmed"
+	}
 	if process != nil {
 		if cleanupErr := process.Kill(); cleanupErr != nil {
 			job.State, job.Error = "unknown", cleanupErr.Error()
@@ -426,11 +453,14 @@ func (x *Executor) waitTerminal(ctx context.Context, job protocol.TerminalJob, y
 		case <-ctx.Done():
 		}
 	}
-	if err := x.store.Get("terminal_jobs", job.ID, &job); err != nil {
+	// Decode into a fresh value. The caller's slices can still be owned by the
+	// background worker, and JSON decoding can reuse their backing arrays.
+	var snapshot protocol.TerminalJob
+	if err := x.store.Get("terminal_jobs", job.ID, &snapshot); err != nil {
 		return protocol.CommandResult{State: "unknown", Error: err.Error()}
 	}
-	if !utf8.ValidString(job.Stdout) {
-		job.Stdout = strings.ToValidUTF8(job.Stdout, "�")
+	if !utf8.ValidString(snapshot.Stdout) {
+		snapshot.Stdout = strings.ToValidUTF8(snapshot.Stdout, "�")
 	}
-	return protocol.CommandResult{State: "completed", Data: protocol.JSON(job)}
+	return protocol.CommandResult{State: "completed", Data: protocol.JSON(snapshot)}
 }

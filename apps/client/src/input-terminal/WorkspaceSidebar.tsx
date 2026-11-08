@@ -24,7 +24,11 @@ import {
 import type { Device, Project, Session } from "@mewdex/sdk";
 import { WorkspaceProjectMenu } from "../components/WorkspaceProjectMenu";
 import { DevicePicker } from "../components/DevicePicker";
-import { conversationContext, navigationMatches } from "../workspaceNavigation";
+import {
+  conversationContext,
+  navigationMatches,
+  workspaceConversationGroups,
+} from "../workspaceNavigation";
 import { SessionContextMenu } from "../components/SessionContextMenu";
 import type { UpdateSession } from "../components/SessionManagement";
 import { SidebarResizeHandle } from "../components/SidebarResizeHandle";
@@ -45,6 +49,7 @@ export function WorkspaceSidebar({
   onActivity,
   onSearch,
   onSettings,
+  onManageHub,
   onLocalDevice,
   onClose,
   onDevice,
@@ -76,6 +81,7 @@ export function WorkspaceSidebar({
   onActivity: () => void;
   onSearch: () => void;
   onSettings: () => void;
+  onManageHub: () => void;
   onLocalDevice?: () => void;
   onClose: () => void;
   onDevice: (id: string) => void;
@@ -156,71 +162,85 @@ export function WorkspaceSidebar({
       getLanguage(),
     ],
   );
-  const groups = useMemo(() => {
-    const central = devices.find((device) =>
-      device.roles.includes("coordinator"),
-    );
-    const result = (central ? [central] : devices)
-      .flatMap((device) =>
-        device.projects.map((project) => ({
-          key: `${device.id}:${project.id}`,
-          device,
-          projectId: project.id,
-          name: project.name,
-          category: project.category || t("项目"),
-          path: project.path,
-          sessions: visible.filter(
-            (session) =>
-              session.deviceId === device.id &&
-              session.projectId === project.id,
+  const { groups, recent } = useMemo(() => {
+    const grouped = workspaceConversationGroups(devices, visible);
+    const groups = grouped.groups.filter((group) =>
+      scope === "unread"
+        ? group.sessions.length > 0
+        : !search.trim() ||
+          group.sessions.length > 0 ||
+          navigationMatches(
+            search,
+            group.name,
+            group.category,
+            group.device.name,
           ),
-        })),
-      )
-      .filter((group) =>
-        scope === "unread"
-          ? group.sessions.length > 0
-          : !search.trim() ||
-            group.sessions.length > 0 ||
-            navigationMatches(
-              search,
-              group.name,
-              group.category,
-              group.device.name,
-            ),
-      );
-    for (const session of visible) {
-      if (
-        !result.some(
-          (group) =>
-            group.device.id === session.deviceId &&
-            group.projectId === session.projectId,
-        )
-      ) {
-        const device = devicesById.get(session.deviceId);
-        if (device)
-          result.push({
-            key: `${device.id}:${session.projectId}`,
-            device,
-            projectId: session.projectId,
-            name:
-              device.projects.find(
-                (project) => project.id === session.projectId,
-              )?.name ?? session.projectId,
-            category: central ? t("旧设备对话") : t("未关联目录"),
-            path: "",
-            sessions: visible.filter(
-              (s) =>
-                s.deviceId === session.deviceId &&
-                s.projectId === session.projectId,
-            ),
-          });
-      }
-    }
-    return result.sort(
+    );
+    groups.sort(
       (a, b) =>
         a.category.localeCompare(b.category) || a.name.localeCompare(b.name),
     );
+    return { groups, recent: grouped.recent };
   }, [devices, visible, scope, deviceId, search, getLanguage()]);
+  function renderSession(session: Session) {
+    const device = devicesById.get(session.deviceId);
+    const context = conversationContext(session, device);
+    const showContext = !!search.trim();
+    const label = [context.deviceName, context.projectName].join(" · ");
+    return (
+      <SessionContextMenu
+        key={session.id}
+        session={session}
+        context={`${context.deviceName} · ${context.projectName}`}
+        canManage={canManageSessions}
+        onUpdate={onUpdateSession}
+        onRename={onRenameSession}
+      >
+        <button
+          className={`session ${session.id === sessionId ? "selected" : ""} ${unreadSessions.has(session.id) ? "has-unread" : ""}`}
+          aria-current={session.id === sessionId ? "page" : undefined}
+          title={t(
+            "{0}\n{1} · {2}\n右键或菜单键整理对话",
+            session.title,
+            context.deviceName,
+            context.projectName,
+          )}
+          onClick={() => onSession(session)}
+        >
+          {session.archived ? (
+            <Archive size={15} aria-label={t("已归档")} />
+          ) : session.pinned ? (
+            <Pin size={15} className="session-pin" aria-label={t("已置顶")} />
+          ) : (
+            <MessageSquare size={15} />
+          )}
+          <span className="session-copy">
+            <strong>{session.title}</strong>
+            {showContext && <small>{label}</small>}
+          </span>
+          {draftSessions.has(session.id) && (
+            <span className="session-draft">{t("草稿")}</span>
+          )}
+          {unreadSessions.has(session.id) && (
+            <span
+              className="session-unread-dot"
+              role="img"
+              aria-label={t("有新回复")}
+              title={t("有新回复")}
+            />
+          )}
+          {session.state === "running" && (
+            <i
+              className={`running-dot ${connected === "connected" ? "" : "is-stale"}`}
+              aria-label={
+                connected === "connected" ? t("执行中") : t("上次执行中")
+              }
+            />
+          )}
+        </button>
+      </SessionContextMenu>
+    );
+  }
   return (
     <>
       <aside
@@ -461,78 +481,7 @@ export function WorkspaceSidebar({
                   </WorkspaceProjectMenu>
                   {(!!search.trim() || !collapsed.has(group.key)) && (
                     <div className="workspace-group-sessions">
-                      {group.sessions.map((session) => {
-                        const device = devicesById.get(session.deviceId);
-                        const context = conversationContext(session, device);
-                        const showContext = !!search.trim();
-                        const label = [
-                          context.deviceName,
-                          context.projectName,
-                        ].join(" · ");
-                        return (
-                          <SessionContextMenu
-                            key={session.id}
-                            session={session}
-                            context={`${context.deviceName} · ${context.projectName}`}
-                            canManage={canManageSessions}
-                            onUpdate={onUpdateSession}
-                            onRename={onRenameSession}
-                          >
-                            <button
-                              className={`session ${session.id === sessionId ? "selected" : ""} ${unreadSessions.has(session.id) ? "has-unread" : ""}`}
-                              aria-current={
-                                session.id === sessionId ? "page" : undefined
-                              }
-                              title={t(
-                                "{0}\n{1} · {2}\n右键或菜单键整理对话",
-                                session.title,
-                                context.deviceName,
-                                context.projectName,
-                              )}
-                              onClick={() => onSession(session)}
-                            >
-                              {session.archived ? (
-                                <Archive size={15} aria-label={t("已归档")} />
-                              ) : session.pinned ? (
-                                <Pin
-                                  size={15}
-                                  className="session-pin"
-                                  aria-label={t("已置顶")}
-                                />
-                              ) : (
-                                <MessageSquare size={15} />
-                              )}
-                              <span className="session-copy">
-                                <strong>{session.title}</strong>
-                                {showContext && <small>{label}</small>}
-                              </span>
-                              {draftSessions.has(session.id) && (
-                                <span className="session-draft">
-                                  {t("草稿")}
-                                </span>
-                              )}
-                              {unreadSessions.has(session.id) && (
-                                <span
-                                  className="session-unread-dot"
-                                  role="img"
-                                  aria-label={t("有新回复")}
-                                  title={t("有新回复")}
-                                />
-                              )}
-                              {session.state === "running" && (
-                                <i
-                                  className={`running-dot ${connected === "connected" ? "" : "is-stale"}`}
-                                  aria-label={
-                                    connected === "connected"
-                                      ? t("执行中")
-                                      : t("上次执行中")
-                                  }
-                                />
-                              )}
-                            </button>
-                          </SessionContextMenu>
-                        );
-                      })}
+                      {group.sessions.map(renderSession)}
                       {!group.sessions.length && (
                         <button
                           className="workspace-empty"
@@ -549,7 +498,16 @@ export function WorkspaceSidebar({
               )}
             </section>
           ))}
-          {!groups.length && (
+          {recent.length > 0 && (
+            <section
+              className="recent-conversations"
+              aria-label={t("最近对话")}
+            >
+              <h2 className="sidebar-section-label">{t("最近对话")}</h2>
+              {recent.map(renderSession)}
+            </section>
+          )}
+          {!groups.length && !recent.length && (
             <p className="empty-list">
               {search
                 ? t("没有找到匹配对话")
@@ -561,12 +519,13 @@ export function WorkspaceSidebar({
         </nav>
         <div className="sidebar-bottom">
           <div className="sidebar-device">
-            <span className="sidebar-section-label">{t("执行设备")}</span>
+            <span className="sidebar-section-label">{t("Hub 连接")}</span>
             <DevicePicker
               devices={devices}
               selectedId={deviceId}
               connected={connected === "connected"}
               onSelect={onDevice}
+              onManageHub={onManageHub}
             />
           </div>
           <div className="sidebar-utilities">

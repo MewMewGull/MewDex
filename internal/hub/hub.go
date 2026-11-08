@@ -84,6 +84,15 @@ func (h *Hub) Ingest(e protocol.Event) (protocol.Event, error) {
 	if err != nil {
 		return stored, err
 	}
+	if e.Kind == "computer.session.updated" {
+		var session protocol.ComputerSession
+		if err = json.Unmarshal(e.Payload, &session); err != nil {
+			return stored, err
+		}
+		if err = h.recordComputerSession(e.DeviceID, session); err != nil {
+			return stored, err
+		}
+	}
 	if e.Kind == "terminal.job.updated" {
 		var job protocol.TerminalJob
 		if err = json.Unmarshal(e.Payload, &job); err != nil {
@@ -513,7 +522,7 @@ func (h *Hub) command(w http.ResponseWriter, r *http.Request, id protocol.Identi
 	}
 	c.SourceID = id.ID
 	c.CreatedAt = protocol.Now()
-	if strings.HasPrefix(c.Kind, "terminal.") || c.Terminal != nil {
+	if strings.HasPrefix(c.Kind, "terminal.") || c.Terminal != nil || strings.HasPrefix(c.Kind, "computer.") || c.Computer != nil {
 		problem(w, 403, errors.New("执行端指令由 Hub 调度"))
 		return
 	}

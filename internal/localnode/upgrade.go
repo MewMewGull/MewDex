@@ -7,6 +7,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"mewdex/internal/backup"
 	"mewdex/internal/config"
@@ -24,6 +25,34 @@ type upgradeRecord struct {
 	ProgramSHA256        string        `json:"programSha256"`
 	EngineManifestSHA256 string        `json:"engineManifestSha256,omitempty"`
 	CredentialFiles      []backup.File `json:"credentialFiles"`
+	ProfileFile          string        `json:"profileFile,omitempty"`
+}
+
+// UpgradeProfile exposes the same reviewed migration for an existing CLI
+// configuration. Its parent owns the data and credentials. A verified shared
+// runtime may be read as the old source, and the new runtime is staged locally.
+// Only these upgrade operations use this alternate profile location.
+func UpgradeProfile(ctx context.Context, profile, program, runtime string, request Request) (Result, error) {
+	if !filepath.IsAbs(profile) || request.ExpectedDeviceID == "" {
+		return Result{}, errors.New("an absolute profile and expected device identity are required")
+	}
+	if request.Operation != "upgrade.prepare" && request.Operation != "upgrade.apply" && request.Operation != "upgrade.status" {
+		return Result{}, errors.New("an existing CLI profile supports the reviewed upgrade operations")
+	}
+	profile = filepath.Clean(profile)
+	c, err := config.Read(profile)
+	if err != nil {
+		return Result{}, err
+	}
+	if c.DeviceID != request.ExpectedDeviceID {
+		return Result{}, errors.New("the existing profile belongs to another device")
+	}
+	manager, err := New(Options{Root: filepath.Dir(profile), Program: program, Engine: runtime})
+	if err != nil {
+		return Result{}, err
+	}
+	manager.upgradeProfile = profile
+	return manager.Handle(ctx, request)
 }
 
 func (m *Manager) upgradeDirectory(id string) string {
@@ -43,6 +72,13 @@ func (m *Manager) loadUpgrade(request *UpgradeRequest) (upgradeRecord, error) {
 	}
 	if record.Format != 1 || record.Info.ID != request.ID || record.State.Info.ID != request.ID {
 		return record, errors.New("invalid prepared upgrade record")
+	}
+	profileFile := record.ProfileFile
+	if profileFile == "" {
+		profileFile = "device.json"
+	}
+	if profileFile != filepath.Base(m.profile()) {
+		return record, errors.New("prepared upgrade belongs to another profile file")
 	}
 	return record, nil
 }
@@ -120,10 +156,25 @@ func (m *Manager) prepareUpgrade(ctx context.Context, request *UpgradeRequest) (
 	sourceVersion := ""
 	manifestHash := ""
 	if c.Executor || c.Hub {
-		if _, err = m.ownedRelative(c.Engine.Executable); err != nil {
-			return nil, err
+		if m.upgradeProfile == "" {
+			if _, err = m.ownedRelative(c.Engine.Executable); err != nil {
+				return nil, err
+			}
 		}
-		sourceVersion, err = runtimefiles.EngineVersion(c.Engine.Executable)
+		manifest := filepath.Join(filepath.Dir(filepath.Dir(c.Engine.Executable)), "mewdex-engine.json")
+		_, manifestErr := os.Lstat(manifest)
+		if m.upgradeProfile != "" && errors.Is(manifestErr, os.ErrNotExist) {
+			var version string
+			version, err = engine.ReadVersion(ctx, c.Engine)
+			if err == nil {
+				if !strings.HasPrefix(version, "codex-cli ") {
+					return nil, errors.New("the existing bare runtime is not a supported Codex CLI")
+				}
+				sourceVersion = strings.TrimPrefix(version, "codex-cli ")
+			}
+		} else {
+			sourceVersion, err = runtimefiles.EngineVersion(c.Engine.Executable)
+		}
 		if err != nil {
 			return nil, err
 		}
@@ -260,7 +311,15 @@ func (m *Manager) prepareUpgrade(ctx context.Context, request *UpgradeRequest) (
 		return nil, err
 	}
 	info := UpgradeInfo{ID: request.ID, DeviceID: c.DeviceID, Name: c.Name, CreatedAt: protocol.Now(), Hub: c.Hub, Executor: c.Executor, Projects: c.Projects, SourceEngineVersion: sourceVersion, TargetEngineVersion: engine.CompatibleVersion}
-	record := upgradeRecord{Format: 1, Info: info, State: restoreRecord{Format: 1, Info: RestoreInfo{ID: request.ID, Hub: c.Hub, Executor: c.Executor}, BeforeProfile: before, BeforeData: beforeData, PreparedProfile: hashBytes(prepared), Files: files, EngineVersion: engine.CompatibleVersion}, ProgramSHA256: programHash, EngineManifestSHA256: manifestHash, CredentialFiles: credentials}
+	record := upgradeRecord{
+		Format: 1, Info: info, ProfileFile: filepath.Base(m.profile()),
+		State: restoreRecord{
+			Format: 1, Info: RestoreInfo{ID: request.ID, Hub: c.Hub, Executor: c.Executor},
+			BeforeProfile: before, BeforeData: beforeData, PreparedProfile: hashBytes(prepared),
+			Files: files, EngineVersion: engine.CompatibleVersion,
+		},
+		ProgramSHA256: programHash, EngineManifestSHA256: manifestHash, CredentialFiles: credentials,
+	}
 	if err = m.ensureRestoreArea("upgrade-plans"); err != nil {
 		return nil, err
 	}
