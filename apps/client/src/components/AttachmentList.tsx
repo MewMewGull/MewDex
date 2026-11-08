@@ -12,12 +12,18 @@ import {
   X,
 } from "lucide-react";
 import type { Attachment, MewDexClient } from "@mewdex/sdk";
-import { canSaveAttachment, saveAttachmentFile } from "../attachmentFiles";
+import {
+  canPreviewImage,
+  canSaveAttachment,
+  saveAttachmentFile,
+} from "../attachmentFiles";
 import { formatBytes } from "../formatBytes";
 import { CopyButton } from "./CopyButton";
 import { TextFilePreview } from "./TextFilePreview";
 import { decodeTextPreview, type TextPreviewEncoding } from "../textPreview";
 import { useDialogReturnFocus } from "../useDialogReturnFocus";
+import { useBlobURL } from "../useBlobURL";
+import { AttachmentThumbnail } from "./AttachmentThumbnail";
 
 interface AttachmentItem {
   id: string;
@@ -25,14 +31,6 @@ interface AttachmentItem {
   initialLine?: number;
 }
 const textPreviewLimit = 256 * 1024;
-const imageTypes = new Set([
-  "image/png",
-  "image/jpeg",
-  "image/gif",
-  "image/webp",
-  "image/bmp",
-]);
-const mimeOf = (file: Attachment) => file.mediaType.split(";")[0];
 
 function SaveButton({
   client,
@@ -40,7 +38,7 @@ function SaveButton({
   content,
 }: {
   client: MewDexClient;
-  file: Attachment;
+  file: Pick<Attachment, "id" | "name">;
   content?: Blob;
 }) {
   const support = useQuery({
@@ -114,15 +112,17 @@ export function AttachmentPreview({
   file,
   onClose,
   initialLine,
+  initialContent,
 }: {
   client: MewDexClient;
-  file: Attachment;
+  file: Pick<Attachment, "id" | "name" | "mediaType" | "size">;
   onClose: () => void;
   initialLine?: number;
+  initialContent?: Blob;
 }) {
   const returnFocus = useDialogReturnFocus();
-  const mime = mimeOf(file);
-  const image = imageTypes.has(mime);
+  const mime = file.mediaType.split(";")[0].trim().toLowerCase();
+  const image = canPreviewImage(mime);
   const text =
     mime.startsWith("text/") ||
     mime === "application/json" ||
@@ -130,13 +130,15 @@ export function AttachmentPreview({
   const content = useQuery({
     queryKey: ["attachment-content", file.id],
     queryFn: ({ signal }) => client.attachmentContent(file.id, signal),
-    enabled: image || text,
+    enabled: !initialContent && (image || text),
     staleTime: Infinity,
     gcTime: 0,
     retry: false,
   });
-  const [imageURL, setImageURL] = useState("");
-  const [imageError, setImageError] = useState(false);
+  const blob = initialContent ?? content.data;
+  const imageURL = useBlobURL(image ? blob : undefined, file.mediaType);
+  const [failedImageURL, setFailedImageURL] = useState("");
+  const imageError = !!imageURL && failedImageURL === imageURL;
   const [previewBytes, setPreviewBytes] = useState<Uint8Array>();
   const [encoding, setEncoding] = useState<TextPreviewEncoding>("auto");
   const preview = useMemo(
@@ -153,18 +155,9 @@ export function AttachmentPreview({
   const previewText = preview?.text;
   const [findOpen, setFindOpen] = useState(false);
   useEffect(() => {
-    if (!image || !content.data) return;
-    const url = URL.createObjectURL(
-      new Blob([content.data], { type: file.mediaType }),
-    );
-    setImageURL(url);
-    setImageError(false);
-    return () => URL.revokeObjectURL(url);
-  }, [image, content.data, file.mediaType]);
-  useEffect(() => {
-    if (!text || !content.data) return;
+    if (!text || !blob) return;
     let active = true;
-    void content.data
+    void blob
       .slice(0, textPreviewLimit)
       .arrayBuffer()
       .then((value) => {
@@ -173,7 +166,7 @@ export function AttachmentPreview({
     return () => {
       active = false;
     };
-  }, [text, content.data]);
+  }, [text, blob]);
   return (
     <Dialog.Root
       open
@@ -222,7 +215,7 @@ export function AttachmentPreview({
           <div
             className={`attachment-preview-body ${text ? "is-text-preview" : ""}`}
           >
-            {(image || text) && content.isPending && (
+            {(image || text) && !blob && content.isPending && (
               <div className="file-preview-empty">
                 <LoaderCircle className="spinning" size={24} />
                 <span>{t("正在读取附件…")}</span>
@@ -244,7 +237,7 @@ export function AttachmentPreview({
                 <img
                   src={imageURL}
                   alt={file.name}
-                  onError={() => setImageError(true)}
+                  onError={() => setFailedImageURL(imageURL)}
                 />
               </div>
             )}
@@ -253,7 +246,7 @@ export function AttachmentPreview({
                 {t("无法预览这张图片，可以保存到本机查看。")}
               </p>
             )}
-            {text && content.data && (
+            {text && blob && (
               <>
                 {previewText === undefined ? (
                   <p className="muted">{t("正在读取文本…")}</p>
@@ -286,7 +279,7 @@ export function AttachmentPreview({
             {text && previewText !== undefined && (
               <CopyButton text={previewText} label={t("复制预览内容")} />
             )}
-            <SaveButton client={client} file={file} content={content.data} />
+            <SaveButton client={client} file={file} content={blob} />
           </footer>
         </Dialog.Content>
       </Dialog.Portal>
@@ -311,27 +304,50 @@ function AttachmentCard({
     retry: false,
   });
   const [preview, setPreview] = useState(false);
-  const image = file.data && imageTypes.has(mimeOf(file.data));
+  const image = file.data && canPreviewImage(file.data.mediaType);
+  const thumbnail = !!onRemove && !!image;
+  const content = useQuery({
+    queryKey: ["attachment-content", item.id],
+    queryFn: ({ signal }) => client.attachmentContent(item.id, signal),
+    enabled: thumbnail,
+    staleTime: Infinity,
+    gcTime: 0,
+    retry: false,
+  });
   return (
-    <article className={`file-card ${onRemove ? "draft" : ""}`}>
+    <article
+      className={`file-card ${onRemove ? "draft" : ""} ${thumbnail ? "is-image" : ""}`}
+    >
       <button
         className="file-card-main"
         disabled={!file.data}
         onClick={() => setPreview(true)}
+        title={file.data?.name}
         aria-label={
           file.data ? t("查看附件 {0}", file.data.name) : t("正在读取附件")
         }
       >
-        <span className="file-card-icon">
-          {image ? <ImageIcon size={19} /> : <FileText size={19} />}
-        </span>
-        <span>
-          <strong title={file.data?.name}>
-            {file.data?.name ??
-              (file.error ? t("附件暂不可用") : t("正在读取附件…"))}
-          </strong>
-          <small>{file.data ? formatBytes(file.data.size) : ""}</small>
-        </span>
+        {thumbnail && file.data ? (
+          <AttachmentThumbnail
+            content={content.data}
+            mediaType={file.data.mediaType}
+            name={file.data.name}
+            failed={content.isError}
+          />
+        ) : (
+          <>
+            <span className="file-card-icon">
+              {image ? <ImageIcon size={19} /> : <FileText size={19} />}
+            </span>
+            <span>
+              <strong title={file.data?.name}>
+                {file.data?.name ??
+                  (file.error ? t("附件暂不可用") : t("正在读取附件…"))}
+              </strong>
+              <small>{file.data ? formatBytes(file.data.size) : ""}</small>
+            </span>
+          </>
+        )}
       </button>
       {file.error && (
         <button className="file-retry" onClick={() => void file.refetch()}>
@@ -340,7 +356,7 @@ function AttachmentCard({
       )}
       {onRemove ? (
         <button
-          className="icon-button"
+          className={`icon-button ${thumbnail ? "attachment-image-remove" : ""}`}
           aria-label={t("移除附件 {0}", file.data?.name ?? "")}
           onClick={() => onRemove(item.id)}
         >

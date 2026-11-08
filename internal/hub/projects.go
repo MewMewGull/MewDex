@@ -4,6 +4,7 @@ import (
 	"errors"
 	"net/http"
 	"slices"
+	"strconv"
 	"strings"
 
 	"mewdex/internal/protocol"
@@ -30,14 +31,37 @@ func (h *Hub) projectsAPI(w http.ResponseWriter, r *http.Request) {
 			problem(w, 500, err)
 			return
 		}
-		reply(w, 200, projects)
+		reply(w, 200, slices.DeleteFunc(projects, func(project protocol.Project) bool { return project.Removed }))
 		return
 	}
-	if r.Method != "PUT" || !strings.HasPrefix(r.URL.Path, "/v1/projects/hp_") {
+	if len(parts) != 1 || !strings.HasPrefix(r.URL.Path, "/v1/projects/hp_") || (r.Method != "PUT" && r.Method != "DELETE") {
 		problem(w, 405, errors.New("unsupported Hub project operation"))
 		return
 	}
 	id := strings.TrimPrefix(r.URL.Path, "/v1/projects/")
+	if r.Method == "DELETE" {
+		revision, err := strconv.ParseInt(r.URL.Query().Get("expectedRevision"), 10, 64)
+		if err != nil || revision < 0 {
+			problem(w, 400, errors.New("请提供有效的项目版本"))
+			return
+		}
+		h.projectMu.Lock()
+		project, err := h.store.RemoveHubProject(h.config.DeviceID, id, revision)
+		h.projectMu.Unlock()
+		if err != nil {
+			status := 500
+			if errors.Is(err, store.ErrNotFound) {
+				status, err = 404, errors.New("项目已不可用，请刷新列表")
+			} else if errors.Is(err, store.ErrConflict) {
+				status, err = 409, errors.New("项目已在其他输入端修改，请刷新后重试")
+			}
+			problem(w, status, err)
+			return
+		}
+		h.notify()
+		reply(w, 200, project)
+		return
+	}
 	var input protocol.HubProjectRequest
 	if !decode(w, r, &input) {
 		return
@@ -66,6 +90,8 @@ func (h *Hub) projectsAPI(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrConflict) {
 			status = 409
 			err = errors.New("项目已在其他输入端修改，请刷新后重试")
+		} else if errors.Is(err, store.ErrNotFound) {
+			status, err = 404, errors.New("项目已移除，请刷新列表")
 		}
 		problem(w, status, err)
 		return

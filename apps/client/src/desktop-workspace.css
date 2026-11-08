@@ -1321,11 +1321,189 @@ button:disabled {
   white-space: pre-wrap;
 }
 .computer-use-entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 11px;
   color: var(--accent-text);
   padding: 2px 5px;
   border: 1px solid var(--panel-border);
   border-radius: 4px;
+}
+.executor-status-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.computer-use-entry:hover {
+  background: var(--surface-hover);
+}
+.computer-use-notices {
+  margin-top: 8px;
+  display: grid;
+  gap: 6px;
+}
+.computer-use-notice,
+.computer-use-state {
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  padding: 12px;
+  background: var(--panel);
+}
+.computer-use-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+}
+.computer-use-notice > svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--accent-text);
+}
+.computer-use-notice-content {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.computer-use-notice p,
+.computer-use-state p,
+.computer-use-handoff p {
+  margin: 5px 0 0;
+  color: var(--text-muted);
+  line-height: 1.7;
+}
+.computer-use-notice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.computer-use-notice .error {
+  color: var(--status-error-text);
+}
+.computer-use-notice-actions button {
+  padding: 4px 7px;
+  color: var(--accent-text);
+  border: 1px solid var(--panel-border);
+  border-radius: 5px;
+}
+.settings-dialog.computer-use-dialog {
+  width: min(700px, calc(100vw - 32px));
+  max-height: min(850px, calc(100dvh - 32px));
+  overflow-y: auto;
+  padding: 24px;
+}
+.computer-use-dialog .dialog-heading h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.computer-use-dialog > p {
+  margin: 10px 0 18px;
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+.computer-use-targets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(180px, 100%), 1fr));
+  gap: 8px;
+  margin: 18px 0;
+}
+.computer-use-targets .computer-use-target {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 11px;
+  border: 1px solid var(--panel-border);
+  border-radius: 8px;
+  background: var(--panel-subtle);
+  text-align: left;
+}
+.computer-use-target[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--panel);
+}
+.computer-use-target > svg {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+.computer-use-target > span {
+  display: grid;
+  gap: 5px;
+  min-width: 0;
+}
+.computer-use-target strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-strong);
+}
+.computer-use-target small {
+  color: var(--text-muted);
+}
+.computer-use-state[data-tone="warning"],
+.computer-use-notice[data-tone="warning"] {
+  border-color: var(--status-warning-text);
+}
+.computer-use-state[data-tone="success"] > strong {
+  color: var(--status-success-text);
+}
+.computer-use-handoff {
+  padding: 14px 0 0;
+}
+.computer-use-steps {
+  display: grid;
+  gap: 16px;
+  padding-left: 24px;
+  margin: 24px 0;
+}
+.computer-use-steps li {
+  padding-left: 5px;
+}
+.computer-use-steps li::marker {
+  color: var(--accent-text);
+}
+.computer-use-steps strong,
+.computer-use-steps span {
+  display: block;
+  line-height: 1.7;
+}
+.computer-use-steps span {
+  margin-top: 2px;
+  color: var(--text-muted);
+}
+.computer-use-dialog > .computer-use-desktop-note {
+  font-size: calc(11px * var(--ui-scale));
+  margin-bottom: 0;
+}
+.computer-use-dialog .project-dialog-footer {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.computer-use-dialog .computer-use-refresh {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: auto;
+}
+.computer-use-dialog .computer-use-stop {
+  color: var(--status-error-text);
+  border: 1px solid var(--panel-border);
+}
+@media (max-width: 640px) {
+  .computer-use-notice {
+    flex-wrap: wrap;
+  }
+  .computer-use-notice-content {
+    flex-basis: calc(100% - 26px);
+  }
+  .computer-use-notice-actions {
+    padding-left: 25px;
+  }
+  .settings-dialog.computer-use-dialog {
+    padding: 18px;
+  }
 }
 .settings-dialog.project-harness-dialog {
   display: flex;

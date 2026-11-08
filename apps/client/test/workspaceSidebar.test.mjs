@@ -69,6 +69,7 @@ test("the sidebar places unassigned conversations after projects and retains the
           activeTasks: 0,
           attentionTasks: 0,
           canManageSessions: true,
+          canRemoveProjects: true,
           width: 280,
           projectId: "risk",
           account: null,
@@ -89,6 +90,7 @@ test("the sidebar places unassigned conversations after projects and retains the
               "onProject",
               "onEditProject",
               "onProjectCategory",
+              "onRemoveProject",
             ].map((name) => [name, () => {}]),
           ),
         }),
@@ -113,6 +115,29 @@ test("the sidebar places unassigned conversations after projects and retains the
     const onlyUnassigned = render([], recent);
     assert.ok(onlyUnassigned.includes('class="recent-conversations"'));
     assert.ok(!onlyUnassigned.includes("从新对话开始"));
+    const afterRemoval = render(
+      [
+        {
+          ...hub,
+          projects: hub.projects.map((project) => ({
+            ...project,
+            removed: true,
+          })),
+        },
+        oldDevice,
+      ],
+      [current, ...recent],
+    );
+    assert.ok(!afterRemoval.includes('class="workspace-group"'));
+    assert.ok(afterRemoval.includes('class="recent-conversations"'));
+    assert.ok(
+      afterRemoval.indexOf("Project conversation") >
+        afterRemoval.indexOf('class="recent-conversations"'),
+    );
+    assert.equal(
+      (afterRemoval.match(/class="session(?:\s|")/g) ?? []).length,
+      9,
+    );
   } finally {
     await server.close();
   }

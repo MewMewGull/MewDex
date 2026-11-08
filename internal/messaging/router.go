@@ -13,7 +13,7 @@ import (
 	"mewdex/internal/store"
 )
 
-const helpText = "发送文字即可在绑定项目中工作；执行中收到的消息会排入下一条。\n/help 查看用法\n/status 查看会话\n/last 获取最近一条回复\n/new 新建会话\n/stop 停止当前任务\n/approve 请求编号 单次确认当前范围内的命令\n/deny 请求编号 拒绝请求\n/answer 请求编号 {\"问题编号\":[\"回答\"]}\n文件变更、额外权限和表单请在 MewDex 中处理。"
+const helpText = "先选择项目，再发送文字开始任务。执行中收到的消息会排入下一条。\n/projects 列出可选项目\n/project 序号、项目名或项目 ID 选择或切换项目\n/help 查看用法\n/status 查看会话\n/last 获取最近一条回复\n/new 在当前项目中新建会话\n/stop 停止当前任务\n/approve 请求编号 单次确认当前范围内的命令\n/deny 请求编号 拒绝请求\n/answer 请求编号 {\"问题编号\":[\"回答\"]}\n每位用户在各聊天中独立选择项目。文件变更、额外权限和表单请在 MewDex 中处理。"
 
 func (m *Manager) process(ctx context.Context, item inbox) {
 	c, _ := m.config(item.Envelope.Platform)
@@ -45,15 +45,38 @@ func (m *Manager) process(ctx context.Context, item inbox) {
 	if err != nil {
 		text = "消息未能完成处理：" + err.Error()
 	}
-	if err = m.finish(item, b, text); err != nil {
+	scoped := err == nil && (strings.TrimSpace(item.Envelope.Text) == "/last" || strings.TrimSpace(item.Envelope.Text) == "/status")
+	if err = m.finish(item, b, text, scoped); err != nil {
 		m.setStatus(c.Platform, "storage_error", "保存消息回执失败，正在保留原输入重试")
 	}
 }
 
 func (m *Manager) route(ctx context.Context, c channel, b *binding, item *inbox) (string, error) {
 	text := strings.TrimSpace(item.Envelope.Text)
-	if text == "/help" || text == "/start" {
+	if text == "/help" {
 		return helpText, nil
+	}
+	if text == "/start" {
+		projects, err := m.listProjects(c, b)
+		return helpText + "\n\n" + projects, err
+	}
+	if text == "/projects" || text == "/project" {
+		return m.listProjects(c, b)
+	}
+	fields := strings.Fields(text)
+	if len(fields) > 0 && fields[0] == "/project" {
+		return m.selectProject(c, b, strings.TrimSpace(strings.TrimPrefix(text, "/project")))
+	}
+	control := len(fields) > 0 && (fields[0] == "/stop" || fields[0] == "/approve" || fields[0] == "/deny" || fields[0] == "/answer")
+	if strings.HasPrefix(text, "/") && !control && text != "/last" && text != "/status" && text != "/new" {
+		return "未知指令。\n" + helpText, nil
+	}
+	if b.ProjectID == "" {
+		projects, err := m.listProjects(c, b)
+		return "请先选择项目，再发送任务。\n" + projects, err
+	}
+	if _, err := m.authorizeBinding(c, *b); err != nil {
+		return "", err
 	}
 	var session protocol.Session
 	if b.SessionID != "" {
@@ -61,10 +84,14 @@ func (m *Manager) route(ctx context.Context, c channel, b *binding, item *inbox)
 			if errors.Is(err, ErrHubUnavailable) {
 				return "", err
 			}
+			if errors.Is(err, store.ErrNotFound) && text == "/new" {
+				b.SessionID, b.CreateID, b.Cursor = "", "", 0
+				return "下条消息将在当前项目中创建新的 MewDex 会话。", nil
+			}
 			return "", errors.New("原会话不可用，请使用 /new 新建会话")
 		}
-		if session.DeviceID != c.DeviceID || session.ProjectID != c.ProjectID {
-			return "", errors.New("会话与渠道绑定项目不匹配")
+		if session.DeviceID != b.DeviceID || session.ProjectID != b.ProjectID {
+			return "", errors.New("会话与当前选择的项目不匹配")
 		}
 	}
 	if text == "/last" {
@@ -87,7 +114,7 @@ func (m *Manager) route(ctx context.Context, c channel, b *binding, item *inbox)
 	}
 	if text == "/status" {
 		if session.ID == "" {
-			return "尚未创建会话，发送文字即可开始。", nil
+			return "当前项目为 " + b.ProjectID + "\n尚未创建会话，发送文字即可开始。", nil
 		}
 		items, err := m.backend.QueueItems(session.ID)
 		if err != nil {
@@ -102,33 +129,33 @@ func (m *Manager) route(ctx context.Context, c channel, b *binding, item *inbox)
 		return fmt.Sprintf("会话：%s\n设备：%s\n项目：%s\n状态：%s\n队列等待：%d\n暂停：%t", session.ID, b.DeviceID, b.ProjectID, session.State, count, session.Frozen), nil
 	}
 	if text == "/new" {
-		if session.ExecutionUnconfirmed() || session.Frozen || session.StopStatus == "background-running" {
-			return "当前会话还有执行或队列状态需要处理，请先在 MewDex 中确认。", nil
+		if reason, err := m.resetBlocked(session); err != nil || reason != "" {
+			return reason, err
 		}
-		if session.ID != "" {
-			items, err := m.backend.QueueItems(session.ID)
-			if err != nil {
-				return "", err
-			}
-			for _, item := range items {
-				if item.State == "queued" || item.State == "dispatching" || item.State == "running" || item.State == "unknown" {
-					return "当前会话还有未完成的队列消息，请先在 MewDex 中处理。", nil
-				}
-			}
+		if err := m.checkpointEvents(b); err != nil {
+			return "", err
 		}
 		b.SessionID, b.CreateID, b.Cursor = "", "", 0
-		return "下条消息将创建新的 MewDex 会话。", nil
+		return "下条消息将在当前项目中创建新的 MewDex 会话。", nil
 	}
 	if text == "" {
 		return "当前支持文字消息；请将图片、语音或文件附在 MewDex 对话中。", nil
 	}
-	fields := strings.Fields(text)
-	control := fields[0] == "/stop" || fields[0] == "/approve" || fields[0] == "/deny" || fields[0] == "/answer"
-	if strings.HasPrefix(text, "/") && !control {
-		return "未知指令。\n" + helpText, nil
-	}
 	if control && session.ID == "" {
 		return "尚未创建会话。", nil
+	}
+	if !control {
+		projects, err := m.availableProjects(c, b.Envelope)
+		if err != nil {
+			return "", err
+		}
+		found := false
+		for _, project := range projects {
+			found = found || project.ID == b.ProjectID
+		}
+		if !found {
+			return "当前项目已不可用，请重新选择。\n" + projectList(b, projects), nil
+		}
 	}
 	if !control && b.SessionID == "" {
 		if b.CreateID == "" {
@@ -137,7 +164,7 @@ func (m *Manager) route(ctx context.Context, c channel, b *binding, item *inbox)
 				return "", err
 			}
 		}
-		created, err := m.runCommand(ctx, c.IdentityID, protocol.Command{ID: b.CreateID, DeviceID: c.DeviceID, ProjectID: c.ProjectID, Kind: "create", Title: c.Platform + " · " + item.Envelope.UserID})
+		created, err := m.runCommand(ctx, c.IdentityID, protocol.Command{ID: b.CreateID, DeviceID: b.DeviceID, ProjectID: b.ProjectID, Kind: "create", Title: c.Platform + " · " + item.Envelope.UserID})
 		if err != nil {
 			return "", err
 		}
@@ -151,7 +178,7 @@ func (m *Manager) route(ctx context.Context, c channel, b *binding, item *inbox)
 		}
 	}
 	if item.Command == nil {
-		command := protocol.Command{ID: stable(item.ID, "command"), DeviceID: c.DeviceID, ProjectID: c.ProjectID, SessionID: b.SessionID}
+		command := protocol.Command{ID: stable(item.ID, "command"), DeviceID: b.DeviceID, ProjectID: b.ProjectID, SessionID: b.SessionID}
 		if control {
 			if fields[0] == "/stop" {
 				command.Kind, command.ExpectedTurnID = "stop", session.TurnID
@@ -211,7 +238,7 @@ func (m *Manager) route(ctx context.Context, c channel, b *binding, item *inbox)
 			return "", err
 		}
 	}
-	if _, err := m.authorize(c, item.Envelope); err != nil {
+	if _, err := m.authorizeBinding(c, *b); err != nil {
 		return "", err
 	}
 	_, err := m.runCommand(ctx, c.IdentityID, *item.Command)
@@ -308,26 +335,42 @@ func (m *Manager) checkBinding(id string) {
 		return
 	}
 	c, _ := m.config(b.Envelope.Platform)
-	if _, err := m.authorize(c, b.Envelope); err != nil || c.key(b.Envelope) != b.ID || b.IdentityID != c.IdentityID {
+	if _, err := m.authorizeBinding(c, b); err != nil || c.key(b.Envelope) != b.ID || b.IdentityID != c.IdentityID {
 		return
 	}
-	events, err := m.backend.Events(b.Cursor, b.SessionID, 200)
-	if err != nil || len(events) == 0 {
-		return
-	}
-	objects := []store.Object{}
-	for _, event := range events {
-		b.Cursor = event.Sequence
-		if event.DeviceID != b.DeviceID {
-			continue
-		}
-		if text := eventText(event); text != "" {
-			objects = append(objects, replyObjects(b, stable(b.ID, event.ID), text)...)
-		}
-	}
-	objects = append(objects, store.Object{Bucket: "messaging_bindings", ID: b.ID, Value: b})
-	if m.store.PutObjects(objects...) != nil {
+	if m.checkpointEvents(&b) != nil {
 		m.setStatus(c.Platform, "storage_error", "保存回复失败，事件游标未前进，正在重试")
+	}
+}
+
+func (m *Manager) checkpointEvents(b *binding) error {
+	if b.SessionID == "" {
+		return nil
+	}
+	for {
+		events, err := m.backend.Events(b.Cursor, b.SessionID, 200)
+		if err != nil || len(events) == 0 {
+			return err
+		}
+		checkpoint := *b
+		objects := []store.Object{}
+		for _, event := range events {
+			checkpoint.Cursor = event.Sequence
+			if event.DeviceID != b.DeviceID {
+				continue
+			}
+			if text := eventText(event); text != "" {
+				objects = append(objects, replyObjects(*b, stable(b.ID, event.ID), text)...)
+			}
+		}
+		objects = append(objects, store.Object{Bucket: "messaging_bindings", ID: b.ID, Value: checkpoint})
+		if err := m.store.PutObjects(objects...); err != nil {
+			return err
+		}
+		*b = checkpoint
+		if len(events) < 200 {
+			return nil
+		}
 	}
 }
 
@@ -347,7 +390,7 @@ func replyObjects(b binding, id, text string) []store.Object {
 	objects := make([]store.Object, 0, len(chunks))
 	created := time.Now().UTC()
 	for index, chunk := range chunks {
-		out := delivery{ID: stable(id, strconv.Itoa(index)), BindingID: b.ID, Envelope: b.Envelope, Text: chunk, State: "pending", CreatedAt: created.Add(time.Duration(index) * time.Nanosecond).Format(time.RFC3339Nano)}
+		out := delivery{ID: stable(id, strconv.Itoa(index)), BindingID: b.ID, Envelope: b.Envelope, IdentityID: b.IdentityID, DeviceID: b.DeviceID, ProjectID: b.ProjectID, Text: chunk, State: "pending", CreatedAt: created.Add(time.Duration(index) * time.Nanosecond).Format(time.RFC3339Nano)}
 		objects = append(objects, store.Object{Bucket: "messaging_outbox", ID: out.ID, Value: out})
 	}
 	return objects
@@ -368,12 +411,12 @@ func (m *Manager) deliver(ctx context.Context) {
 					continue
 				}
 				c, _ := m.config(out.Envelope.Platform)
-				_, err = m.authorize(c, out.Envelope)
+				err = m.authorizeDelivery(c, out)
 				if errors.Is(err, ErrHubUnavailable) {
 					blocked[out.BindingID] = true
 					continue
 				}
-				if err != nil || c.key(out.Envelope) != out.BindingID {
+				if err != nil {
 					out.State, out.Text, out.Envelope.ReplyToken = "cancelled", "", ""
 					_ = m.store.Put("messaging_outbox", out.ID, out)
 					continue

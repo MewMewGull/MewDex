@@ -1,6 +1,6 @@
 [package]
 name = "mewdex-client"
-version = "0.1.11-preview.20261108"
+version = "0.1.12-preview.20261109"
 license = "Apache-2.0"
 repository = "https://github.com/MewMewGull/MewDex"
 description = "MewDex app with composable terminals and Hub Controller"

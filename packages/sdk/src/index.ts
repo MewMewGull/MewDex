@@ -466,6 +466,13 @@ export class MewDexClient {
     });
   }
 
+  removeHubProject(id: string, expectedRevision: number): Promise<Project> {
+    return this.request(
+      `/v1/projects/${encodeURIComponent(id)}?${new URLSearchParams({ expectedRevision: String(expectedRevision) })}`,
+      { method: "DELETE" },
+    );
+  }
+
   projectHarness(
     id: string,
     revision = 0,

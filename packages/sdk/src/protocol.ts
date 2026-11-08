@@ -8,6 +8,7 @@ export interface Project {
   category?: string;
   directories?: ProjectDirectory[];
   revision?: number;
+  removed?: boolean;
 }
 
 export interface Device {

@@ -3418,7 +3418,9 @@ select,
   font-size: calc(11px * var(--ui-scale, 1));
 }
 .composer-attachments {
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
   max-height: 175px;
   overflow-y: auto;
   margin: 0 0 12px;
@@ -3440,7 +3442,8 @@ select,
   overflow: visible;
 }
 .attachment-upload-items {
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
   gap: 7px;
   max-height: min(210px, 25dvh);
   overflow-y: auto;
@@ -3453,6 +3456,8 @@ select,
   border: 1px solid var(--panel-border);
   border-radius: 8px;
   background: var(--surface-hover);
+  flex: 1 1 100%;
+  min-width: 0;
 }
 .attachment-upload-icon {
   display: inline-flex;
@@ -3504,11 +3509,91 @@ select,
 .file-card.draft {
   padding: 9px;
   background: var(--surface-hover);
+  flex: 1 1 170px;
 }
 .file-card.draft > .icon-button {
   width: 24px;
   height: 24px;
   flex-shrink: 0;
+}
+.file-card.draft.is-image,
+.attachment-upload-item.is-image {
+  position: relative;
+  flex: 0 0 112px;
+  width: 112px;
+  height: 112px;
+  padding: 0;
+  overflow: hidden;
+}
+.file-card.draft.is-image .file-card-main,
+.attachment-upload-preview {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border-radius: inherit;
+  cursor: zoom-in;
+}
+.file-card.draft.is-image:focus-within,
+.attachment-upload-item.is-image:focus-within {
+  outline: 2px solid var(--accent-border);
+  outline-offset: 2px;
+}
+.attachment-thumbnail {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: inherit;
+  background: var(--surface);
+  color: var(--accent-text);
+}
+.attachment-thumbnail img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+.file-card.draft > .attachment-image-remove,
+.attachment-upload-item.is-image > .icon-button {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 2;
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--panel-border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-strong);
+}
+.attachment-upload-item.is-image > .attachment-upload-retry {
+  right: auto;
+  left: 4px;
+}
+.attachment-upload-item.is-image .attachment-upload-icon {
+  position: absolute;
+  bottom: 6px;
+  left: 6px;
+  z-index: 1;
+  pointer-events: none;
+}
+.attachment-upload-item.is-image .attachment-upload-copy {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 6px 6px 6px 27px;
+  background: var(--surface-hover);
+  pointer-events: none;
+}
+.attachment-upload-item.is-image .attachment-upload-copy > small {
+  line-height: 16px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .settings-dialog.attachment-preview-dialog {
   width: min(800px, calc(100% - 32px));
@@ -4688,6 +4773,26 @@ kbd {
 .session-dialog-actions > button {
   padding: 10px 15px;
   border-radius: 8px;
+}
+.session-context-item.project-remove-action,
+.project-remove-confirm {
+  color: var(--status-error-text);
+}
+.remove-project-dialog {
+  width: min(560px, calc(100% - 28px));
+}
+.remove-project-dialog .dialog-heading h2 {
+  overflow-wrap: anywhere;
+}
+.project-remove-confirm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: var(--status-error-surface);
+}
+.project-remove-confirm:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--status-error-text) 20%, var(--panel));
 }
 .draft-settings-actions {
   display: flex;

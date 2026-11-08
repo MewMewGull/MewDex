@@ -50,18 +50,21 @@ export function workspaceConversationGroups(
 ) {
   const hub = devices.find((device) => device.roles.includes("coordinator"));
   const groups = (hub ? [hub] : devices).flatMap((device) =>
-    device.projects.map((project) => ({
-      key: `${device.id}:${project.id}`,
-      device,
-      projectId: project.id,
-      name: project.name,
-      category: project.category || t("项目"),
-      path: project.path,
-      sessions: sessions.filter(
-        (session) =>
-          session.deviceId === device.id && session.projectId === project.id,
-      ),
-    })),
+    device.projects
+      .filter((project) => !project.removed)
+      .map((project) => ({
+        key: `${device.id}:${project.id}`,
+        device,
+        project,
+        projectId: project.id,
+        name: project.name,
+        category: project.category || t("项目"),
+        path: project.path,
+        sessions: sessions.filter(
+          (session) =>
+            session.deviceId === device.id && session.projectId === project.id,
+        ),
+      })),
   );
   const projects = new Set(groups.map((group) => group.key));
   const recent = sessions.filter(
@@ -75,12 +78,14 @@ export function conversationHubProject(devices: Device[], session: Session) {
   if (!hub) return undefined;
   if (session.deviceId === hub.id)
     return hub.projects.find((project) => project.id === session.projectId);
-  const direct = hub.projects.find((project) =>
-    project.directories?.some(
-      (directory) =>
-        directory.deviceId === session.deviceId &&
-        directory.projectId === session.projectId,
-    ),
+  const direct = hub.projects.find(
+    (project) =>
+      !project.removed &&
+      project.directories?.some(
+        (directory) =>
+          directory.deviceId === session.deviceId &&
+          directory.projectId === session.projectId,
+      ),
   );
   if (direct) return direct;
   const originalDevice = devices.find(
@@ -90,16 +95,18 @@ export function conversationHubProject(devices: Device[], session: Session) {
     (project) => project.id === session.projectId,
   );
   if (!originalDevice || !original?.path) return undefined;
-  const matches = hub.projects.filter((project) =>
-    project.directories?.some(
-      (directory) =>
-        directory.path === original.path &&
-        devices.some(
-          (device) =>
-            device.id === directory.deviceId &&
-            device.platform === originalDevice.platform,
-        ),
-    ),
+  const matches = hub.projects.filter(
+    (project) =>
+      !project.removed &&
+      project.directories?.some(
+        (directory) =>
+          directory.path === original.path &&
+          devices.some(
+            (device) =>
+              device.id === directory.deviceId &&
+              device.platform === originalDevice.platform,
+          ),
+      ),
   );
   return matches.length === 1 ? matches[0] : undefined;
 }
@@ -148,8 +155,10 @@ export function quickSwitchGroups({
     (device) =>
       central || searching || device.id === deviceId
         ? device.projects
-            .filter((project) =>
-              navigationMatches(search, device.name, project.name),
+            .filter(
+              (project) =>
+                !project.removed &&
+                navigationMatches(search, device.name, project.name),
             )
             .map((project) => ({
               kind: "project" as const,

@@ -19,18 +19,20 @@ import (
 var platforms = []string{"weixin", "qq", "feishu"}
 
 type channel struct {
-	Platform     string   `json:"platform"`
-	Enabled      bool     `json:"enabled"`
-	DeviceID     string   `json:"deviceId"`
-	ProjectID    string   `json:"projectId"`
-	AllowedUsers []string `json:"allowedUsers"`
-	AllowedChats []string `json:"allowedChats"`
-	AppID        string   `json:"appId"`
-	BotUserID    string   `json:"botUserId"`
-	AccountID    string   `json:"accountId"`
-	Secret       string   `json:"secret"`
-	BaseURL      string   `json:"baseUrl,omitempty"`
-	IdentityID   string   `json:"identityId"`
+	Platform  string `json:"platform"`
+	Enabled   bool   `json:"enabled"`
+	DeviceID  string `json:"deviceId"`
+	ProjectID string `json:"projectId"`
+	// Preserve conversation keys when a legacy channel's fixed project is cleared.
+	BindingProjectID string   `json:"bindingProjectId,omitempty"`
+	AllowedUsers     []string `json:"allowedUsers"`
+	AllowedChats     []string `json:"allowedChats"`
+	AppID            string   `json:"appId"`
+	BotUserID        string   `json:"botUserId"`
+	AccountID        string   `json:"accountId"`
+	Secret           string   `json:"secret"`
+	BaseURL          string   `json:"baseUrl,omitempty"`
+	IdentityID       string   `json:"identityId"`
 }
 
 // Envelope carries only normalized text and an opaque platform reply context.
@@ -50,14 +52,15 @@ type Envelope struct {
 }
 
 type binding struct {
-	ID         string   `json:"id"`
-	Envelope   Envelope `json:"envelope"`
-	IdentityID string   `json:"identityId"`
-	DeviceID   string   `json:"deviceId"`
-	ProjectID  string   `json:"projectId"`
-	SessionID  string   `json:"sessionId"`
-	CreateID   string   `json:"createId"`
-	Cursor     int64    `json:"cursor"`
+	ID             string   `json:"id"`
+	Envelope       Envelope `json:"envelope"`
+	IdentityID     string   `json:"identityId"`
+	DeviceID       string   `json:"deviceId"`
+	ProjectID      string   `json:"projectId"`
+	ProjectChoices []string `json:"projectChoices,omitempty"`
+	SessionID      string   `json:"sessionId"`
+	CreateID       string   `json:"createId"`
+	Cursor         int64    `json:"cursor"`
 }
 
 type inbox struct {
@@ -70,14 +73,17 @@ type inbox struct {
 }
 
 type delivery struct {
-	ID        string   `json:"id"`
-	BindingID string   `json:"bindingId"`
-	Envelope  Envelope `json:"envelope"`
-	Text      string   `json:"text"`
-	State     string   `json:"state"`
-	CreatedAt string   `json:"createdAt"`
-	Attempts  int      `json:"attempts"`
-	NextAt    int64    `json:"nextAt"`
+	ID         string   `json:"id"`
+	BindingID  string   `json:"bindingId"`
+	Envelope   Envelope `json:"envelope"`
+	IdentityID string   `json:"identityId,omitempty"`
+	DeviceID   string   `json:"deviceId,omitempty"`
+	ProjectID  string   `json:"projectId,omitempty"`
+	Text       string   `json:"text"`
+	State      string   `json:"state"`
+	CreatedAt  string   `json:"createdAt"`
+	Attempts   int      `json:"attempts"`
+	NextAt     int64    `json:"nextAt"`
 }
 
 type adapter interface {
@@ -107,7 +113,11 @@ func (c channel) accepts(e Envelope) bool {
 }
 
 func (c channel) key(e Envelope) string {
-	return stable(c.Platform, c.account(), c.DeviceID, c.ProjectID, e.Scene, e.ChatID, e.ThreadID, e.UserID)
+	project := c.ProjectID
+	if project == "" {
+		project = c.BindingProjectID
+	}
+	return stable(c.Platform, c.account(), c.DeviceID, project, e.Scene, e.ChatID, e.ThreadID, e.UserID)
 }
 
 func normalizedIDs(values []string) ([]string, error) {

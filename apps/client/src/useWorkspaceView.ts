@@ -72,9 +72,10 @@ export function useWorkspaceView(scope: string) {
       if (!device) return "";
       return (
         device.projects.find(
-          (project) => project.id === value.projects[device.id],
+          (project) =>
+            !project.removed && project.id === value.projects[device.id],
         )?.id ??
-        device.projects[0]?.id ??
+        device.projects.find((project) => !project.removed)?.id ??
         ""
       );
     },

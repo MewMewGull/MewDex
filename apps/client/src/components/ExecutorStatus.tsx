@@ -1,4 +1,6 @@
 import type { Device, Project, ProjectDirectory } from "@mewdex/sdk";
+import type { ReactNode } from "react";
+import { MousePointer2 } from "lucide-react";
 import { devicePlatform, devicePresence } from "../devicePresence";
 import { t } from "../localization.ts";
 import { DeviceIcon } from "./DeviceIcon";
@@ -9,12 +11,14 @@ export function ExecutorStatus({
   project,
   connected,
   onComputer,
+  computerNotice,
 }: {
   devices: Device[];
   owner?: Device;
   project?: Project;
   connected: boolean;
   onComputer?: (deviceId: string) => void;
+  computerNotice?: ReactNode;
 }) {
   const bindings = new Map<string, ProjectDirectory[]>();
   if (project?.directories) {
@@ -47,6 +51,16 @@ export function ExecutorStatus({
     paths: [...new Set(directories.map((directory) => directory.path))],
   }));
   const online = nodes.filter((node) => node.device?.online).length;
+  const computerTarget =
+    nodes.find(
+      (node) =>
+        node.device?.online &&
+        node.device.capabilities?.includes("computer-use-v1"),
+    ) ??
+    nodes.find((node) =>
+      node.device?.capabilities?.includes("computer-use-v1"),
+    ) ??
+    nodes[0];
   return (
     <section
       className="executor-status"
@@ -54,13 +68,27 @@ export function ExecutorStatus({
     >
       <div className="executor-status-heading">
         <strong>{project ? t("项目执行端") : t("执行端节点")}</strong>
-        {!!nodes.length && (
-          <span role="status">
-            {connected
-              ? t("{0}/{1} 在线", online, nodes.length)
-              : t("节点状态待同步")}
-          </span>
-        )}
+        <div className="executor-status-controls">
+          {onComputer && computerTarget && (
+            <button
+              className="computer-use-entry"
+              title={t(
+                "让 AI 查看并操作电脑上的软件窗口，查看可用设备与授权状态",
+              )}
+              onClick={() => onComputer(computerTarget.id)}
+            >
+              <MousePointer2 size={13} aria-hidden="true" />
+              {t("电脑操作")}
+            </button>
+          )}
+          {!!nodes.length && (
+            <span role="status">
+              {connected
+                ? t("{0}/{1} 在线", online, nodes.length)
+                : t("节点状态待同步")}
+            </span>
+          )}
+        </div>
       </div>
       {nodes.length ? (
         <ul aria-live="polite">
@@ -86,14 +114,6 @@ export function ExecutorStatus({
                     <i className={presence.dot} aria-hidden="true" />
                     {label}
                   </span>
-                  {onComputer && (
-                    <button
-                      className="computer-use-entry"
-                      onClick={() => onComputer(id)}
-                    >
-                      {t("窗口控制")}
-                    </button>
-                  )}
                 </div>
                 {!!paths.length && (
                   <small className="executor-status-path">
@@ -109,6 +129,7 @@ export function ExecutorStatus({
           {project ? t("当前项目未绑定执行端") : t("暂无执行端节点")}
         </p>
       )}
+      {computerNotice}
     </section>
   );
 }

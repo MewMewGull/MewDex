@@ -73,6 +73,13 @@ test("executor presence follows the project, groups directories, and marks stale
     assert.ok(initial.includes("离线"));
     assert.ok(!initial.includes("Other machine"));
     assert.ok(!initial.includes("Hub machine"));
+    const computer = render({ onComputer: () => {} });
+    assert.equal(
+      (computer.match(/class="computer-use-entry"/g) || []).length,
+      1,
+    );
+    assert.ok(computer.includes("电脑操作"));
+    assert.ok(!computer.includes("窗口控制"));
     const recovered = render({
       devices: [win, { ...mac, online: true }, unrelated, hub],
     });

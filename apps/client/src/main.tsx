@@ -66,8 +66,9 @@ import { WorkspaceSidebar } from "./input-terminal/WorkspaceSidebar";
 import { ConversationActions } from "./input-terminal/ConversationActions";
 import { ConversationWelcome } from "./input-terminal/ConversationWelcome";
 import { ConversationComposer } from "./input-terminal/ConversationComposer";
-import { ExecutorStatus } from "./components/ExecutorStatus";
+import { ProjectExecutorStatus } from "./components/ProjectExecutorStatus";
 import { ComputerUseDialog } from "./components/ComputerUseDialog";
+import { computerTaskDraft } from "./computerUse";
 import { DevicePicker } from "./components/DevicePicker";
 import { AssistantActivity } from "./input-terminal/AssistantActivity";
 import { executionTarget } from "./executionTarget";
@@ -1314,6 +1315,32 @@ function Workspace({
         onNew={newConversation}
         onProject={selectProject}
         projectId={activeSession?.projectId ?? project}
+        canRemoveProjects={
+          network.ready && network.connected && identity.data.role === "admin"
+        }
+        onRemoveProject={async (device, selected) => {
+          if (!network.capabilities.includes("project-removal"))
+            throw new Error(t("请更新 Hub 后移除项目。"));
+          const epoch = privateEpoch.current;
+          const removed = await client.removeHubProject(
+            selected.id,
+            selected.revision ?? 0,
+          );
+          if (epoch !== privateEpoch.current) return;
+          cache.setQueryData<Device[]>(["devices"], (current) =>
+            current?.map((item) =>
+              item.id === device.id
+                ? {
+                    ...item,
+                    projects: item.projects.map((entry) =>
+                      entry.id === removed.id ? removed : entry,
+                    ),
+                  }
+                : item,
+            ),
+          );
+          await cache.invalidateQueries({ queryKey: ["devices"] });
+        }}
         onEditProject={(device, selected, category) =>
           setWorkspaceManager({
             epoch: privateEpoch.current,
@@ -1888,13 +1915,16 @@ function Workspace({
           <ConversationComposer
             projectLabel={target.project?.name ?? t("选择项目")}
             executorStatus={
-              <ExecutorStatus
+              <ProjectExecutorStatus
+                scope={scope}
+                client={client}
                 devices={devices.data ?? []}
                 owner={activeDevice}
                 project={target.project}
                 connected={network.connected}
+                session={activeSession}
                 onComputer={
-                  activeSession &&
+                  target.project &&
                   activeDevice?.capabilities?.includes("computer-use-v1")
                     ? setComputerDeviceID
                     : undefined
@@ -2003,25 +2033,29 @@ function Workspace({
                 <select
                   aria-label={t("选择项目")}
                   value={project}
-                  disabled={!activeDevice?.projects.length}
+                  disabled={
+                    !activeDevice?.projects.some((item) => !item.removed)
+                  }
                   onChange={(event) => {
                     if (activeDevice)
                       selectProject(activeDevice, event.target.value);
                   }}
                 >
-                  {!activeDevice?.projects.length && (
+                  {!activeDevice?.projects.some((item) => !item.removed) && (
                     <option value="">
                       {activeDevice ? t("暂无可用项目") : t("请先选择执行设备")}
                     </option>
                   )}
-                  {activeDevice?.projects.map((item) => (
-                    <option key={item.id} value={item.id}>
-                      {item.name}
-                      {draftKeys.has(composerKey(state.deviceId, "", item.id))
-                        ? t(" · 草稿")
-                        : ""}
-                    </option>
-                  ))}
+                  {activeDevice?.projects
+                    .filter((item) => !item.removed)
+                    .map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                        {draftKeys.has(composerKey(state.deviceId, "", item.id))
+                          ? t(" · 草稿")
+                          : ""}
+                      </option>
+                    ))}
                 </select>
               )
             }
@@ -2029,6 +2063,7 @@ function Workspace({
             {(attachmentUploads.items.length > 0 || uploads.length > 0) && (
               <div className="composer-file-area">
                 <AttachmentUploadList
+                  client={client}
                   items={attachmentUploads.items}
                   onRetry={attachmentUploads.retry}
                   onRemove={attachmentUploads.remove}
@@ -2218,23 +2253,27 @@ function Workspace({
           onCancel={cancelQueued}
         />
       )}
-      {computerDeviceID &&
-        activeSession &&
-        target.project &&
-        devices.data?.find((device) => device.id === computerDeviceID) && (
-          <ComputerUseDialog
-            key={`${scope}:${activeSession.id}:${computerDeviceID}`}
-            scope={scope}
-            client={client}
-            project={target.project}
-            session={activeSession}
-            device={
-              devices.data.find((device) => device.id === computerDeviceID)!
-            }
-            connected={network.connected}
-            onClose={() => setComputerDeviceID(undefined)}
-          />
-        )}
+      {computerDeviceID && target.project && (
+        <ComputerUseDialog
+          key={`${scope}:${target.project.id}:${activeSession?.id ?? "new"}:${computerDeviceID}`}
+          scope={scope}
+          client={client}
+          project={target.project}
+          session={activeSession}
+          devices={devices.data ?? []}
+          deviceId={computerDeviceID}
+          connected={network.connected}
+          onCompose={
+            target.canEdit && !executionRetired && !activeSession?.archived
+              ? (device) => {
+                  setText((draft) => computerTaskDraft(draft, device.name));
+                  requestAnimationFrame(() => composerInput.current?.focus());
+                }
+              : undefined
+          }
+          onClose={() => setComputerDeviceID(undefined)}
+        />
+      )}
       <PolicySettings
         client={client}
         open={settings}

@@ -33,6 +33,9 @@ type Coordinator struct {
 }
 
 func (h *Hub) StartCoordinator(ctx context.Context) (*Coordinator, error) {
+	if h.attachments == nil {
+		return nil, errors.New("Hub attachment store unavailable")
+	}
 	c := h.config
 	c.Engine = c.HubModelEngine()
 	c.DeviceID += ".hub"
@@ -84,6 +87,7 @@ func (h *Hub) StartCoordinator(ctx context.Context) (*Coordinator, error) {
 		s.Close()
 		return nil, err
 	}
+	x.SetAttachments(h.attachments)
 	coordinator.runner = x
 	h.coordinator, h.coordinatorID = coordinator, c.DeviceID
 	device := protocol.Device{
@@ -141,6 +145,9 @@ func (c *Coordinator) Handle(ctx context.Context, command protocol.Command) prot
 		var project protocol.Project
 		if err := c.hub.store.Get("hub_projects", command.ProjectID, &project); err != nil {
 			return protocol.CommandResult{CommandID: command.ID, State: "failed", Error: "Hub 项目已不可用"}
+		}
+		if project.Removed && command.Kind == "create" {
+			return protocol.CommandResult{CommandID: command.ID, State: "failed", Error: "项目已移除，请选择其他项目新建对话"}
 		}
 		project.Path, project.Directories = filepath.Join(c.root, project.ID), nil
 		if err := os.MkdirAll(project.Path, 0700); err != nil {

@@ -71,6 +71,9 @@ func TestProjectConfigurationReachesEngineApplicationContext(t *testing.T) {
 	}
 	defer rpc.Close()
 	bridge := &coordinatorEngine{Codex: rpc, coordinator: &Coordinator{hub: h, store: state}}
+	if _, err = state.RemoveHubProject(h.config.DeviceID, project.ID, project.Revision); err != nil {
+		t.Fatal(err)
+	}
 	params := map[string]any{"threadId": session.EngineID, "collaborationMode": map[string]any{"settings": map[string]any{"developer_instructions": "WIRE_TASK_INSTRUCTIONS"}}, "additionalContext": map[string]any{"retained": map[string]string{"kind": "application", "value": "existing context"}}}
 	var echoed map[string]any
 	if err = bridge.Call(ctx, "turn/start", params, &echoed); err != nil {

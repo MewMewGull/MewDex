@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import type { Device, Project, Session } from "@mewdex/sdk";
 import { WorkspaceProjectMenu } from "../components/WorkspaceProjectMenu";
+import { RemoveProjectDialog } from "../components/RemoveProjectDialog";
 import { DevicePicker } from "../components/DevicePicker";
 import {
   conversationContext,
@@ -66,6 +67,8 @@ export function WorkspaceSidebar({
   projectId,
   onEditProject,
   onProjectCategory,
+  canRemoveProjects,
+  onRemoveProject,
 }: {
   open: boolean;
   brand: ReactNode;
@@ -102,11 +105,18 @@ export function WorkspaceSidebar({
     project: Project,
     category: string,
   ) => Promise<void>;
+  canRemoveProjects: boolean;
+  onRemoveProject: (device: Device, project: Project) => Promise<void>;
 }) {
   const sidebar = useRef<HTMLElement>(null);
   const modifier = keyboardModifierLabel();
   const [scope, setScope] = useState<"all" | "unread">("all");
   const [search, setSearch] = useState("");
+  const [removingProject, setRemovingProject] = useState<{
+    device: Device;
+    project: Project;
+    origin: HTMLElement | null;
+  } | null>(null);
   const [collapsed, setCollapsed] = useState(new Set<string>());
   const [collapsedCategories, setCollapsedCategories] = useState(
     new Set<string>(),
@@ -115,6 +125,7 @@ export function WorkspaceSidebar({
     ...new Set(
       devices.flatMap((device) =>
         device.projects
+          .filter((project) => !project.removed)
           .map((project) => project.category)
           .filter((value): value is string => !!value),
       ),
@@ -368,15 +379,7 @@ export function WorkspaceSidebar({
                 <>
                   <WorkspaceProjectMenu
                     device={group.device}
-                    project={{
-                      id: group.projectId,
-                      name: group.name,
-                      path: group.path,
-                      category:
-                        group.category === t("项目")
-                          ? undefined
-                          : group.category,
-                    }}
+                    project={group.project}
                     categories={categories}
                     conversationCount={
                       sessions.filter(
@@ -387,30 +390,21 @@ export function WorkspaceSidebar({
                     }
                     onNew={() => onProject(group.device, group.projectId)}
                     onEdit={(category) =>
-                      onEditProject(
-                        group.device,
-                        {
-                          id: group.projectId,
-                          name: group.name,
-                          path: group.path,
-                          category:
-                            group.category === t("项目")
-                              ? undefined
-                              : group.category,
-                        },
-                        category,
-                      )
+                      onEditProject(group.device, group.project, category)
                     }
                     onCategory={(category) =>
-                      onProjectCategory(
-                        group.device,
-                        {
-                          id: group.projectId,
-                          name: group.name,
-                          path: group.path,
-                        },
-                        category,
-                      )
+                      onProjectCategory(group.device, group.project, category)
+                    }
+                    onRemove={
+                      canRemoveProjects &&
+                      group.device.roles.includes("coordinator")
+                        ? (origin) =>
+                            setRemovingProject({
+                              device: group.device,
+                              project: group.project,
+                              origin,
+                            })
+                        : undefined
                     }
                   >
                     <div className="workspace-group-heading">
@@ -550,6 +544,16 @@ export function WorkspaceSidebar({
         onCommit={onWidthChange}
       />
       {open && <div className="sidebar-backdrop" onClick={onClose} />}
+      {removingProject && (
+        <RemoveProjectDialog
+          project={removingProject.project}
+          returnFocus={removingProject.origin}
+          onClose={() => setRemovingProject(null)}
+          onRemove={() =>
+            onRemoveProject(removingProject.device, removingProject.project)
+          }
+        />
+      )}
     </>
   );
 }

@@ -1,6 +1,18 @@
 import { invoke, isTauri } from "@tauri-apps/api/core";
 import { inputCapabilities } from "./localDevice";
 
+const previewImageTypes = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/gif",
+  "image/webp",
+  "image/bmp",
+]);
+
+export function canPreviewImage(mediaType: string): boolean {
+  return previewImageTypes.has(mediaType.split(";")[0].trim().toLowerCase());
+}
+
 export async function canSaveAttachment(): Promise<boolean> {
   return !isTauri() || !!(await inputCapabilities()).attachmentSave;
 }

@@ -46,6 +46,9 @@ func (s *Store) SaveHubProject(hubID, id string, input protocol.HubProjectReques
 		if err = json.Unmarshal(raw, &prior); err != nil {
 			return project, err
 		}
+		if prior.Removed {
+			return project, ErrNotFound
+		}
 		project.Revision = prior.Revision
 	} else if !errors.Is(err, sql.ErrNoRows) {
 		return project, err
@@ -100,6 +103,45 @@ func (s *Store) SaveHubProject(hubID, id string, input protocol.HubProjectReques
 	}
 	project.Revision++
 	if _, err = tx.Exec("INSERT INTO objects VALUES('hub_projects',?,?) ON CONFLICT(bucket,id) DO UPDATE SET data=excluded.data", id, protocol.JSON(project)); err != nil {
+		return project, err
+	}
+	event := protocol.Event{ID: protocol.ID(), DeviceID: hubID, Kind: "project.catalog.updated", Payload: protocol.JSON(map[string]string{"projectId": id}), CreatedAt: protocol.Now()}
+	if _, err = tx.Exec("INSERT INTO events(id,device,session,data) VALUES(?,?,?,?)", event.ID, hubID, "", protocol.JSON(event)); err != nil {
+		return project, err
+	}
+	return project, tx.Commit()
+}
+
+// Remove only the catalogue entry. Existing conversations retain the project,
+// directory bindings and harness so their history and execution remain usable.
+func (s *Store) RemoveHubProject(hubID, id string, expectedRevision int64) (protocol.Project, error) {
+	var project protocol.Project
+	if !hubProjectID.MatchString(id) {
+		return project, ErrNotFound
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return project, err
+	}
+	defer tx.Rollback()
+	var raw []byte
+	if err = tx.QueryRow("SELECT data FROM objects WHERE bucket='hub_projects' AND id=?", id).Scan(&raw); errors.Is(err, sql.ErrNoRows) {
+		return project, ErrNotFound
+	} else if err != nil {
+		return project, err
+	}
+	if err = json.Unmarshal(raw, &project); err != nil {
+		return project, err
+	}
+	if project.Removed {
+		return project, nil
+	}
+	if project.Revision != expectedRevision {
+		return project, ErrConflict
+	}
+	project.Removed = true
+	project.Revision++
+	if _, err = tx.Exec("UPDATE objects SET data=? WHERE bucket='hub_projects' AND id=?", protocol.JSON(project), id); err != nil {
 		return project, err
 	}
 	event := protocol.Event{ID: protocol.ID(), DeviceID: hubID, Kind: "project.catalog.updated", Payload: protocol.JSON(map[string]string{"projectId": id}), CreatedAt: protocol.Now()}

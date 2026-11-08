@@ -1,12 +1,15 @@
 import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import type { Attachment, MewDexClient } from "@mewdex/sdk";
+import { useQueryClient } from "@tanstack/react-query";
 import { AttachmentUploads, type UploadTarget } from "./attachmentUploads";
+import { canPreviewImage } from "./attachmentFiles";
 
 export function useAttachmentUploads(
   client: MewDexClient,
   draftKey: string,
   onUploaded: (key: string, attachment: Attachment) => void,
 ) {
+  const cache = useQueryClient();
   const completed = useRef(onUploaded);
   completed.current = onUploaded;
   const queue = useMemo(
@@ -14,9 +17,13 @@ export function useAttachmentUploads(
       new AttachmentUploads(
         (file, target, signal) =>
           client.upload(file, file.name, target, signal),
-        (target, attachment) => completed.current(target.draftKey, attachment),
+        (target, attachment, file) => {
+          if (canPreviewImage(attachment.mediaType))
+            cache.setQueryData(["attachment-content", attachment.id], file);
+          completed.current(target.draftKey, attachment);
+        },
       ),
-    [client],
+    [client, cache],
   );
   const items = useSyncExternalStore(
     queue.subscribe,

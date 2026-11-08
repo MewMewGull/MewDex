@@ -134,7 +134,7 @@ func (h *Hub) bootstrap(w http.ResponseWriter, r *http.Request) {
 	}
 	capabilities := []string{"task-plans", "collaboration-modes", "mewdex-accounts", "central-projects"}
 	if h.coordinator != nil {
-		capabilities = append(capabilities, "hub-projects", "hub-model-account")
+		capabilities = append(capabilities, "hub-projects", "hub-model-account", "project-removal")
 	}
 	reply(w, 200, protocol.NetworkSnapshot{Cursor: cursor, Identity: id, Devices: devices, Sessions: sessions, ConversationUpdates: conversationUpdates, Capabilities: capabilities})
 }

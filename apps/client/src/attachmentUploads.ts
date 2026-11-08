@@ -15,6 +15,7 @@ export interface AttachmentUpload {
   target: Readonly<UploadTarget>;
   name: string;
   size: number;
+  preview?: File;
   state: "queued" | "uploading" | "ready" | "failed";
   error?: string;
   retryable: boolean;
@@ -35,6 +36,7 @@ type Upload = (
 type Complete = (
   target: Readonly<UploadTarget>,
   attachment: Attachment,
+  file: File,
 ) => void;
 
 // The queue owns transient File objects. Only successful attachment references
@@ -76,6 +78,7 @@ export class AttachmentUploads {
           target: { ...target },
           name: file.name,
           size: file.size,
+          preview: oversized ? undefined : file,
           state: oversized ? "failed" : "queued",
           retryable: !oversized,
           error: oversized
@@ -150,7 +153,11 @@ export class AttachmentUploads {
     for (const [id, transfer] of this.transfers) {
       if (transfer.view.target.draftKey !== draftKey) continue;
       if (transfer.view.state !== "ready") break;
-      this.complete(transfer.view.target, transfer.attachment!);
+      this.complete(
+        transfer.view.target,
+        transfer.attachment!,
+        transfer.view.preview!,
+      );
       this.transfers.delete(id);
     }
   }

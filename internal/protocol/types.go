@@ -33,6 +33,7 @@ type Project struct {
 	Category    string             `json:"category,omitempty"`
 	Directories []ProjectDirectory `json:"directories,omitempty"`
 	Revision    int64              `json:"revision,omitempty"`
+	Removed     bool               `json:"removed,omitempty"`
 }
 
 type WorkspaceRequest struct {

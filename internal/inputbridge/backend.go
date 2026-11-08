@@ -105,7 +105,11 @@ func (b *backend) Identity(id string) (protocol.Identity, error) {
 func (b *backend) Configure(device, project, previous string, enabled bool) (string, error) {
 	access := protocol.Access{Targets: []protocol.TargetAccess{}}
 	if enabled {
-		access.Targets = append(access.Targets, protocol.TargetAccess{DeviceID: device, ProjectIDs: []string{project}})
+		projects := []string{}
+		if project != "" {
+			projects = append(projects, project)
+		}
+		access.Targets = append(access.Targets, protocol.TargetAccess{DeviceID: device, ProjectIDs: projects})
 	}
 	if previous != "" {
 		_, err := b.Identity(previous)

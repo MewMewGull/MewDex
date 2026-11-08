@@ -25,7 +25,10 @@
               required /></label
           ><button>连接面板</button>
         </form>
-        <p>从托盘打开时自动连接。本机面板密钥保存在组件配置目录的 panel-token 文件中。</p>
+        <p>
+          从托盘打开时自动连接。本机面板密钥保存在组件配置目录的 panel-token
+          文件中。
+        </p>
       </section>
       <p id="feedback" role="status" aria-live="polite"></p>
       <section id="device" hidden>
@@ -42,18 +45,21 @@
       </section>
       <section id="computer-section" hidden>
         <div class="heading">
-          <h2>Computer Use</h2>
-          <button id="computer-refresh" type="button">刷新窗口控制</button>
+          <h2>电脑操作</h2>
+          <button id="computer-refresh" type="button">刷新授权状态</button>
         </div>
         <p>
-          由 Hub
-          对话申请控制，在本机选择并授权一个窗口。授权到期、断线或按下物理
-          Escape 后结束控制。
+          先在对话中描述任务。AI
+          需要操作这台电脑时，请在这里选择一个窗口并限时授权。 AI
+          可以查看该窗口并点击、输入和滚动。你可随时停止，授权到期或设备断线也会结束控制。
         </p>
         <dl id="computer-status"></dl>
-        <button id="computer-stop" type="button" disabled>停止窗口控制</button>
+        <button id="computer-stop" type="button" disabled>
+          停止并收回授权
+        </button>
         <form id="computer-grant" hidden>
-          <button id="computer-windows" type="button">读取本机窗口列表</button>
+          <button id="computer-windows" type="button">刷新可授权窗口</button>
+          <p id="computer-window-hint" role="status"></p>
           <label
             >授权窗口<select id="computer-window" required>
               <option value="">请选择窗口</option>
@@ -73,30 +79,43 @@
               required
             />我允许此对话读取所选窗口图像并发送键鼠输入。涉及账号、外发或删除等操作，仍须在任务中单独确认。</label
           >
-          <button id="computer-approve">授权所选窗口</button>
+          <button id="computer-approve">仅授权所选窗口</button>
+          <p>
+            授权后回到原对话，让 AI 继续任务。操作时请保持电脑已解锁、窗口可见。
+          </p>
         </form>
       </section>
       <section id="setup-section" hidden>
         <h2 id="setup-heading">连接 Hub</h2>
         <form id="setup">
-          <label>设备名称<input id="name" required /></label
-          ><div id="executor-setup"><label
-            >Hub 地址<input
-              id="hub"
-              type="url"
-              placeholder="https://hub.example.com"
-              required /></label
-          ><label
-            >执行端配对码<input
-              id="invitation"
-              type="password"
-              autocomplete="off"
-              required
-          /></label>
-          <p>在输入端的设备配对设置中生成执行端配对码。</p></div>
+          <label>设备名称<input id="name" required /></label>
+          <div id="executor-setup">
+            <label
+              >Hub 地址<input
+                id="hub"
+                type="url"
+                placeholder="https://hub.example.com"
+                required /></label
+            ><label
+              >执行端配对码<input
+                id="invitation"
+                type="password"
+                autocomplete="off"
+                required
+            /></label>
+            <p>在输入端的设备配对设置中生成执行端配对码。</p>
+          </div>
           <div id="hub-setup" hidden>
-            <label>管理员账号<input id="account" autocomplete="username" /></label>
-            <label>管理员密码<input id="password" type="password" autocomplete="new-password" minlength="8" /></label>
+            <label
+              >管理员账号<input id="account" autocomplete="username"
+            /></label>
+            <label
+              >管理员密码<input
+                id="password"
+                type="password"
+                autocomplete="new-password"
+                minlength="8"
+            /></label>
             <p>创建后在输入端登录此 Hub，再连接 GPT 账号和配置项目。</p>
           </div>
           <button>保存并配对</button>

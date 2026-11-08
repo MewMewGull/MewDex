@@ -8,6 +8,52 @@ import {
   workspaceConversationGroups,
 } from "../src/workspaceNavigation.ts";
 import { deviceDescription } from "../src/devicePresence.ts";
+import { executionTarget } from "../src/executionTarget.ts";
+
+test("removing a project sends its conversations to recent while preserving their execution context", () => {
+  const removed = {
+    id: "hp_removed",
+    name: "Removed project",
+    path: "",
+    removed: true,
+  };
+  const active = { id: "hp_active", name: "Active project", path: "" };
+  const hub = {
+    id: "hub",
+    name: "Hub",
+    platform: "hub",
+    roles: ["coordinator", "executor"],
+    projects: [removed, active],
+  };
+  const sessions = Array.from({ length: 15 }, (_, index) => ({
+    id: `chat-${index}`,
+    title: `Chat ${index}`,
+    deviceId: hub.id,
+    projectId: removed.id,
+    updatedAt: String(index),
+  }));
+  const groups = workspaceConversationGroups([hub], sessions);
+  assert.deepEqual(
+    groups.groups.map((group) => group.projectId),
+    [active.id],
+  );
+  assert.deepEqual(groups.recent, sessions);
+  const switcher = quickSwitchGroups({
+    devices: [hub],
+    sessions,
+    search: "",
+    deviceId: hub.id,
+    unreadSessions: new Set(),
+  });
+  assert.deepEqual(
+    switcher
+      .find((group) => group.id === "projects")
+      .entries.map((entry) => entry.project.id),
+    [active.id],
+  );
+  assert.equal(executionTarget(hub, removed.id).canExecute, true);
+  assert.equal(executionTarget(hub, removed.id).project, removed);
+});
 
 test("unassigned conversations form a flat recent list below authoritative Hub projects", () => {
   const project = { id: "work", name: "Current project", path: "" };

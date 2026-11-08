@@ -175,6 +175,10 @@ func New(c config.Config, s *store.Store, e engine.Engine, notify func(protocol.
 	return x, nil
 }
 
+// SetAttachments selects the upload store before the executor accepts commands.
+func (x *Executor) SetAttachments(assets *attachments.Store) {
+	x.attachments = assets
+}
 func (x *Executor) SetAttachmentFetcher(fetch func(context.Context, []protocol.Input) error) {
 	x.fetchAttachments = fetch
 }

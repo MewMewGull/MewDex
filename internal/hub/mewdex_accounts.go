@@ -32,7 +32,7 @@ func (h *Hub) serverInfo(w http.ResponseWriter, r *http.Request) {
 	}
 	capabilities := []string{"mewdex-accounts", "central-projects", "host-identity", "input-proxy"}
 	if h.coordinator != nil {
-		capabilities = append(capabilities, "hub-projects", "hub-model-account")
+		capabilities = append(capabilities, "hub-projects", "hub-model-account", "project-removal")
 	}
 	capabilities = append(capabilities, "app-messaging-bridge")
 	reply(w, 200, protocol.ServerInfo{HubDeviceID: h.config.DeviceID, Name: "MewDex", ProtocolVersion: protocol.Version, Capabilities: capabilities, Authentication: auth, InputProxy: h.inputProxy()})

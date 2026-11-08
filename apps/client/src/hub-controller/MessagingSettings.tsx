@@ -59,8 +59,6 @@ const splitIDs = (text: string) => [
 
 type Draft = {
   enabled: boolean;
-  deviceId: string;
-  projectId: string;
   appId: string;
   botUserId: string;
   users: string;
@@ -70,8 +68,6 @@ type Draft = {
 };
 const draftFor = (channel: MessagingChannel): Draft => ({
   enabled: channel.enabled,
-  deviceId: channel.deviceId,
-  projectId: channel.projectId,
   appId: channel.appId,
   botUserId: channel.botUserId,
   users: channel.allowedUsers.join("\n"),
@@ -195,7 +191,7 @@ function ChannelEditor({
       const update: MessagingUpdate = {
         enabled: draft.enabled,
         deviceId: selectedDevice?.id ?? "",
-        projectId: draft.projectId,
+        projectId: "",
         appId: draft.appId.trim(),
         botUserId: draft.botUserId.trim(),
         allowedUsers: splitIDs(draft.users),
@@ -243,22 +239,11 @@ function ChannelEditor({
           />
           {t("启用{0}消息", names[channel.platform])}
         </label>
-        <div className="messaging-targets">
-          <label>
-            {t("工作项目")}
-            <select
-              value={draft.projectId}
-              onChange={(event) => change("projectId", event.target.value)}
-            >
-              <option value="">{t("选择项目")}</option>
-              {selectedDevice?.projects.map((project) => (
-                <option key={project.id} value={project.id}>
-                  {project.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        </div>
+        <p className="muted">
+          {t(
+            "在聊天中发送 /projects 查看项目，再发送 /project 序号、项目名或项目 ID 选择工作项目。每位用户在各聊天中独立选择。",
+          )}
+        </p>
 
         {weixin ? (
           <div className="messaging-login">
@@ -456,7 +441,7 @@ function ChannelEditor({
       )}
       <p className="muted">
         {t(
-          "发送文字开始任务；/help 查看指令，/status 查看进度，/new 新建对话，/stop 停止任务。群聊只响应 @机器人，并为每位用户保留独立会话。图片、文件和语音附件请在 MewDex 中处理。",
+          "选择项目后发送文字开始任务。/projects 查看项目，/project 切换项目，/help 查看指令，/status 查看进度，/new 新建对话，/stop 停止任务。群聊只响应 @机器人，并为每位用户保留独立会话。图片、文件和语音附件请在 MewDex 中处理。",
         )}
       </p>
     </section>

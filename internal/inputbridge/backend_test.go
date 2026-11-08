@@ -70,6 +70,24 @@ func TestAPPChannelUsesRemoteProjectAndScopedCommandIdentity(t *testing.T) {
 	if _, err = b.Submit(context.Background(), identity.ID, command); err == nil {
 		t.Fatal("APP channel submitted outside its selected project")
 	}
+	if err = manager.Update("qq", protocol.MessagingUpdate{Enabled: true, DeviceID: "executor", AppID: "app", AllowedUsers: []string{"user"}}); err != nil {
+		t.Fatal("APP channel could not enable chat-based project selection", err)
+	}
+	identity, err = central.Identity(saved.IdentityID)
+	if err != nil || !identity.Access.Allows("executor", "other") || identity.Access.Allows("unrelated-device", "other") || identity.Access.AllDevices || identity.Access.Gateway {
+		t.Fatal("selectable channel access escaped its Hub target", identity, err)
+	}
+	if err = h.Device(protocol.Device{ID: "executor", Roles: []string{"executor"}, Projects: []protocol.Project{{ID: "project", Name: "Project"}, {ID: "other", Name: "New Project"}}}); err != nil {
+		t.Fatal(err)
+	}
+	var catalogue protocol.Device
+	if err = b.Get("devices", "executor", &catalogue); err != nil || len(catalogue.Projects) != 2 {
+		t.Fatal("APP channel did not see the current remote project catalogue", catalogue, err)
+	}
+	command.ID = "newly-selected-project"
+	if _, err = b.Submit(context.Background(), identity.ID, command); err != nil {
+		t.Fatal("APP channel could not submit to another available project", err)
+	}
 	if err = central.Revoke(identity.ID); err != nil {
 		t.Fatal(err)
 	}

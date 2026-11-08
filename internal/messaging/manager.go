@@ -150,6 +150,9 @@ func (m *Manager) Update(platform string, update protocol.MessagingUpdate) error
 	if c.AppID != update.AppID && update.Secret == nil && platform != "weixin" {
 		c.Secret = ""
 	}
+	if c.ProjectID != "" && update.ProjectID == "" {
+		c.BindingProjectID = c.ProjectID
+	}
 	c.Enabled, c.DeviceID, c.ProjectID = update.Enabled, update.DeviceID, update.ProjectID
 	c.AppID, c.BotUserID = strings.TrimSpace(update.AppID), strings.TrimSpace(update.BotUserID)
 	var err error
@@ -175,7 +178,7 @@ func (m *Manager) Update(platform string, update protocol.MessagingUpdate) error
 		for _, project := range device.Projects {
 			projectFound = projectFound || project.ID == c.ProjectID
 		}
-		if !found || !projectFound || c.ProjectID == "" {
+		if !found || c.ProjectID != "" && !projectFound {
 			return errors.New("请选择此执行设备上的项目")
 		}
 	}
@@ -306,6 +309,27 @@ func (m *Manager) authorize(c channel, e Envelope) (protocol.Identity, error) {
 	return identity, nil
 }
 
+func (m *Manager) authorizeDelivery(c channel, out delivery) error {
+	identity, err := m.authorize(c, out.Envelope)
+	if err != nil {
+		return err
+	}
+	if c.key(out.Envelope) != out.BindingID || out.IdentityID != "" && out.IdentityID != c.IdentityID {
+		return errors.New("消息回复所属渠道已更改")
+	}
+	if out.DeviceID == "" {
+		// Replies saved by older versions belong to the channel's former project.
+		out.DeviceID, out.ProjectID = c.DeviceID, c.ProjectID
+		if out.ProjectID == "" {
+			out.ProjectID = c.BindingProjectID
+		}
+	}
+	if out.ProjectID != "" && (out.DeviceID != c.DeviceID || !identity.Access.Allows(out.DeviceID, out.ProjectID)) {
+		return errors.New("消息回复所属项目的访问权限已撤销")
+	}
+	return nil
+}
+
 func (m *Manager) lock(id string) *sync.Mutex { return &m.stripes[int(id[0])%len(m.stripes)] }
 
 func (m *Manager) work(ctx context.Context) {
@@ -366,11 +390,15 @@ func (m *Manager) runCommand(ctx context.Context, identityID string, c protocol.
 	return result, nil
 }
 
-func (m *Manager) finish(item inbox, b binding, text string) error {
+func (m *Manager) finish(item inbox, b binding, text string, scoped bool) error {
 	item.State, item.Envelope.Text, item.Envelope.ReplyToken, item.Command = "done", "", "", nil
 	objects := []store.Object{{Bucket: "messaging_inbox", ID: item.ID, Value: item}, {Bucket: "messaging_bindings", ID: b.ID, Value: b}}
 	if text != "" {
-		objects = append(objects, replyObjects(b, stable(item.ID, "receipt"), text)...)
+		receipt := b
+		if !scoped {
+			receipt.ProjectID = ""
+		}
+		objects = append(objects, replyObjects(receipt, stable(item.ID, "receipt"), text)...)
 	}
 	return m.store.PutObjects(objects...)
 }

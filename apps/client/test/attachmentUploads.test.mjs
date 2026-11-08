@@ -26,7 +26,8 @@ function harness() {
       calls.push({ file, target, signal, resolve, reject });
       return promise;
     },
-    (target, attachment) => delivered.push({ target, attachment }),
+    (target, attachment, source) =>
+      delivered.push({ target, attachment, source }),
   );
   const succeed = (index, id, overrides = {}) =>
     calls[index].resolve({
@@ -51,6 +52,7 @@ test("parallel files retain selection order across an individual failure and ret
   assert.equal(calls.length, 3);
   assert.deepEqual(delivered, []);
   assert.equal(queue.getSnapshot()[1].state, "ready");
+  assert.equal(queue.getSnapshot()[1].preview, calls[1].file);
   calls[0].reject(new Error("connection interrupted"));
   succeed(2, "third");
   await settle();
@@ -70,6 +72,8 @@ test("parallel files retain selection order across an individual failure and ret
     true,
   );
   assert.deepEqual(queue.getSnapshot(), []);
+  assert.equal(delivered[0].source, calls[0].file);
+  assert.equal(delivered[1].source, calls[1].file);
 });
 
 test("other drafts complete independently and moved or cancelled uploads keep their original scope", async () => {
@@ -122,6 +126,7 @@ test("oversized files do not stop valid transfers and foreign target results nev
   const oversized = queue.getSnapshot()[0];
   assert.equal(oversized.state, "failed");
   assert.equal(oversized.retryable, false);
+  assert.equal(oversized.preview, undefined);
   succeed(0, "valid");
   succeed(1, "foreign", { targetDeviceId: "foreign-device" });
   await settle();
