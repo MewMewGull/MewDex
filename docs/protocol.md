@@ -209,9 +209,17 @@ Hub 运行共享模型引擎时，快照声明 `hub-projects` 和 `hub-model-acc
 
 ## 原生本机管理接口
 
+`extension.read` 和 `extension.update` 仅向管理员开放并限定 Hub 协调端目标。`Command.extension` 指定 Skills、Memory、Hooks 或 Plugins 分类及受支持操作。读取只返回管理界面所需字段。更新使用原配置版本，插件安装核对目录指纹，Hook 信任使用当前内容哈希。更改经过原有指令回执持久化，目录读取从未确认操作列表中排除。
+
+`ProjectHarness.memory` 是可选的 `{enabled, content}` 项目记忆，正文限 64 KiB。省略字段与旧版内容哈希兼容，禁用时保留配置中的正文，回合提示省略该正文。启用后共用项目配置修订、历史与启动快照。
+
 独立分发后的输入 APP 声明 `localService=false`，通过网络 SDK 管理 Hub。桌面 APP 的 `channel_connection` 接口启动专用消息连接器，连接配置通过原生管道交付。
 
-`GET /v1/input-bridges` 列出当前管理员身份下的在线 APP。APP 以该管理员凭据连接 `/v1/input-bridges/ws?id=...&name=...`，Hub 将 `/v1/messaging` 请求转发给选定连接。可选 `bridgeId` 显式指定 APP，多个连接时必须选择。该连接用于渠道管理，渠道提交继续通过带项目范围的普通 `client` 身份使用 `/v1/commands`。平台凭据和收发回执由 APP 保存。
+`GET /v1/input-bridges` 向管理员列出可管理的消息连接服务。`kind=hub` 表示 Hub 常驻连接器，`kind=standalone` 表示独立服务，省略 `kind` 的旧连接属于当前管理员的 APP 或 Web 输入端。Hub 常驻连接器的固定 ID 为 `hub-message-connector`，其能力由 `/health` 中的 `hub-messaging-connector` 声明。
+
+远端连接器使用管理员凭据连接 `/v1/input-bridges/ws?id=...&name=...`，独立服务额外传 `kind=standalone`。Hub 将 `/v1/messaging` 操作转发给所选服务，并绑定发起管理员的身份，微信二维码轮询保留其归属校验。`bridgeId` 显式选择目标服务，省略时优先使用 Hub 常驻连接器。没有 Hub 常驻连接器且存在多个候选时需要显式选择，离线的显式选择返回错误。
+
+管理连接用于配置和状态。远端渠道任务继续以带项目范围的普通 `client` 身份调用 `/v1/commands`，Hub 常驻连接器以同类身份进入同一指令处理入口。平台凭据、会话映射和收发回执保存在所选服务的渠道数据库中，管理查询返回凭据是否已配置。
 
 执行端的独立网页控制面板通过带面板密钥的 `/api/device` 调用现有本机管理层。执行节点仍通过 `/v1/node/ws` 与 Hub 建立主动连接。
 
@@ -233,7 +241,7 @@ Hub 运行共享模型引擎时，快照声明 `hub-projects` 和 `hub-model-acc
 
 `hub.discover` 只读取当前监听端口的公开 Hub 信息，结果通过 `Result.existingHub={baseUrl,protocolVersion}` 返回；不返回凭据、不修改当前配置或进程归属。`start` 发现端口上已经运行 MewDex Hub 时也返回该字段，桌面端转入该地址的标准登录流程；其他服务占用仍返回端口冲突。登录页会再次核对协议和认证方式，识别到 Hub 本身不构成登录。
 
-`proxy.ssh.config` 要求 `expectedDeviceId` 匹配当前本机 Hub，读取当前用户的 `.ssh/config`，通过 `Result.sshConfig` 返回具体 Host 别名及其服务器、端口、用户、私钥路径、主机密钥文件路径和可导入状态。读取不修改设置或原 SSH 文件，不读取私钥内容，也不建立 SSH 连接。输入端选定主机后仍通过 `proxy.apply` 保存可编辑的连接参数；公网地址、代理开关和远端转发设置保留原值。
+公网入口由用户通过专用反向代理或组网软件配置。旧版本机 `proxy.status`、`proxy.apply`、`proxy.import`、`proxy.ssh.config` 和 `proxy.test` 操作已移除，调用返回不支持的操作错误。
 
 系统入口执行固定程序的 `managed -root ... -owner ...` 前台模式。安装租约覆盖服务与引擎清理全过程；被禁用、被恢复或已变化的配置不自动启动。所有权标识只用于避免误动其他登记，不是网络授权凭据。手机与网页输入端不暴露此本机接口。
 

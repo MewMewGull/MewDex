@@ -76,6 +76,7 @@ def package_payload(source, stage, report):
         "docs/protocol.md",
         "THIRD_PARTY_NOTICES.md",
         "docs/messaging.md",
+        "docs/extensions.md",
         "docs/hub-startup-20261102.md",
         "docs/dependency-licenses.json",
         "docs/licensing.md",
@@ -119,10 +120,12 @@ def package_payload(source, stage, report):
         "MewDex Windows x64 Debug 开发测试包\n\n"
         "解压后启动 mewdex-client.exe。\n"
         "APP 与网页版可任选其一，均为连接独立 Hub 的输入终端。\n"
-        "QQ、微信和飞书由本 APP 的消息连接器接入，使用时保持 APP 运行。\n"
-        "在设置中的消息渠道选择本 APP，保存平台凭据和允许用户。\n"
+        "QQ、微信和飞书默认由 Hub 常驻连接器接入，关闭 APP 后继续收发消息。\n"
+        "更新 Hub 后，在设置中的消息渠道选择 Hub 常驻连接器，配置平台凭据和允许用户。\n"
+        "也可部署独立 MewDex-Channel 包，并在连接服务中选择它。\n"
+        "已有 APP 或网页渠道保留在兼容输入端中，迁移前先关闭旧渠道，再配置目标服务。\n"
         "在平台聊天中发送 /projects 查看项目，再用 /project 序号或项目名选择工作项目。\n"
-        "Hub、网页输入端和执行端分别使用独立发布包部署。\n"
+        "Hub、网页输入端、执行端和独立消息连接器分别使用对应发布包部署。\n"
         "执行端通过 WebSocket 连接 Hub，并提供独立网页控制面板。\n"
         "此轮交由用户人工验收。\n",
         encoding="utf-8",

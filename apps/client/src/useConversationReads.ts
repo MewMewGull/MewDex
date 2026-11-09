@@ -42,7 +42,13 @@ export function useConversationReads(scope: string) {
     ledger.clear();
     setUnread(ledger.unread);
   }, [ledger]);
-  return { unread, bootstrap, event, markRead, clear };
+  const markAllRead = useCallback(
+    (sessions: { id: string; deviceId: string }[]) => {
+      if (ledger.markAllRead(sessions)) setUnread(ledger.unread);
+    },
+    [ledger],
+  );
+  return { unread, bootstrap, event, markRead, markAllRead, clear };
 }
 
 // A selected conversation is read only when its current content is rendered,

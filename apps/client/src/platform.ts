@@ -158,6 +158,7 @@ export function subscribeResume(callback: () => void): () => void {
     if (event.persisted) notify();
   };
   document.addEventListener("visibilitychange", visible);
+  window.addEventListener("focus", visible);
   window.addEventListener("online", visible);
   window.addEventListener("pageshow", restored);
   if (isTauri()) {
@@ -176,8 +177,35 @@ export function subscribeResume(callback: () => void): () => void {
     if (timer !== undefined) clearTimeout(timer);
     unlisten?.();
     document.removeEventListener("visibilitychange", visible);
+    window.removeEventListener("focus", visible);
     window.removeEventListener("online", visible);
     window.removeEventListener("pageshow", restored);
+  };
+}
+
+// Visibility alone stays true when a desktop window is behind another app.
+// Query polling follows the focused input window, with native resume as a fallback.
+export function subscribeForeground(
+  callback: (foreground: boolean) => void,
+): () => void {
+  let previous: boolean | undefined;
+  const notify = () => {
+    const foreground =
+      document.visibilityState === "visible" && document.hasFocus();
+    if (foreground === previous) return;
+    previous = foreground;
+    callback(foreground);
+  };
+  document.addEventListener("visibilitychange", notify);
+  window.addEventListener("focus", notify);
+  window.addEventListener("blur", notify);
+  const resume = subscribeResume(notify);
+  notify();
+  return () => {
+    resume();
+    document.removeEventListener("visibilitychange", notify);
+    window.removeEventListener("focus", notify);
+    window.removeEventListener("blur", notify);
   };
 }
 

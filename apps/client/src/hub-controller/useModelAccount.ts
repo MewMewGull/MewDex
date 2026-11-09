@@ -26,7 +26,7 @@ export function useModelAccount(
     staleTime: 30000,
     retry: false,
     refetchOnWindowFocus: false,
-    refetchInterval: enabled && pending ? 3000 : false,
+    refetchInterval: pending ? 3000 : 30000,
   });
   useEffect(() => {
     if (account.data?.signedIn) cache.setQueryData(loginKey, null);

@@ -2,20 +2,24 @@
 
 ## 角色
 
-MewDex 独立发布 APP、网页输入端、Hub 与执行端。APP 和网页端共用输入界面与网络 SDK，APP 与独立网页输入服务都能保持消息渠道连接，执行端提供独立网页控制面板。
+MewDex 独立发布 APP、网页输入端、Hub、执行端与消息连接器。APP 和网页端共用输入界面与网络 SDK，消息连接器默认随 Hub 常驻，也支持独立部署，执行端提供独立网页控制面板。
 
 | 组件 | 代码归属 | 职责 |
 | --- | --- | --- |
 | Input Terminal（输入终端） | `apps/client/src/input-terminal/` | 用户输入、对话、结果与交互 |
 | Execute Terminal（执行终端） | `internal/executor/terminal.go`、`internal/engine/sandbox.go` | 本机沙箱执行、目录绑定、任务状态与文件回传 |
 | Hub（管理终端） | `internal/hub/`、`internal/transport/` | 项目、模型账号、对话编排、设备连接与事件历史 |
-| Hub Controller（管理终端的管理器） | `apps/client/src/hub-controller/` | Hub 账号、项目、设备授权与在线输入端的渠道管理 |
-| Message Connector（消息连接器） | `internal/inputbridge/`、`internal/messaging/` | 输入端的平台连接、消息处理、持久收发与 Hub 输入 |
+| Hub Controller（管理终端的管理器） | `apps/client/src/hub-controller/` | Hub 账号、项目、设备授权与消息连接服务管理 |
+| Message Connector（消息连接器） | `internal/inputbridge/`、`internal/messaging/` | 平台连接、消息转换、持久收发与 Hub 输入 |
 | Executor Control Panel（执行端控制面板） | `internal/executorpanel/`、`internal/localnode/` | 独立执行端的本机配置、配对、启停与目录管理 |
 
 Windows、macOS、Linux 桌面 APP 组合输入工作台、网络管理界面和消息连接器。Hub、网页服务器和执行端分别部署。原生 APP 使用 Tauri 承载共享界面，分发包携带专用消息连接器。组件与产物边界以 `mewdex.product.json` 的 `components`、`platforms` 和 `distributions` 为准。
 
-`mewdex-input-bridge` 随 APP 生命周期运行，保存该 APP 的渠道配置、平台凭据、入站消息与回复回执，并建立到 Hub 的认证 WebSocket 管理连接。APP 和网页端复用 `/v1/messaging`，Hub 根据当前身份和所选输入端转发管理操作。渠道指令继续使用按项目限定的普通输入身份，经 Hub 的原有指令接口处理。多个在线输入端显式选择渠道归属。APP 关闭至托盘后保持连接，退出 APP 会结束其连接。独立网页服务内置同一连接器，关闭浏览器后保持连接，退出账号或网页服务后结束连接。
+Hub 服务启动 `messaging.Manager`，使用独立 `message-connector/channels.db` 保存渠道配置、平台凭据和收发回执。其后台工作随 Hub 运行，APP 或网页的登录、退出与窗口状态独立于渠道连接。渠道任务由普通 `client` 身份进入原有指令校验和回执入口。
+
+独立 `mewdex-channel` 使用 `mewdex-input-bridge -config` 的同一入口实现，持久保存管理员签发的连接凭据，以认证 WebSocket 接受 Hub 管理，通过普通输入 HTTP 接口提交任务。平台与渠道状态保存在连接器本机。Hub 的管理员可通过 `/v1/input-bridges` 选择连接服务，`kind` 区分 `hub`、`standalone` 和旧版输入端。管理操作复用 `/v1/messaging`，微信扫码仍绑定实际发起管理员。
+
+APP 的管道式 `mewdex-input-bridge` 和网页输入服务中的连接器继续支持原配置。Hub 默认连接器采用新数据库，迁移时由管理员关闭旧渠道并配置目标服务，历史数据保留在原处。
 
 独立 `mewdex-web` 从 `ui/` 读取输入页面，将 API 和 WebSocket 请求转发给部署时指定的 Hub。Hub 提供中央 API。执行端通过原有 `/v1/node/ws` 主动连接 Hub，独立面板复用 `internal/localnode` 管理本机配对、服务和目录。
 
@@ -23,6 +27,8 @@ Windows 和 macOS 的 APP、Hub、执行端和独立网页输入服务均提供�
 
 
 组件名与协议身份分别建模。现有协议中的 `client` / `admin` 表示输入和管理身份，`executor` 表示节点身份，Hub Controller 使用已有的登录和授权接口。Hub 持有模型引擎，执行端通过已配对的控制连接接收命令。
+
+Hub Controller 的 Skills、Memory、Hooks 和 Plugins 设置通过原有指令账本管理 Hub 模型运行时。原生设置采用运行时版本校验，Hook 信任绑定内容哈希，插件安装核对目录指纹。项目记忆作为可选字段加入版本化项目配置，随原有回合快照提供。用法和作用范围见 [扩展设置](extensions.md)。
 
 执行节点具有独立设备身份。MewDex 账号作为中央登录身份，可在多个 Input Terminal 和 Hub Controller 使用。Hub 的 ChatGPT 账号为整个网络提供模型服务。
 
@@ -54,7 +60,7 @@ Computer Use 原型由 Hub 的 `mewdex_computer` 工具选择项目目录所属�
 
 本机服务设置负责这台电脑的配置、启停、自启动、备份和升级。Hub 的 OpenAI 连接在 Hub 机器上配置。备份及升级包含中央项目和 Hub 会话数据库，Hub 内部的临时对话工作目录在采用副本时重新绑定。
 
-首版为一个活动 Hub、多输入端、多执行端。Hub 为可达的自托管地址；局域网/私有网络及 TLS 反向代理均可接入。不构建多主选举或 NAT 穿透服务。
+首版为一个活动 Hub、多输入端、多执行端。Hub 使用用户部署的可达地址。局域网、私有网络及 TLS 反向代理均可接入，公网入口由用户通过专用反向代理或组网软件配置。
 
 ## 模块边界
 
@@ -69,8 +75,7 @@ Computer Use 原型由 Hub 的 `mewdex_computer` 工具选择项目目录所属�
 - `internal/serviceguard`：OS 管理与直接服务入口共用的数据租约边界。Mac 在独立会话中保留监护进程，执行前交接身份，清理结束后释放继承的安装与数据租约；监护丢失或出生链无法确认时保留未核实标记。
 - `internal/lifecycle` 与 `localnode` 的恢复记录：保留系统启动批次，核对租约、设备配置和原冻结标记，通过本机面板保存与采用恢复记录；回复丢失后按原记录读回。解除启动限制前，`store` 原子保存旧执行身份的快照；`executor` 提供独立的结束旧执行操作，释放项目占用、保留原始输入与未知结果，旧会话只读。手机和未来输入端只引用公开恢复编号，不接触 OS 证明。真实重启与本机恢复面板的原生实操仍待完成。
 - `internal/startup`：按安装隔离的系统启动登记、所有权核对、结果观察和平台适配；不保存模型凭据。
-- `internal/hubproxy`：Hub 进程内的可选 SSH 反向代理，保存独立设置、核对服务器主机密钥、重连并随 Hub 退出清理。
-- `internal/hubtray`：Windows Hub 自身的托盘入口，调用与桌面端相同的本机服务管理接口；不派生托盘或 SSH 常驻进程。
+- `internal/servicetray` 提供 Hub 与执行端的托盘入口，调用共用的本机服务管理接口。
 - `internal/executor`：本机执行、工作区约束、指令去重与任务控制。
 - `internal/hub`：设备注册、访问控制、路由、事件投递与查询 API。
 - `internal/transport`：节点连接、重连和事件补传。
@@ -184,7 +189,7 @@ Hub 和执行端分别声明 `collaboration-modes`；输入端取两端能力的
 
 输入 APP 的原生层提供凭据库、通知、附件与消息连接器。`input_capabilities` 声明 `localService=false`，共享界面据此使用远程 Hub 连接。原生层公开 `channel_connection` 管理专用连接器，其配置通过管道交付并在当前 APP 退出时结束。
 
-`useInputConnection` 继续负责恢复、保存与移除 Hub 输入身份。`useInputChannels` 将已核实的管理员连接交给 APP 的原生层。网页端使用同一套输入与渠道管理接口，渠道连接由选定的在线桌面 APP 承担。
+`useInputConnection` 继续负责恢复、保存与移除 Hub 输入身份。`useInputChannels` 将已核实的管理员连接交给 APP 的原生层，保持旧渠道兼容。网页端使用同一套渠道管理接口，设置默认选择 Hub 常驻连接器，并显示独立连接器与兼容输入端。
 
 独立服务继续复用 `internal/localnode` 的配置、配对、启停、目录绑定和生命周期核对。执行端通过本机网页面板管理，API 使用面板密钥与 Origin 检查。发布包固定 Hub 或执行端角色，原开发 CLI 保留旧合并配置兼容路径。旧配置、服务数据及未完成任务由原位置保留，采用拆分部署时准备各自单角色配置。
 

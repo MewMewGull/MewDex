@@ -47,19 +47,27 @@ export function useNetwork(
   conversationObserver.current = conversations;
   const initialSnapshotApplied = useRef(false);
   const failures = useRef(0);
-  useEffect(() => subscribeResume(() => setAttempt((value) => value + 1)), []);
+  const accessRevision = useRef(0);
+  const synchronized = useRef(ready);
+  synchronized.current = ready;
+
+  function accessChanged(value: Identity) {
+    return (
+      identity.current.id !== value.id ||
+      identity.current.role !== value.role ||
+      JSON.stringify(identity.current.access) !== JSON.stringify(value.access)
+    );
+  }
 
   function forgetVisibleData() {
+    accessRevision.current++;
     setCapabilities([]);
     cache.clear();
     useWorkspace.getState().reset();
     clear.current();
   }
   function apply(snapshot: NetworkSnapshot, initial: boolean) {
-    const changed =
-      identity.current.id !== snapshot.identity.id ||
-      JSON.stringify(identity.current.access) !==
-        JSON.stringify(snapshot.identity.access);
+    const changed = accessChanged(snapshot.identity);
     if (changed || snapshot.cursor < cursor.current) forgetVisibleData();
     identity.current = snapshot.identity;
     setCapabilities(snapshot.capabilities ?? []);
@@ -94,6 +102,61 @@ export function useNetwork(
     }
     setError(value instanceof Error ? value.message : t("连接暂时不可用"));
   }
+  useEffect(() => {
+    const controller = new AbortController();
+    let reading = false;
+    const unsubscribe = subscribeResume(() => {
+      if (!synchronized.current) {
+        setAttempt((value) => value + 1);
+        return;
+      }
+      if (reading) return;
+      reading = true;
+      const revision = accessRevision.current;
+      // Verify the current authority without replacing a healthy stream or its
+      // cached projections. Repeated returns share the read already in flight.
+      void readConnection(
+        (signal) => client.identity(signal),
+        controller.signal,
+      )
+        .then((value) => {
+          if (controller.signal.aborted || revision !== accessRevision.current)
+            return;
+          if (accessChanged(value)) {
+            identity.current = value;
+            forgetVisibleData();
+            setReady(false);
+            setAttempt((attempt) => attempt + 1);
+            return;
+          }
+          identity.current = value;
+          cache.setQueryData(["identity"], value);
+          for (const key of [
+            "devices",
+            "sessions",
+            "activity",
+            "account",
+            "account-limits",
+            "computer",
+          ])
+            void cache.refetchQueries(
+              { queryKey: [key], type: "active" },
+              { cancelRefetch: false },
+            );
+        })
+        .catch((cause: unknown) => {
+          if (!controller.signal.aborted && revision === accessRevision.current)
+            fail(cause);
+        })
+        .finally(() => {
+          reading = false;
+        });
+    });
+    return () => {
+      controller.abort();
+      unsubscribe();
+    };
+  }, [client, cache]);
   useEffect(() => {
     const controller = new AbortController();
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -148,9 +211,6 @@ export function useNetwork(
   useEffect(() => {
     if (!ready) return;
     const controller = new AbortController();
-    let initialState = true;
-    const keepConnection =
-      useWorkspace.getState().connectionState === "connected";
     void client
       .subscribe({
         after: cursor.current,
@@ -185,12 +245,17 @@ export function useNetwork(
         },
         onState: (state) => {
           if (controller.signal.aborted) return;
-          const selectingConversation =
-            initialState && keepConnection && state === "connecting";
-          initialState = false;
-          if (selectingConversation) return;
-          if (state === "connecting") setReconnecting(true);
-          useWorkspace.getState().setConnectionState(state);
+          if (state === "connecting") {
+            if (useWorkspace.getState().connectionState !== "connected")
+              setReconnecting(true);
+            return;
+          }
+          if (state === "connected") {
+            setReconnecting(false);
+            setError("");
+          } else if (state === "disconnected") setReconnecting(true);
+          if (state !== useWorkspace.getState().connectionState)
+            useWorkspace.getState().setConnectionState(state);
           if (state === "unauthorized") {
             forgetVisibleData();
             setUnauthorized(true);

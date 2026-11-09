@@ -93,6 +93,7 @@ export interface Input {
 }
 
 export interface Command {
+  extension?: ExtensionRequest | null;
   computer?: ComputerRequest | null;
   terminal?: TerminalRequest | null;
   workspace?: WorkspaceRequest | null;
@@ -418,6 +419,103 @@ export interface ModelPage {
   runtime?: ModelRuntime | null;
 }
 
+export interface SkillOption {
+  name: string;
+  description: string;
+  path: string;
+  scope: string;
+}
+
+export interface SkillCatalog {
+  skills: SkillOption[];
+  errors: string[];
+}
+
+export interface ExtensionRequest {
+  section: string;
+  action?: string;
+  expectedVersion?: string;
+  name?: string;
+  description?: string;
+  instructions?: string;
+  path?: string;
+  key?: string;
+  hash?: string;
+  enabled: boolean;
+  event?: string;
+  command?: string;
+  matcher?: string;
+  timeoutSec?: number;
+  source?: string;
+  pluginId?: string;
+  marketplace?: string;
+  marketplacePath?: string;
+  generateMemory: boolean;
+  useMemory: boolean;
+}
+
+export interface ManagedSkill {
+  name: string;
+  description: string;
+  path: string;
+  scope: string;
+  enabled: boolean;
+}
+
+export interface RuntimeHook {
+  key: string;
+  eventName: string;
+  handlerType: string;
+  command?: string;
+  matcher?: string;
+  enabled: boolean;
+  trustStatus: string;
+  currentHash: string;
+  source: string;
+  sourcePath: string;
+  isManaged: boolean;
+  timeoutSec: number;
+}
+
+export interface RuntimePlugin {
+  id: string;
+  name: string;
+  description?: string;
+  version?: string;
+  marketplace: string;
+  marketplacePath?: string;
+  source: string;
+  installed: boolean;
+  enabled: boolean;
+  installPolicy: string;
+  availability: string;
+  fingerprint: string;
+}
+
+export interface ExtensionCatalog {
+  section: string;
+  configVersion: string;
+  skills: ManagedSkill[];
+  hooks: RuntimeHook[];
+  plugins: RuntimePlugin[];
+  warnings: string[];
+  hooksEnabled: boolean;
+  pluginsEnabled: boolean;
+  memoryEnabled: boolean;
+  generateMemory: boolean;
+  useMemory: boolean;
+}
+
+export interface ExtensionMutation {
+  status: string;
+  appsNeedingAuth?: string[];
+}
+
+export interface ProjectMemory {
+  enabled: boolean;
+  content: string;
+}
+
 export interface TaskPlanStep {
   step: string;
   status: string;
@@ -598,6 +696,7 @@ export interface MessagingLogin {
 export interface InputBridge {
   id: string;
   name: string;
+  kind?: string;
 }
 
 export interface NodeConnection {
@@ -613,6 +712,7 @@ export interface ProjectHarness {
   skills: ProjectSkill[];
   scripts: ProjectScript[];
   workflows: ProjectWorkflow[];
+  memory?: ProjectMemory | null;
 }
 
 export interface ProjectSkill {

@@ -1,4 +1,4 @@
-// Export independent Hub, web input and executor packages for one target.
+// Export independent Hub, web input, executor and channel connector packages.
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { createReadStream } from "node:fs";
@@ -67,9 +67,10 @@ const targetKey =
 const target = targets[targetKey];
 if (!target) throw new Error("Unsupported service target");
 const selected = options.get("--component") ?? "all";
-if (!["all", "hub", "executor", "web"].includes(selected))
-  throw new Error("Select hub, executor, web or all");
-const components = selected === "all" ? ["hub", "executor", "web"] : [selected];
+if (!["all", "hub", "executor", "web", "channel"].includes(selected))
+  throw new Error("Select hub, executor, web, channel or all");
+const components =
+  selected === "all" ? ["hub", "executor", "web", "channel"] : [selected];
 const product = JSON.parse(
   await readFile(path.join(root, "mewdex.product.json"), "utf8"),
 );
@@ -132,6 +133,7 @@ async function notices(destination, web) {
     "THIRD_PARTY_NOTICES.md",
     "mewdex.product.json",
     "docs/architecture.md",
+    "docs/extensions.md",
     "docs/licensing.md",
     "docs/evaluations.md",
     "docs/evaluations/core.example.json",
@@ -257,22 +259,34 @@ const report = [];
 let preserveScratch = false;
 try {
   for (const component of components) {
-    const title =
-      component === "hub" ? "Hub" : component === "web" ? "Web" : "Executor";
+    const title = {
+      hub: "Hub",
+      web: "Web",
+      executor: "Executor",
+      channel: "Channel",
+    }[component];
     const name = `MewDex-${title}-${target.label}`;
     const stage = path.join(scratch, name);
     await mkdir(stage);
     const binary = `mewdex-${component}${target.extension}`;
-    const iconRole = component === "web" ? "input" : component;
-    const goPackage = component === "web" ? "./cmd/mewdex-web" : "./cmd/mewdex";
+    const iconRole =
+      component === "web" || component === "channel" ? "input" : component;
+    const goPackage =
+      component === "channel"
+        ? "./cmd/mewdex-input-bridge"
+        : component === "web"
+          ? "./cmd/mewdex-web"
+          : "./cmd/mewdex";
     run(
       "go",
       [
         "build",
         "-trimpath",
         `-ldflags=${[
-          ...(target.os === "windows" ? ["-H=windowsgui"] : []),
-          ...(component === "web"
+          ...(target.os === "windows" && component !== "channel"
+            ? ["-H=windowsgui"]
+            : []),
+          ...(component === "web" || component === "channel"
             ? []
             : [`-X main.distributionRole=${component}`]),
         ].join(" ")}`,
@@ -318,8 +332,9 @@ try {
         path.join(sandboxResources, "sandbox"),
         path.join(stage, "sandbox"),
       );
-    else await copy(path.join(resources, "engine"), path.join(stage, "engine"));
-    if (target.os === "darwin") {
+    else if (component !== "channel")
+      await copy(path.join(resources, "engine"), path.join(stage, "engine"));
+    if (target.os === "darwin" && component !== "channel") {
       const bundle = path.join(stage, `MewDex ${title}.app`, "Contents");
       await mkdir(path.join(bundle, "MacOS"), { recursive: true });
       await mkdir(path.join(bundle, "Resources"));
@@ -338,10 +353,16 @@ try {
       );
     }
     await notices(stage, component === "web");
+    if (component === "channel" || component === "hub")
+      await copy(
+        path.join(root, "docs/messaging.md"),
+        path.join(stage, "docs/messaging.md"),
+      );
     const instructions = {
-      hub: `双击 ${target.os === "darwin" ? "MewDex Hub.app" : binary} 打开本机控制面板，创建或启动 Hub。运行后从系统托盘查看状态、控制面板和开机自启动。\n\n命令行部署\n${binary} init -config .local/hub/device.json\n${binary} account -config .local/hub/device.json\n${binary} serve -config .local/hub/device.json\naccount 命令从标准输入读取账号 JSON。按部署设置 listen 和 allowedOrigins。\n`,
+      hub: `双击 ${target.os === "darwin" ? "MewDex Hub.app" : binary} 打开本机控制面板，创建或启动 Hub。运行后从系统托盘查看状态、控制面板和开机自启动。\n\nHub 自带常驻消息连接器。在 APP 或网页的设置 → 消息渠道中选择“Hub 常驻连接器”，配置微信、QQ 或飞书。渠道随 Hub 服务保持连接，关闭 APP 或网页后继续收发消息。原输入端的渠道配置保留，迁移步骤见 docs/messaging.md。\n\n命令行部署\n${binary} init -config .local/hub/device.json\n${binary} account -config .local/hub/device.json\n${binary} serve -config .local/hub/device.json\naccount 命令从标准输入读取账号 JSON。按部署设置 listen 和 allowedOrigins。\n`,
       executor: `双击 ${target.os === "darwin" ? "MewDex Executor.app" : binary} 打开本机控制面板。填写 Hub 地址和执行端配对码，添加本机目录，再启动执行端。运行后从系统托盘查看状态、控制面板和开机自启动。\n\n指定已有配置目录\n${binary} panel -root .local/executor -open\n此节点通过 WebSocket 连接 Hub。\n`,
-      web: `双击 ${target.os === "darwin" ? "MewDex Web.app" : binary}，填写 Hub 地址后进入工作台。运行后托盘显示“网页输入端”，可打开工作台、调整 Hub 地址、设置开机自启动或退出。\n\nAPP 与网页版任选其一。网页版自带消息渠道连接器，关闭浏览器后由托盘服务保持连接。退出账号或退出服务会断开此输入端的渠道。\n\n命令行部署\n${binary} -hub-url https://your-hub.example.com -listen 127.0.0.1:47831\n\n在 Hub 的 allowedOrigins 中允许网页入口。ui 目录随独立网页包部署。Windows 后台组件不创建控制台窗口。\n`,
+      web: `双击 ${target.os === "darwin" ? "MewDex Web.app" : binary}，填写 Hub 地址后进入工作台。运行后托盘显示“网页输入端”，可打开工作台、调整 Hub 地址、设置开机自启动或退出。\n\nAPP 与网页版任选其一。消息渠道默认由 Hub 常驻连接器保持连接。网页版保留原有输入端连接器以兼容已有配置。\n\n命令行部署\n${binary} -hub-url https://your-hub.example.com -listen 127.0.0.1:47831\n\n在 Hub 的 allowedOrigins 中允许网页入口。ui 目录随独立网页包部署。Windows 后台组件不创建控制台窗口。\n`,
+      channel: `独立消息连接器，直接连接 Hub。可部署在能访问微信、QQ 或飞书的平台主机上。\n\n首次授权\n${binary} -setup -hub-url https://your-hub.example.com -config .local/channel/connection.json\n从标准输入提供 MewDex 管理员账号 JSON，例如 {"username":"your-name","password":"your-password"}。密码只用于登录，配置文件保存该账号签发的连接凭据。\n\n运行\n${binary} -config .local/channel/connection.json\n此模式独立于 APP、网页和标准输入生命周期。使用系统服务管理器常驻和开机启动，重启后读取原配置与渠道数据库。\n\n在 APP 或网页的设置 → 消息渠道中选择“独立消息连接器”并配置平台。凭据撤销后服务结束，重新授权后启动。详见 docs/messaging.md。\n`,
     };
     await writeFile(
       path.join(stage, "START-HERE.txt"),
@@ -359,7 +380,9 @@ try {
           arch: target.arch === "amd64" ? "x64" : target.arch,
           configuration: "Release",
           engineVersion:
-            component === "web" || (component === "executor" && nativeSandbox)
+            component === "web" ||
+            component === "channel" ||
+            (component === "executor" && nativeSandbox)
               ? undefined
               : engineVersion,
           sandboxVersion:

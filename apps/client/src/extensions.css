@@ -1,0 +1,63 @@
+.extension-settings,
+.extension-controls,
+.extension-form,
+.extension-card {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+.extension-controls {
+  border: 0;
+  margin: 0;
+  padding: 0;
+}
+.extension-heading,
+.extension-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.extension-heading h3,
+.extension-card p {
+  margin: 0;
+}
+.extension-card {
+  padding: 14px;
+  border: 1px solid var(--panel-border);
+  border-radius: 10px;
+}
+.extension-card code,
+.extension-preview {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+  font-size: 12px;
+}
+.extension-preview {
+  max-height: 220px;
+  overflow: auto;
+}
+.extension-actions {
+  justify-content: flex-start;
+}
+.extension-settings label:not(.checkbox),
+.extension-form label:not(.checkbox) {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+.extension-settings input:not([type="checkbox"]),
+.extension-settings textarea,
+.extension-settings select,
+.extension-form textarea {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.extension-settings button:not(.icon-button) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}

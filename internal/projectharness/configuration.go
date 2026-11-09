@@ -48,6 +48,9 @@ func Normalize(input protocol.ProjectHarness, directories []protocol.ProjectDire
 	if input.Workflows == nil {
 		input.Workflows = []protocol.ProjectWorkflow{}
 	}
+	if input.Memory != nil && len(input.Memory.Content) > 64<<10 {
+		return input, errors.New("项目记忆正文不能超过 64 KiB")
+	}
 	skills, scripts, workflows := map[string]bool{}, map[string]bool{}, map[string]bool{}
 	for _, skill := range input.Skills {
 		if err := metadata(skill.ID, skill.Name, skill.Description, skills); err != nil {

@@ -157,7 +157,11 @@ func appendProjectConfiguration(instructions string, configuration protocol.Proj
 	if configuration.Revision == 0 {
 		return instructions
 	}
-	return instructions + "\n\nMewDex project configuration format 1, revision " + strconv.FormatInt(configuration.Revision, 10) + ", content version " + configuration.Version + ". Apply the project instructions below. Skills are reusable project guidance. Scripts have fixed argv and durable machine/directory bindings. Workflow steps reference script IDs in order. Use the existing mewdex execution tools with the matching directory index, retain the current turn's access mode, and wait for each step's confirmed success before continuing. Stop a workflow on failure or an unknown result.\n" + string(protocol.JSON(configuration.Configuration))
+	effective := configuration.Configuration
+	if effective.Memory != nil && !effective.Memory.Enabled {
+		effective.Memory = nil
+	}
+	return instructions + "\n\nMewDex project configuration format 1, revision " + strconv.FormatInt(configuration.Revision, 10) + ", content version " + configuration.Version + ". Apply the project instructions below. Skills are reusable project guidance. Enabled memory contains user-maintained project context. Verify changeable memory against current evidence. Scripts have fixed argv and durable machine/directory bindings. Workflow steps reference script IDs in order. Use the existing mewdex execution tools with the matching directory index, retain the current turn's access mode, and wait for each step's confirmed success before continuing. Stop a workflow on failure or an unknown result.\n" + string(protocol.JSON(effective))
 }
 
 // The pinned engine's model catalogue can replace collaboration-mode text.

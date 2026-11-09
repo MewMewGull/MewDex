@@ -1,4 +1,4 @@
-// Package inputbridge runs message platform connections inside an input-owned service.
+// Package inputbridge connects a message service directly to a remote Hub.
 package inputbridge
 
 import (
@@ -133,7 +133,7 @@ func (b *backend) Configure(device, project, previous string, enabled bool) (str
 		Token    string            `json:"token"`
 		Identity protocol.Identity `json:"identity"`
 	}
-	if err := b.request(b.ctx, "", "POST", "/v1/pair", map[string]string{"code": invitation.Code, "name": "APP 消息渠道"}, &paired); err != nil {
+	if err := b.request(b.ctx, "", "POST", "/v1/pair", map[string]string{"code": invitation.Code, "name": "消息渠道"}, &paired); err != nil {
 		return "", err
 	}
 	if paired.Token == "" || paired.Identity.Role != "client" {

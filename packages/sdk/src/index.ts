@@ -28,6 +28,10 @@ import {
   type SessionPatch,
   type SessionActivity,
   type ModelPage,
+  type SkillCatalog,
+  type ExtensionCatalog,
+  type ExtensionRequest,
+  type ExtensionMutation,
   type TaskPlan,
   type ModelRateLimits,
   type WorkspaceListing,
@@ -662,6 +666,54 @@ export class MewDexClient {
       kind: "account.login",
     });
     return result.data as DeviceLogin;
+  }
+  async skills(target: {
+    deviceId: string;
+    projectId: string;
+    sessionId?: string;
+  }): Promise<SkillCatalog> {
+    const result = await this.run({
+      id: commandID(),
+      ...target,
+      kind: "skill.list",
+    });
+    return result.data as SkillCatalog;
+  }
+
+  async extensions(
+    deviceId: string,
+    section: string,
+    projectId?: string,
+  ): Promise<ExtensionCatalog> {
+    const result = await this.run({
+      id: commandID(),
+      deviceId,
+      projectId,
+      kind: "extension.read",
+      extension: {
+        section,
+        enabled: false,
+        generateMemory: false,
+        useMemory: false,
+      },
+    });
+    return result.data as ExtensionCatalog;
+  }
+
+  async updateExtension(
+    deviceId: string,
+    request: ExtensionRequest,
+    projectId?: string,
+    id = commandID(),
+  ): Promise<ExtensionMutation> {
+    const result = await this.run({
+      id,
+      deviceId,
+      projectId,
+      kind: "extension.update",
+      extension: request,
+    });
+    return result.data as ExtensionMutation;
   }
   async cancelModelLogin(deviceId: string, loginId: string): Promise<void> {
     await this.run({

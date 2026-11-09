@@ -6,7 +6,6 @@ require (
 	filippo.io/age v1.3.2
 	github.com/coder/websocket v1.8.14
 	github.com/ebitengine/purego v0.11.2
-	github.com/kevinburke/ssh_config v1.6.0
 	github.com/larksuite/oapi-sdk-go/v3 v3.12.2
 	golang.org/x/crypto v0.55.0
 	golang.org/x/sys v0.47.0

@@ -108,47 +108,6 @@ export interface HubDiscovery {
   protocolVersion: number;
 }
 
-export interface HubProxySettings {
-  enabled: boolean;
-  host: string;
-  port: number;
-  user: string;
-  identityFile: string;
-  knownHostsFile: string;
-  remoteBind: string;
-  remotePort: number;
-  publicUrl?: string;
-}
-
-export interface HubProxyInfo {
-  settings: HubProxySettings;
-  state: string;
-  message?: string;
-  legacyAvailable: boolean;
-}
-
-export interface SSHProfile {
-  alias: string;
-  host: string;
-  port: number;
-  user: string;
-  identityFile: string;
-  knownHostsFile: string;
-  importable: boolean;
-  warnings: string[];
-}
-
-export interface SSHConfigInfo {
-  configPath: string;
-  found: boolean;
-  profiles: SSHProfile[];
-  message: string;
-}
-
-export interface ConnectionTest {
-  durationMs: number;
-}
-
 export interface CleanupRequest {
   id?: string;
 }
@@ -215,7 +174,6 @@ export interface Request {
   job?: JobRequest | null;
   startup?: StartupRequest | null;
   listener?: ListenerRequest | null;
-  hubProxy?: HubProxySettings | null;
   upgrade?: UpgradeRequest | null;
   cleanup?: CleanupRequest | null;
 }
@@ -270,9 +228,6 @@ export interface Result {
   upgrade?: UpgradeInfo | null;
   job?: JobInfo | null;
   startup?: StartupInfo | null;
-  hubProxy?: HubProxyInfo | null;
-  sshConfig?: SSHConfigInfo | null;
-  sshTest?: ConnectionTest | null;
   existingHub?: HubDiscovery | null;
   cleanup?: CleanupInfo | null;
 }

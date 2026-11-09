@@ -2281,7 +2281,7 @@ dependencies = [
 
 [[package]]
 name = "mewdex-client"
-version = "0.1.12-preview.20261109"
+version = "0.1.13-preview.20261110"
 dependencies = [
  "android-native-keyring-store",
  "apple-native-keyring-store",

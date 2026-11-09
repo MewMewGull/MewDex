@@ -5,6 +5,7 @@ import "encoding/json"
 type InputBridge struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
+	Kind string `json:"kind,omitempty"`
 }
 
 type InputBridgeRequest struct {

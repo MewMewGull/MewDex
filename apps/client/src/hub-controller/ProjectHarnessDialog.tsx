@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import * as Dialog from "@radix-ui/react-dialog";
 import { LoaderCircle, Plus, Trash2, X } from "lucide-react";
 import {
@@ -16,7 +17,13 @@ import {
 import { t } from "../localization.ts";
 import { useDialogReturnFocus } from "../useDialogReturnFocus";
 
-type Section = "instructions" | "skills" | "scripts" | "workflows" | "history";
+type Section =
+  | "instructions"
+  | "skills"
+  | "memory"
+  | "scripts"
+  | "workflows"
+  | "history";
 
 function AssetMetadata({
   value,
@@ -66,12 +73,15 @@ export function ProjectHarnessDialog({
   project,
   devices,
   onClose,
+  initialSection = "instructions",
 }: {
   client: MewDexClient;
   project: Project;
   devices: Device[];
   onClose: () => void;
+  initialSection?: Section;
 }) {
+  const cache = useQueryClient();
   const [base, setBase] = useState<ProjectHarnessState | null>(null);
   const [draft, setDraft] = useState<ProjectHarness>({
     format: 1,
@@ -82,7 +92,7 @@ export function ProjectHarnessDialog({
   });
   const [history, setHistory] = useState<ProjectHarnessHistory>({ items: [] });
   const [preview, setPreview] = useState<ProjectHarnessState | null>(null);
-  const [section, setSection] = useState<Section>("instructions");
+  const [section, setSection] = useState<Section>(initialSection);
   const [selected, setSelected] = useState(0);
   const [busy, setBusy] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -128,6 +138,8 @@ export function ProjectHarnessDialog({
       });
       setBase(current);
       setDraft(current.configuration);
+      void cache.invalidateQueries({ queryKey: ["composer-project-skills"] });
+      void cache.invalidateQueries({ queryKey: ["extension-project"] });
       setStatus(t("已保存为 v{0}，从下一回合开始使用。", current.revision));
       setSaving(false);
       setHistory(await client.projectHarnessHistory(project.id));
@@ -303,6 +315,7 @@ export function ProjectHarnessDialog({
   const sections: { id: Section; label: string }[] = [
     { id: "instructions", label: t("项目指令") },
     { id: "skills", label: t("Skills") },
+    { id: "memory", label: t("Memory") },
     { id: "scripts", label: t("项目脚本") },
     { id: "workflows", label: t("工作流") },
     { id: "history", label: t("版本历史") },
@@ -388,6 +401,48 @@ export function ProjectHarnessDialog({
                   }
                 />
               </label>
+            )}
+            {section === "memory" && (
+              <div className="extension-form">
+                <label className="checkbox">
+                  <input
+                    type="checkbox"
+                    checked={draft.memory?.enabled ?? false}
+                    onChange={(event) =>
+                      setDraft({
+                        ...draft,
+                        memory: {
+                          content: draft.memory?.content ?? "",
+                          enabled: event.target.checked,
+                        },
+                      })
+                    }
+                  />
+                  {t("启用项目记忆")}
+                </label>
+                <p className="muted">
+                  {t(
+                    "记录项目约定、长期偏好和已确认的事实。启用后随下一回合的项目快照提供，可在版本历史中恢复。",
+                  )}
+                </p>
+                <label>
+                  {t("项目记忆正文")}
+                  <textarea
+                    rows={15}
+                    maxLength={65536}
+                    value={draft.memory?.content ?? ""}
+                    onChange={(event) =>
+                      setDraft({
+                        ...draft,
+                        memory: {
+                          enabled: draft.memory?.enabled ?? false,
+                          content: event.target.value,
+                        },
+                      })
+                    }
+                  />
+                </label>
+              </div>
             )}
             {["skills", "scripts", "workflows"].includes(section) && (
               <div className="project-harness-assets">

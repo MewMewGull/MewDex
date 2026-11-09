@@ -2,14 +2,31 @@ package hub
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
 	"strings"
 
+	"mewdex/internal/messaging"
 	"mewdex/internal/protocol"
+	"mewdex/internal/store"
 )
+
+const hubMessagingBridgeID = "hub-message-connector"
+
+func (h *Hub) StartMessaging(ctx context.Context, channels *store.Store) (*messaging.Manager, error) {
+	m, err := messaging.NewForHub(channels, h.store, h.submitMessagingCommand)
+	if err != nil {
+		return nil, err
+	}
+	m.Start(ctx)
+	h.mu.Lock()
+	h.messaging = m
+	h.mu.Unlock()
+	return m, nil
+}
 
 func (h *Hub) messagingAPI(w http.ResponseWriter, r *http.Request) {
 	if identity(r).Role != "admin" {

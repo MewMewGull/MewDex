@@ -84,7 +84,14 @@ export function SettingsFrame({ sections }) {
           "updates",
         ])
           assert.equal(groups.get(id), "输入端设置");
-        for (const id of ["connection", "models"])
+        for (const id of [
+          "connection",
+          "models",
+          "skills",
+          "memory",
+          "hooks",
+          "plugins",
+        ])
           assert.equal(groups.get(id), "Hub 与执行端设置");
         if (role === "admin") {
           assert.equal(groups.get("input-pairing"), "输入端设置");

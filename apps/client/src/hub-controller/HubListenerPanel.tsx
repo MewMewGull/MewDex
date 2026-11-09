@@ -89,6 +89,9 @@ export function HubListenerPanel({
       <p className="muted">
         {t("直接连接本机端口的客户端或外部代理，需要同步更新其地址。")}
       </p>
+      <p className="muted">
+        {t("如需公网访问，请自行配置专用反向代理或组网软件。")}
+      </p>
     </section>
   );
 }

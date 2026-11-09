@@ -146,7 +146,7 @@ test("service distributions publish independently and keep their component bound
     ...artifact(),
     distribution: "hub",
     kind: "portable",
-    components: ["hub"],
+    components: [...product.distributions.hub.components],
     file: "dist/MewDex-Hub-Windows.zip",
   };
   await writeFile(path.join(root, asset.file), "owned Hub package fixture");

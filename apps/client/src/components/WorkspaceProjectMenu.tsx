@@ -1,7 +1,16 @@
 import { t } from "../localization.ts";
 import { useRef, useState, type ReactElement } from "react";
 import * as ContextMenu from "@radix-ui/react-context-menu";
-import { Check, Folder, Globe, Plus, Settings2, X } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Check,
+  Folder,
+  Globe,
+  Plus,
+  Settings2,
+  X,
+} from "lucide-react";
 import type { Device, Project } from "@mewdex/sdk";
 
 export function WorkspaceProjectMenu({
@@ -14,6 +23,11 @@ export function WorkspaceProjectMenu({
   onEdit,
   onCategory,
   onRemove,
+  canCategorize = true,
+  onNewSection,
+  onMove,
+  canMoveUp,
+  canMoveDown,
 }: {
   children: ReactElement;
   device: Device;
@@ -24,6 +38,11 @@ export function WorkspaceProjectMenu({
   onEdit: (category?: string) => void;
   onCategory: (category: string) => Promise<void>;
   onRemove?: (origin: HTMLElement | null) => void;
+  canCategorize?: boolean;
+  onNewSection?: () => void;
+  onMove?: (direction: -1 | 1) => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
 }) {
   const [error, setError] = useState("");
   const changing = useRef(false);
@@ -73,7 +92,7 @@ export function WorkspaceProjectMenu({
             </ContextMenu.Item>
             <ContextMenu.Sub>
               <ContextMenu.SubTrigger className="session-context-item">
-                {t("移到分类")}
+                {t("移到分区")}
                 <span>›</span>
               </ContextMenu.SubTrigger>
               <ContextMenu.Portal>
@@ -85,7 +104,7 @@ export function WorkspaceProjectMenu({
                     <ContextMenu.Item
                       key={category}
                       className="session-context-item"
-                      disabled={!device.online}
+                      disabled={!device.online || !canCategorize}
                       onSelect={() => {
                         if (changing.current) return;
                         if (
@@ -115,13 +134,36 @@ export function WorkspaceProjectMenu({
                   ))}
                   <ContextMenu.Item
                     className="session-context-item"
-                    onSelect={() => onEdit("")}
+                    disabled={!canCategorize}
+                    onSelect={() =>
+                      onNewSection ? onNewSection() : onEdit("")
+                    }
                   >
-                    {t("新建分类…")}
+                    {t("新建分区")}
                   </ContextMenu.Item>
                 </ContextMenu.SubContent>
               </ContextMenu.Portal>
             </ContextMenu.Sub>
+            {onMove && (
+              <>
+                <ContextMenu.Item
+                  className="session-context-item"
+                  disabled={!canMoveUp}
+                  onSelect={() => onMove(-1)}
+                >
+                  <ArrowUp size={15} />
+                  {t("上移")}
+                </ContextMenu.Item>
+                <ContextMenu.Item
+                  className="session-context-item"
+                  disabled={!canMoveDown}
+                  onSelect={() => onMove(1)}
+                >
+                  <ArrowDown size={15} />
+                  {t("下移")}
+                </ContextMenu.Item>
+              </>
+            )}
             <ContextMenu.Separator className="file-menu-separator" />
             <ContextMenu.Item
               className="session-context-item project-remove-action"

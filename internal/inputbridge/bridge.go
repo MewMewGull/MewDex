@@ -29,6 +29,7 @@ type Options struct {
 	HubDeviceID string `json:"hubDeviceId"`
 	IdentityID  string `json:"identityId"`
 	Name        string `json:"name,omitempty"`
+	Standalone  bool   `json:"-"`
 }
 
 func Run(ctx context.Context, options Options) error {
@@ -46,7 +47,7 @@ func Run(ctx context.Context, options Options) error {
 	}
 	lease, err := lifecycle.Acquire(directory)
 	if err != nil {
-		return errors.New("Input channel connections are already running for this installation")
+		return errors.New("Message channel connections are already running for this installation")
 	}
 	defer lease.Close()
 	s, err := store.Open(filepath.Join(directory, "channels.db"))
@@ -81,11 +82,16 @@ func Run(ctx context.Context, options Options) error {
 		endpoint.Scheme = "ws"
 	}
 	endpoint.RawQuery = url.Values{"id": {bridgeID}, "name": {name}}.Encode()
+	if options.Standalone {
+		query := endpoint.Query()
+		query.Set("kind", "standalone")
+		endpoint.RawQuery = query.Encode()
+	}
 	for ctx.Err() == nil {
 		conn, response, err := websocket.Dial(ctx, endpoint.String(), &websocket.DialOptions{HTTPClient: b.client, HTTPHeader: http.Header{"Authorization": {"Bearer " + options.Token}}})
 		if err == nil {
 			manager.Reconnect()
-			serveConnection(ctx, conn, manager, identity.ID)
+			serveConnection(ctx, conn, manager, identity.ID, options.Standalone)
 			conn.CloseNow()
 		} else if response != nil && (response.StatusCode == 401 || response.StatusCode == 403) {
 			return errors.New("Input channel authorization was revoked")
@@ -119,11 +125,14 @@ func verifiedBackend(ctx context.Context, options Options) (*backend, protocol.I
 	request, _ := http.NewRequestWithContext(ctx, "GET", base+"/health", nil)
 	response, err := b.client.Do(request)
 	if err != nil {
-		return nil, protocol.Identity{}, errors.New("Hub identity check unavailable")
+		return nil, protocol.Identity{}, messaging.ErrHubUnavailable
 	}
 	var server protocol.ServerInfo
 	err = json.NewDecoder(http.MaxBytesReader(nil, response.Body, 64<<10)).Decode(&server)
 	response.Body.Close()
+	if response.StatusCode >= 500 || response.StatusCode == 429 {
+		return nil, protocol.Identity{}, messaging.ErrHubUnavailable
+	}
 	if err != nil || response.StatusCode != 200 || server.HubDeviceID != options.HubDeviceID || server.ProtocolVersion != protocol.Version {
 		return nil, protocol.Identity{}, errors.New("Hub identity changed")
 	}
@@ -137,7 +146,7 @@ func verifiedBackend(ctx context.Context, options Options) (*backend, protocol.I
 	return b, identity, nil
 }
 
-func serveConnection(ctx context.Context, conn *websocket.Conn, manager *messaging.Manager, owner string) {
+func serveConnection(ctx context.Context, conn *websocket.Conn, manager *messaging.Manager, owner string, standalone bool) {
 	ctx, cancel := context.WithCancel(ctx)
 	conn.SetReadLimit(128 << 10)
 	var write sync.Mutex
@@ -172,7 +181,7 @@ func serveConnection(ctx context.Context, conn *websocket.Conn, manager *messagi
 			return
 		}
 		var request protocol.InputBridgeRequest
-		if json.Unmarshal(raw, &request) != nil || request.ID == "" || request.Owner != owner {
+		if json.Unmarshal(raw, &request) != nil || request.ID == "" || request.Owner == "" || !standalone && request.Owner != owner {
 			return
 		}
 		select {
@@ -184,7 +193,7 @@ func serveConnection(ctx context.Context, conn *websocket.Conn, manager *messagi
 		go func() {
 			defer workers.Done()
 			defer func() { <-slots }()
-			response := handle(ctx, manager, request)
+			response := manager.Handle(ctx, request)
 			write.Lock()
 			err := conn.Write(ctx, websocket.MessageText, protocol.JSON(response))
 			write.Unlock()
@@ -193,32 +202,4 @@ func serveConnection(ctx context.Context, conn *websocket.Conn, manager *messagi
 			}
 		}()
 	}
-}
-
-func handle(ctx context.Context, manager *messaging.Manager, request protocol.InputBridgeRequest) protocol.InputBridgeResponse {
-	var value any
-	var err error
-	path := strings.TrimPrefix(request.Path, "/v1/messaging")
-	switch {
-	case request.Method == "GET" && path == "":
-		value = manager.Snapshot()
-	case request.Method == "POST" && path == "/weixin/login":
-		value, err = manager.BeginWeixinLogin(ctx, request.Owner)
-	case request.Method == "POST" && path == "/weixin/login/poll":
-		value, err = manager.PollWeixinLogin(ctx, request.Owner)
-	case request.Method == "PUT" && strings.Count(path, "/") == 1:
-		var update protocol.MessagingUpdate
-		err = json.Unmarshal(request.Body, &update)
-		if err == nil {
-			err = manager.Update(strings.TrimPrefix(path, "/"), update)
-		}
-		value = manager.Snapshot()
-	default:
-		err = errors.New("unknown APP channel operation")
-	}
-	status := 200
-	if err != nil {
-		status, value = 400, map[string]string{"error": err.Error()}
-	}
-	return protocol.InputBridgeResponse{ID: request.ID, Status: status, Body: protocol.JSON(value)}
 }

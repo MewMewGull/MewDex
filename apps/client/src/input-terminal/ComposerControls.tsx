@@ -141,7 +141,7 @@ export function ComposerControls({
     <div className="composer-inline-controls">
       <ToolbarMenu
         label={t("访问权限：{0}{1}", accessLabel, applicationHint)}
-        className="composer-labeled-menu"
+        className="composer-labeled-menu composer-access-menu"
         disabled={disabled || !device?.capabilities?.includes("access-modes")}
         icon={
           <>

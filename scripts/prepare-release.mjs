@@ -92,7 +92,7 @@ export async function prepareRelease(
       throw new Error(`Incorrect components for ${profile.name}`);
     if (distribution !== "app" && artifact.kind !== "portable")
       throw new Error(
-        "Hub, web and executor distributions use independent portable packages",
+        "Hub, web, executor and channel distributions use independent portable packages",
       );
     if (typeof artifact.file !== "string")
       throw new Error("Provide each artifact file path");

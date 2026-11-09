@@ -16,6 +16,10 @@ import {
   Download,
   Globe2,
   Sparkles,
+  Brain,
+  Puzzle,
+  Workflow,
+  BookOpen,
 } from "lucide-react";
 import {
   MewDexClient,
@@ -37,6 +41,7 @@ import { hasTouchInput } from "../inputViewport";
 import { AppearanceSettings } from "../components/AppearanceSettings";
 import { MewDexAccountSettings } from "./MewDexAccountSettings";
 import { MessagingSettings } from "./MessagingSettings";
+import { ExtensionSettings, type ExtensionSection } from "./ExtensionSettings";
 import { WebWorkbenchButton } from "./WebWorkbenchButton";
 import { AppUpdateSettings } from "../components/AppUpdates";
 import { LanguageSettings } from "../components/LanguageSettings";
@@ -53,6 +58,7 @@ type Section =
   | "input-pairing"
   | "models"
   | "messaging"
+  | ExtensionSection
   | "access";
 
 const initialAccess = (): Access => ({
@@ -179,6 +185,7 @@ export function HubController({
   initialModelDeviceId,
   initialExecutorSetup = false,
   initialSection,
+  initialProjectId,
 }: {
   client: MewDexClient;
   devices: Device[];
@@ -204,6 +211,7 @@ export function HubController({
   initialModelDeviceId?: string;
   initialExecutorSetup?: boolean;
   initialSection?: Section;
+  initialProjectId?: string;
 }) {
   const cache = useQueryClient();
   const modifier = keyboardModifierLabel();
@@ -335,6 +343,30 @@ export function HubController({
           icon: <Sparkles size={16} />,
           group: t("Hub 与执行端设置"),
         },
+        {
+          id: "skills",
+          label: "Skills",
+          icon: <BookOpen size={16} />,
+          group: t("Hub 与执行端设置"),
+        },
+        {
+          id: "memory",
+          label: "Memory",
+          icon: <Brain size={16} />,
+          group: t("Hub 与执行端设置"),
+        },
+        {
+          id: "hooks",
+          label: "Hooks",
+          icon: <Workflow size={16} />,
+          group: t("Hub 与执行端设置"),
+        },
+        {
+          id: "plugins",
+          label: "Plugins",
+          icon: <Puzzle size={16} />,
+          group: t("Hub 与执行端设置"),
+        },
         ...(identity.role === "admin"
           ? [
               {
@@ -355,6 +387,18 @@ export function HubController({
     >
       {section === "messaging" && identity.role === "admin" && (
         <MessagingSettings client={client} devices={devices} />
+      )}
+      {(["skills", "memory", "hooks", "plugins"] as string[]).includes(
+        section,
+      ) && (
+        <ExtensionSettings
+          key={section}
+          client={client}
+          devices={devices}
+          section={section as ExtensionSection}
+          admin={identity.role === "admin"}
+          initialProjectId={initialProjectId}
+        />
       )}
       {section === "updates" && <AppUpdateSettings />}
       {section === "account" && (

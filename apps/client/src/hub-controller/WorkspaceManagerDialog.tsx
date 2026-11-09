@@ -37,6 +37,7 @@ export function WorkspaceManagerDialog({
   initialDeviceId,
   initialProject,
   initialCategory,
+  sectionNames = [],
   onClose,
   onSelect,
   onUnconfirmed,
@@ -46,6 +47,7 @@ export function WorkspaceManagerDialog({
   initialDeviceId: string;
   initialProject?: Project;
   initialCategory?: string;
+  sectionNames?: string[];
   localAvailable: boolean;
   centralProjects?: boolean;
   onClose: () => void;
@@ -84,11 +86,12 @@ export function WorkspaceManagerDialog({
   const nameInput = useRef<HTMLInputElement>(null);
   const cache = useQueryClient();
   const categories = [
-    ...new Set(
-      hub?.projects
+    ...new Set([
+      ...sectionNames,
+      ...(hub?.projects
         .map((project) => project.category)
-        .filter((value): value is string => !!value),
-    ),
+        .filter((value): value is string => !!value) ?? []),
+    ]),
   ].sort();
   function update(key: string, patch: Partial<DirectoryDraft>) {
     setDirectories((current) =>

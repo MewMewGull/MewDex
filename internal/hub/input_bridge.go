@@ -26,13 +26,13 @@ type inputBridge struct {
 
 func (h *Hub) inputBridgeWS(w http.ResponseWriter, r *http.Request) {
 	actor := identity(r)
-	id, name := r.URL.Query().Get("id"), r.URL.Query().Get("name")
+	id, name, kind := r.URL.Query().Get("id"), r.URL.Query().Get("name"), r.URL.Query().Get("kind")
 	if actor.Role != "admin" {
 		problem(w, 403, errors.New("admin required"))
 		return
 	}
-	if len(id) < 16 || len(id) > 128 || name == "" || len(name) > 256 {
-		problem(w, 400, errors.New("invalid APP bridge identity"))
+	if len(id) < 16 || len(id) > 128 || id == hubMessagingBridgeID || name == "" || len(name) > 256 || kind != "" && kind != "standalone" {
+		problem(w, 400, errors.New("invalid message connector identity"))
 		return
 	}
 	conn, err := websocket.Accept(w, r, nil)
@@ -41,7 +41,7 @@ func (h *Hub) inputBridgeWS(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.CloseNow()
 	conn.SetReadLimit(2 << 20)
-	b := &inputBridge{view: protocol.InputBridge{ID: id, Name: name}, owner: actor.ID, conn: conn, pending: map[string]chan protocol.InputBridgeResponse{}, done: make(chan struct{})}
+	b := &inputBridge{view: protocol.InputBridge{ID: id, Name: name, Kind: kind}, owner: actor.ID, conn: conn, pending: map[string]chan protocol.InputBridgeResponse{}, done: make(chan struct{})}
 	key := actor.ID + "/" + id
 	h.mu.Lock()
 	if h.inputBridges == nil {
@@ -90,8 +90,11 @@ func (h *Hub) listInputBridges(w http.ResponseWriter, r *http.Request) {
 	}
 	views := []protocol.InputBridge{}
 	h.mu.Lock()
+	if h.messaging != nil {
+		views = append(views, protocol.InputBridge{ID: hubMessagingBridgeID, Name: h.config.Name, Kind: "hub"})
+	}
 	for _, b := range h.inputBridges {
-		if b.owner == actor.ID {
+		if b.owner == actor.ID || b.view.Kind == "standalone" {
 			views = append(views, b.view)
 		}
 	}
@@ -103,21 +106,33 @@ func (h *Hub) listInputBridges(w http.ResponseWriter, r *http.Request) {
 func (h *Hub) relayMessaging(w http.ResponseWriter, r *http.Request) {
 	actor, selected := identity(r), r.URL.Query().Get("bridgeId")
 	h.mu.Lock()
+	local := h.messaging
+	if local != nil && (selected == "" || selected == hubMessagingBridgeID) {
+		h.mu.Unlock()
+		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 64<<10))
+		if err != nil {
+			problem(w, 400, errors.New("channel request is too large"))
+			return
+		}
+		result := local.Handle(r.Context(), protocol.InputBridgeRequest{Method: r.Method, Path: r.URL.Path, Owner: actor.ID, Body: body})
+		reply(w, result.Status, result.Body)
+		return
+	}
 	var target *inputBridge
 	count := 0
 	for _, b := range h.inputBridges {
-		if b.owner == actor.ID && (selected == "" || selected == b.view.ID) {
+		if (b.owner == actor.ID || b.view.Kind == "standalone") && (selected == "" || selected == b.view.ID) {
 			target = b
 			count++
 		}
 	}
 	h.mu.Unlock()
 	if count == 0 {
-		problem(w, 503, errors.New("请打开已登录此账号的 APP，由 APP 连接消息渠道"))
+		problem(w, 503, errors.New("消息连接服务未在线，请升级并运行 Hub，或启动独立消息连接器"))
 		return
 	}
 	if count > 1 {
-		problem(w, 409, errors.New("请选择负责消息渠道的 APP"))
+		problem(w, 409, errors.New("请选择负责此渠道的连接服务"))
 		return
 	}
 	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 64<<10))
@@ -132,7 +147,7 @@ func (h *Hub) relayMessaging(w http.ResponseWriter, r *http.Request) {
 	target.mu.Lock()
 	if len(target.pending) >= 16 {
 		target.mu.Unlock()
-		problem(w, 429, errors.New("APP 渠道请求繁忙"))
+		problem(w, 429, errors.New("消息连接服务请求繁忙"))
 		return
 	}
 	target.pending[request.ID] = result
@@ -142,7 +157,7 @@ func (h *Hub) relayMessaging(w http.ResponseWriter, r *http.Request) {
 	err = target.conn.Write(ctx, websocket.MessageText, protocol.JSON(request))
 	target.write.Unlock()
 	if err != nil {
-		problem(w, 503, errors.New("APP 渠道连接已中断"))
+		problem(w, 503, errors.New("消息连接服务已中断"))
 		return
 	}
 	select {
@@ -152,8 +167,8 @@ func (h *Hub) relayMessaging(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(response.Status)
 		_, _ = w.Write(response.Body)
 	case <-target.done:
-		problem(w, 503, errors.New("APP 渠道连接已中断"))
+		problem(w, 503, errors.New("消息连接服务已中断"))
 	case <-ctx.Done():
-		problem(w, 504, errors.New("APP 渠道操作结果待确认，请刷新渠道状态"))
+		problem(w, 504, errors.New("消息渠道操作结果待确认，请刷新渠道状态"))
 	}
 }

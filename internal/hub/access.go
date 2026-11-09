@@ -10,6 +10,11 @@ import (
 )
 
 func (h *Hub) allowsCommand(id protocol.Identity, c protocol.Command) bool {
+	if strings.HasPrefix(c.Kind, "extension.") || c.Extension != nil {
+		if id.Role != "admin" || c.DeviceID != h.coordinatorID || c.SessionID != "" || c.Kind != "extension.read" && c.Kind != "extension.update" {
+			return false
+		}
+	}
 	if strings.HasPrefix(c.Kind, "terminal.") || c.Terminal != nil || strings.HasPrefix(c.Kind, "computer.") || c.Computer != nil {
 		return false
 	}

@@ -14,7 +14,7 @@ func (s *Store) PendingCommands(source, device string, after int64, limit int) (
 	COALESCE(json_extract(request,'$.sessionId'),''),COALESCE(json_extract(request,'$.projectId'),''),
 	json_extract(request,'$.kind'),json_extract(result,'$.state'),COALESCE(json_extract(request,'$.createdAt'),'')
 	FROM commands WHERE json_extract(request,'$.sourceId')=? AND json_extract(request,'$.deviceId')=?
-	AND json_extract(request,'$.kind') NOT IN ('account.read','file.list','model.list')
+	AND json_extract(request,'$.kind') NOT IN ('account.read','file.list','model.list','skill.list','extension.read')
 	AND json_extract(result,'$.state') IN ('accepted','unknown') AND rowid>? ORDER BY rowid LIMIT ?`, source, device, after, limit+1)
 	if err != nil {
 		return page, err

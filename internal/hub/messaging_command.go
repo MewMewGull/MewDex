@@ -5,8 +5,9 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"mewdex/internal/protocol"
 	"net/http"
+
+	"mewdex/internal/protocol"
 )
 
 // Reuse the exact command entry point used by first-party inputs, including

@@ -17,6 +17,7 @@ import (
 	"github.com/coder/websocket"
 	"mewdex/internal/attachments"
 	"mewdex/internal/config"
+	"mewdex/internal/messaging"
 	"mewdex/internal/protocol"
 	"mewdex/internal/store"
 )
@@ -57,6 +58,7 @@ type Hub struct {
 	logins         map[string]loginWindow
 	browserOrigins func() []string
 	inputBridges   map[string]*inputBridge
+	messaging      *messaging.Manager
 }
 
 func New(c config.Config, s *store.Store) *Hub {
@@ -614,7 +616,11 @@ func (h *Hub) command(w http.ResponseWriter, r *http.Request, id protocol.Identi
 	}
 	if c.DeviceID == h.coordinatorID && h.coordinator != nil {
 		go func() {
-			ctx, cancel := context.WithTimeout(h.ctx, 45*time.Second)
+			duration := 45 * time.Second
+			if c.Kind == "extension.update" {
+				duration = 10 * time.Minute
+			}
+			ctx, cancel := context.WithTimeout(h.ctx, duration)
 			defer cancel()
 			out := h.coordinator.Handle(ctx, c)
 			_ = h.store.Finish(out)

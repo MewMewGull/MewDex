@@ -101,6 +101,7 @@ export function AccountMenu({
     staleTime: 30000,
     retry: false,
     refetchOnWindowFocus: false,
+    refetchInterval: 30000,
   });
   useEffect(() => {
     if (!open) return;
@@ -216,9 +217,9 @@ export function AccountMenu({
                 !limits.isFetching &&
                 !device?.capabilities?.includes("account-limits") ? (
                   <p>{t("更新 Hub 后可读取额度。")}</p>
-                ) : limits.isFetching ? (
+                ) : limits.isFetching && !limits.data ? (
                   <p role="status">{t("正在读取额度…")}</p>
-                ) : limits.error ? (
+                ) : limits.error && !limits.data ? (
                   <p>
                     {t("额度暂时无法读取。")}
                     <button onClick={() => void limits.refetch()}>
@@ -250,6 +251,9 @@ export function AccountMenu({
                   ))
                 ) : (
                   <p>{t("此模型服务暂未提供额度数据。")}</p>
+                )}
+                {limits.error && limits.data && (
+                  <p role="status">{t("额度暂时无法读取。")}</p>
                 )}
               </div>
             )}

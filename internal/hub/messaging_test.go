@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -13,6 +14,73 @@ import (
 	"mewdex/internal/store"
 	"net/http/httptest"
 )
+
+func TestHubConnectorRunsWithoutInputAndKeepsPrivateStateAcrossRestart(t *testing.T) {
+	h, s, server, admin := testHub(t)
+	// Retained legacy Hub data must not start another copy of an existing bot.
+	legacy := map[string]any{"platform": "qq", "enabled": true, "secret": "legacy-secret"}
+	if err := s.Put("messaging_channels", "qq", legacy); err != nil {
+		t.Fatal(err)
+	}
+	channels, err := store.Open(filepath.Join(t.TempDir(), "channels.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer channels.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	manager, err := h.StartMessaging(ctx, channels)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { manager.Close() }()
+	response := request(t, server.URL, admin, "GET", "/v1/input-bridges", nil)
+	var bridges []protocol.InputBridge
+	err = json.NewDecoder(response.Body).Decode(&bridges)
+	response.Body.Close()
+	if err != nil || len(bridges) != 1 || bridges[0].Kind != "hub" || bridges[0].ID != hubMessagingBridgeID {
+		t.Fatal("Hub connector required an APP or Web input", bridges, err)
+	}
+	if manager.Snapshot()[1].CredentialConfigured {
+		t.Fatal("retained legacy channel was enabled by the new connector")
+	}
+	secret := "new-private-channel-secret"
+	response = request(t, server.URL, admin, "PUT", "/v1/messaging/qq?bridgeId="+hubMessagingBridgeID, protocol.MessagingUpdate{AppID: "hub-bot", Secret: &secret, AllowedUsers: []string{"allowed-user"}})
+	raw, _ := io.ReadAll(response.Body)
+	response.Body.Close()
+	if response.StatusCode != 200 || strings.Contains(string(raw), secret) {
+		t.Fatalf("unsafe Hub connector response: %d %s", response.StatusCode, raw)
+	}
+	manager.Close()
+	restored, err := h.StartMessaging(ctx, channels)
+	if err != nil {
+		t.Fatal(err)
+	}
+	manager = restored
+	response = request(t, server.URL, admin, "GET", "/v1/messaging", nil)
+	var views []protocol.MessagingChannel
+	err = json.NewDecoder(response.Body).Decode(&views)
+	response.Body.Close()
+	if err != nil || len(views) != 3 || views[1].AppID != "hub-bot" || !views[1].CredentialConfigured || len(views[1].AllowedUsers) != 1 {
+		t.Fatal("Hub connector lost its configuration on restart", views, err)
+	}
+	var saved map[string]any
+	if err := s.Get("messaging_channels", "qq", &saved); err != nil || saved["secret"] != "legacy-secret" {
+		t.Fatal("legacy channel data changed", saved, err)
+	}
+	response = request(t, server.URL, admin, "GET", "/v1/messaging?bridgeId=offline-service", nil)
+	response.Body.Close()
+	if response.StatusCode != 503 {
+		t.Fatal("an offline selection silently routed to the default connector")
+	}
+	code, _ := s.Invite("client", time.Minute)
+	client, _, _ := s.Pair(code, "ordinary-input", "")
+	response = request(t, server.URL, client, "GET", "/v1/messaging", nil)
+	response.Body.Close()
+	if response.StatusCode != 403 {
+		t.Fatal("ordinary client could administer Hub channels")
+	}
+}
 
 func TestMessagingSettingsRequireAdminAndNeverReturnSecrets(t *testing.T) {
 	h, s, server, admin := testHub(t)

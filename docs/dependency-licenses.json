@@ -7,8 +7,8 @@
     "apps/client/src-tauri/Cargo.lock": "d4f7ef87a1c98b791d6c00a53343a646ad8fbcb0c4f7970a4056997d2b38f02c",
     "apps/client/src-tauri/Cargo.toml": "18c0604821b4a863502b08741f642def846d1daaacf95983c150d938c5ba0fae",
     "engine.lock.json": "45ee964b80ae895b7b4a12088df5154f5803263915cbcb744d878366f5f3c033",
-    "go.mod": "c003603dd0b972144441083d4a244bae967236bd9723ae140b306fa4fadb9c24",
-    "go.sum": "6e7056c1acd6f875ccd5114372d26e83c23f6e7ba8e3b7bd031d415e59d32231",
+    "go.mod": "7a8a2ce53423ee93c62ed15763d5d7eee14e21ab7ea789491362ec57553f31fe",
+    "go.sum": "a1ab52a7725d927620a2c52187f792b70483f3b4873f4027561157bcb363a0c4",
     "package-lock.json": "28de273356c3089f765f6b384f917284128fc07f034ce7ea0704343c4add388e",
     "scripts/native-vault-risk/Cargo.lock": "03f48d3da73e5f477948327b51c6f31a8556ebf16d110f52eed2b8d0e2d8c56d",
     "scripts/native-vault-risk/Cargo.toml": "ad575172bebbe984a6263ed7cf42ebb1b9cb6593daabe83c859669198b025aa1",
@@ -9229,18 +9229,6 @@
         {
           "file": "LICENSE",
           "sha256": "2be1b548b0387ca8948e1bb9434e709126904d15f622cc2d0d8e7f186e4d122d"
-        }
-      ]
-    },
-    {
-      "name": "github.com/kevinburke/ssh_config",
-      "version": "v1.6.0",
-      "license": "MIT",
-      "direct": true,
-      "evidence": [
-        {
-          "file": "LICENSE",
-          "sha256": "a15a6f732df3a033a71853ce1d255bd671f00fbc537fa629b78d71baecda0ace"
         }
       ]
     },

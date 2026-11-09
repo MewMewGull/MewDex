@@ -33,7 +33,6 @@ REVIEWED_GO_LICENSES = {
     ("github.com/gogo/protobuf", "v1.3.2"): "BSD-3-Clause",
     ("github.com/gorilla/websocket", "v1.5.0"): "BSD-2-Clause",
     ("github.com/larksuite/oapi-sdk-go/v3", "v3.12.2"): "MIT",
-    ("github.com/kevinburke/ssh_config", "v1.6.0"): "MIT",
     ("github.com/mattn/go-isatty", "v0.0.20"): "MIT",
     ("github.com/ncruces/go-strftime", "v0.1.9"): "MIT",
     ("github.com/remyoudompheng/bigfft", "v0.0.0-20230129092748-24d4a6f8daec"): "BSD-3-Clause",

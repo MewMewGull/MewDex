@@ -13,7 +13,6 @@ import (
 	"mewdex/internal/backup"
 	"mewdex/internal/config"
 	"mewdex/internal/engine"
-	"mewdex/internal/hubproxy"
 	"mewdex/internal/lifecycle"
 	"mewdex/internal/protocol"
 	"mewdex/internal/startup"
@@ -30,8 +29,6 @@ type Options struct {
 	// BootSession is a trusted platform seam for deterministic lifecycle checks;
 	// it is never accepted from a desktop or network request.
 	BootSession func() (string, error)
-	// SSHHome is a trusted host/test override, never accepted from a request.
-	SSHHome string
 }
 
 type Manager struct {
@@ -64,46 +61,6 @@ func (m *Manager) profile() string {
 func (m *Manager) draft() string { return filepath.Join(m.options.Root, "device.setup.json") }
 
 func (m *Manager) Handle(ctx context.Context, request Request) (Result, error) {
-	if request.Operation == "proxy.ssh.config" {
-		c, err := config.Read(m.profile())
-		if err != nil {
-			return Result{}, err
-		}
-		if !c.Hub || request.ExpectedDeviceID == "" || request.ExpectedDeviceID != c.DeviceID {
-			return Result{}, errors.New("请先刷新当前 Hub，再读取本机 SSH 配置")
-		}
-		home := m.options.SSHHome
-		if home == "" {
-			home, err = os.UserHomeDir()
-			if err != nil {
-				return Result{}, errors.New("无法确定本机用户目录")
-			}
-		}
-		sshConfig, err := hubproxy.ReadSSHConfig(home)
-		if err != nil {
-			return Result{}, err
-		}
-		snapshot, err := m.status(ctx)
-		return Result{Snapshot: snapshot, SSHConfig: &sshConfig}, err
-	}
-	if request.Operation == "proxy.test" {
-		c, err := config.Read(m.profile())
-		if err != nil {
-			return Result{}, err
-		}
-		if !c.Hub || request.ExpectedDeviceID == "" || request.ExpectedDeviceID != c.DeviceID {
-			return Result{}, errors.New("请先刷新当前 Hub，再测试 SSH 连接")
-		}
-		if request.HubProxy == nil {
-			return Result{}, errors.New("请填写 SSH 连接参数")
-		}
-		test, err := hubproxy.TestConnection(ctx, hubproxy.Settings(*request.HubProxy))
-		if err != nil {
-			return Result{}, err
-		}
-		snapshot, err := m.status(ctx)
-		return Result{Snapshot: snapshot, SSHTest: &test}, err
-	}
 	if request.Operation == "hub.discover" {
 		c, err := config.Read(m.profile())
 		if err != nil {
@@ -112,14 +69,6 @@ func (m *Manager) Handle(ctx context.Context, request Request) (Result, error) {
 		info := discoverHub(ctx, c)
 		snapshot, err := m.status(ctx)
 		return Result{Snapshot: snapshot, ExistingHub: info}, err
-	}
-	if request.Operation == "proxy.status" {
-		info, err := m.proxyStatus(ctx)
-		if err != nil {
-			return Result{}, err
-		}
-		snapshot, err := m.status(ctx)
-		return Result{Snapshot: snapshot, HubProxy: info}, err
 	}
 	if request.Operation == "project.location" {
 		c, err := config.Read(m.profile())
@@ -230,7 +179,6 @@ func (m *Manager) Handle(ctx context.Context, request Request) (Result, error) {
 	var backupInfo *BackupInfo
 	var restoreInfo *RestoreInfo
 	var startupInfo *StartupInfo
-	var proxyInfo *HubProxyInfo
 	var upgradeInfo *UpgradeInfo
 	var cleanupInfo *CleanupInfo
 	var discovered *HubDiscovery
@@ -274,15 +222,6 @@ func (m *Manager) Handle(ctx context.Context, request Request) (Result, error) {
 		upgradeInfo, err = m.applyUpgrade(ctx, request.Upgrade)
 	case "startup.apply":
 		startupInfo, err = m.applyStartup(ctx, request.Startup)
-	case "proxy.apply", "proxy.import":
-		if request.ExpectedDeviceID == "" {
-			return Result{}, errors.New("请先刷新当前 Hub")
-		}
-		if request.Operation == "proxy.import" {
-			proxyInfo, err = m.importProxy(ctx)
-		} else {
-			proxyInfo, err = m.applyProxy(ctx, request.HubProxy)
-		}
 	case "connect":
 		return m.connect(ctx)
 	default:
@@ -300,7 +239,7 @@ func (m *Manager) Handle(ctx context.Context, request Request) (Result, error) {
 		snapshot = Snapshot{State: "unreadable", Projects: []protocol.Project{}, Message: err.Error()}
 		err = nil
 	}
-	result := Result{Snapshot: snapshot, Backup: backupInfo, Restore: restoreInfo, Startup: startupInfo, HubProxy: proxyInfo, ExistingHub: discovered, Upgrade: upgradeInfo, Cleanup: cleanupInfo}
+	result := Result{Snapshot: snapshot, Backup: backupInfo, Restore: restoreInfo, Startup: startupInfo, ExistingHub: discovered, Upgrade: upgradeInfo, Cleanup: cleanupInfo}
 	if request.Operation == "web.apply" {
 		result.WebWorkbench = request.WebWorkbench
 	}
@@ -322,7 +261,7 @@ func (m *Manager) archiveProgress(value backup.Progress) {
 func (m *Manager) status(ctx context.Context) (snapshot Snapshot, resultErr error) {
 	defer func() {
 		snapshot.StartupPreference, _ = m.StartupPreference()
-		snapshot.Operations = []string{"service.update", "service.port", "model-routing.apply", "hub.discover", "proxy.status", "proxy.apply", "proxy.import", "proxy.ssh.config", "proxy.test", "backup", "restore.prepare", "restore.apply", "restore.status", "upgrade.prepare", "upgrade.apply", "upgrade.status", "repair.executor", "startup.status", "startup.apply", "job.start", "job.status", "job.cancel", "cleanup.status", "cleanup.prepare", "cleanup.apply"}
+		snapshot.Operations = []string{"service.update", "service.port", "model-routing.apply", "hub.discover", "backup", "restore.prepare", "restore.apply", "restore.status", "upgrade.prepare", "upgrade.apply", "upgrade.status", "repair.executor", "startup.status", "startup.apply", "job.start", "job.status", "job.cancel", "cleanup.status", "cleanup.prepare", "cleanup.apply"}
 	}()
 	snapshot = Snapshot{State: "unconfigured", Projects: []protocol.Project{}}
 	c, err := config.Read(m.profile())

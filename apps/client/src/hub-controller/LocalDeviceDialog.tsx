@@ -21,7 +21,6 @@ import { LocalSetupPanel } from "./LocalSetupPanel";
 import { DeviceDataPanel } from "./DeviceDataPanel";
 import { StartupPanel } from "./StartupPanel";
 import { HubListenerPanel } from "./HubListenerPanel";
-import { HubProxyPanel } from "./HubProxyPanel";
 import { CleanupPanel } from "./CleanupPanel";
 import { LocalInstallationPanel } from "./LocalInstallationPanel";
 import { LocalServiceActions } from "./LocalServiceActions";
@@ -92,9 +91,8 @@ function LocalDeviceContents({
   );
   const [section, setSection] = useState<Section>("overview");
   const [portPending, setPortPending] = useState(false);
-  const [proxyPending, setProxyPending] = useState(false);
   const [routingPending, setRoutingPending] = useState(false);
-  const pendingSettings = portPending || proxyPending || routingPending;
+  const pendingSettings = portPending || routingPending;
   const settingsQueue = useRef<Promise<unknown>>(Promise.resolve());
   function saveSetting(request: Request) {
     const result = settingsQueue.current.then(() => device.apply(request));
@@ -431,18 +429,6 @@ function LocalDeviceContents({
             })
           }
         />
-        <HubProxyPanel
-          active={open && section === "startup"}
-          snapshot={showHosting ? snapshot : null}
-          busy={busy}
-          revision={device.revision}
-          onWork={device.work}
-          onPendingChange={setProxyPending}
-          importDisabled={pendingSettings}
-          onChange={(request) =>
-            saveSetting({ ...request, expectedDeviceId: snapshot?.deviceId })
-          }
-        />
       </div>
       <div hidden={section !== "routing"}>
         {configured && snapshot && (
@@ -454,7 +440,7 @@ function LocalDeviceContents({
             <ModelRoutingPanel
               key={snapshot.deviceId}
               snapshot={snapshot}
-              busy={busy || portPending || proxyPending}
+              busy={busy || portPending}
               onPendingChange={setRoutingPending}
               onChange={(modelRouting) =>
                 saveSetting({

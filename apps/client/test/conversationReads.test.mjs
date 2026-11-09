@@ -2,6 +2,33 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { ConversationReadLedger } from "../src/conversationReads.ts";
 
+test("marking a section read covers only its known replies and later replies become unread", () => {
+  const storage = { getItem: () => null, setItem() {}, removeItem() {} };
+  const ledger = new ConversationReadLedger(storage, "section");
+  const sessions = [
+    { id: "one", deviceId: "hub" },
+    { id: "two", deviceId: "hub" },
+  ];
+  ledger.bootstrap({ cursor: 10, sessions, conversationUpdates: [] });
+  for (const [index, session] of sessions.entries())
+    ledger.accept({
+      kind: "conversation.changed",
+      deviceId: "hub",
+      sessionId: session.id,
+      sequence: 11 + index,
+    });
+  assert.equal(ledger.markAllRead([{ id: "one", deviceId: "wrong" }]), false);
+  assert.equal(ledger.markAllRead([sessions[0]]), true);
+  assert.deepEqual([...ledger.unread], ["two"]);
+  ledger.accept({
+    kind: "conversation.changed",
+    deviceId: "hub",
+    sessionId: "one",
+    sequence: 13,
+  });
+  assert.deepEqual([...ledger.unread].sort(), ["one", "two"]);
+});
+
 function storage() {
   const values = new Map();
   return {

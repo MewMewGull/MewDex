@@ -153,6 +153,7 @@ type Input struct {
 }
 
 type Command struct {
+	Extension             *ExtensionRequest `json:"extension,omitempty"`
 	Computer              *ComputerRequest  `json:"computer,omitempty"`
 	Terminal              *TerminalRequest  `json:"terminal,omitempty"`
 	Workspace             *WorkspaceRequest `json:"workspace,omitempty"`

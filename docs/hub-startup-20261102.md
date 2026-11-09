@@ -1,39 +1,30 @@
-# Hub 启动与公网代理管理（2026-11-02）
+# Hub 启动与公网接入
 
-Windows 桌面端在“本机设备 → 启动设置”中管理开机自启动 MewDex Hub 和 SSH 反向代理。Hub 登录启动不弹出控制台，托盘提供打开工作台、状态、代理开关、自启动开关和退出 Hub。退出工作台保留后台服务，退出 Hub 会清理其 SSH 隧道。
+本文于 2026-11-10 更新。
 
-Hub 监听端口默认 47830，首次配置和“启动设置”均有端口输入框。端口由用户设定，范围 1–65535；服务停止后修改即自动保存，并同步更新已有自启动登记。监听端口与反向代理设置共用串行自动保存机制：合并连续输入，显示保存进度与失败原因，保留保存期间的新编辑，未完成的无效输入不会写入。保存期间阻止启动、切换配置和关闭窗口，离开输入框会立即提交有效设置；失败回执不会触发自动重复写入。
+## 本机 Hub 启动
 
-桌面端先读取指定端口的 `/health`。确认已运行 MewDex Hub 时显示“连接已运行的 Hub”，进入该 Hub 的正常账号或密钥登录流程，不再启动第二个实例，不采用其他安装目录或授予其管理凭据。旧输入地址与当前已登录地址一致时复用原身份核对。其他程序占用时保留“端口 N 已被占用”提示，让用户调整；不会自动选择其他端口。登录启动也会在同端口已有 Hub 时正常退出，避免反复尝试创建重复实例。服务入口仍在打开数据库及启动模型引擎前绑定端口。
+Windows 桌面端在“本机设备 → 启动设置”中管理本机 Hub 的监听端口和开机自启动。Hub 登录启动使用后台窗口模式，托盘提供控制面板、状态、自启动开关和退出入口。退出工作台后，后台服务继续运行。
 
-反向代理使用 `golang.org/x/crypto/ssh`，直接在 Hub 中建立反向 TCP 监听，不再派生 `ssh.exe` 或独立常驻 backhaul。既有公网 HTTPS 代理和服务器 SSH 转发权限仍由用户配置。主机密钥通过已有 `known_hosts` 严格校验；身份只引用本机专用私钥文件，不嵌入配置，不进行交互解锁。目标固定为该 Hub 的本机监听，远端监听限回环/私网 IP。断线按 1–30 秒退避重连，保活失败重新建立连接。
+Hub 监听端口默认 47830，首次配置和“启动设置”均有端口输入框。用户可在服务停止后填写 1–65535 范围内的端口，修改后自动保存，并同步已有自启动登记。连续输入合并提交，界面显示保存进度与失败原因。保存期间的新编辑继续排队，未完成的无效输入留在表单中。启动与切换配置等待有效设置保存完成，离开输入框会立即提交。
 
-`hub-proxy.json` 位于所选设备目录，开关及连接参数独立于 `device.json`。保存后运行中的 Hub 自动采用，关闭后保留连接参数。状态绑定 Hub 实例、设置指纹和更新时间，`connected` 表示 SSH 认证成功且服务器已接受反向监听，持续通过 SSH 保活确认连接。旧版 Hub 需要先更新本机服务组件。
+桌面端先读取指定端口的 `/health`。确认已运行 MewDex Hub 时显示“连接已运行的 Hub”，进入该 Hub 的正常账号或密钥登录流程。其他程序占用时显示“端口 N 已被占用”，由用户调整端口。登录启动遇到同端口已有 Hub 时正常退出，服务入口在打开数据库及启动模型引擎前绑定端口。
 
-2026-11-04 调整为进入“启动设置”页面时自动读取本机 `.ssh/config`，通过主机列表选择具体 `Host`，也可直接手动填写横向排列的连接表单。选择主机后自动填入并保存 SSH 参数，主机密钥文件可在“更多选项”中编辑。已启用时，完整配置自动保存后重新连接。“测试连接”使用当前表单参数进行 SSH 连通性、主机密钥与私钥认证检查，临时连接在认证结束后关闭，并显示连接耗时或失败原因。本机管理接口 `proxy.test` 核对当前设备身份后执行测试。
+## 公网接入
 
-读取位置是当前用户目录下的 `.ssh/config`；`~`、常见路径占位符和带空格的引号路径会解析为本机绝对路径，未指定端口时使用 22，未指定 `UserKnownHostsFile` 时使用 `.ssh/known_hosts`。支持具体 Host、通配符默认项和首次匹配优先规则。私钥只检查文件引用是否存在，不读取内容；导入不会写回 SSH 配置，也不会降低现有严格主机密钥校验。含 `Include`、`Match` 的配置暂交由手动表单；需要 `ProxyJump`、`ProxyCommand` 或 `HostKeyAlias` 的条目会显示原因，不会静默按直连方式采用。配置格式错误不会把原始行或命令内容带进错误提示。
+如需公网访问，请自行选择并配置专用反向代理、SSH 转发或组网软件。将外部软件的目标设置为 Hub 监听地址，再使用部署后的可达 Hub 地址连接 APP、网页输入端与执行端。公网入口使用 HTTPS/WSS，网页公开 Origin 通过 Hub 的 `device.json` 中的 `allowedOrigins` 显式配置。
 
-App 配置 SSH 反向隧道，将服务器的监听 IP 与端口转发到本机 Hub，页面显示这两个端点的关系。默认服务器监听为 `127.0.0.1:47834`，HTTPS 代理运行在 Docker 中时应填写容器可达的宿主机私网 IP，具体地址由部署环境决定。用户在服务器端为 Caddy / Nginx 配置域名、HTTPS 证书和上游映射，上游填写这里的监听 IP 与端口。旧配置中的 `publicUrl` 字段可继续读取，SSH 连接与状态判断已独立于该字段。读取 SSH 主机经本机原生管理接口 `proxy.ssh.config` 提供，并核对当前 Hub 的设备编号。
+2026-11-10 已移除 APP 的 SSH 反向代理设置、托盘开关、本机 SSH 配置读取、连接测试、Hub 内置隧道与旧回程组件迁移入口。升级后的 Hub 将旧 `hub-proxy.json` 视为历史配置。已有公网入口需要由用户迁至专用软件管理，再更新正在运行的 Hub 服务。
 
-旧的 `<设备目录>/ingress/backhaul.json` 可通过“接管旧 SSH 代理”迁移。核对身份文件、目标端口和启动项所有权后，只停止该旧实例并移除其独立登录项，确认租约释放后再启用 Hub 内部代理。原配置和启动项历史保留。`hub-managed` 标记保证迁移重试不会重新开启用户后来关闭的代理。安装升级会接管原先已启用的独立代理。
+## 安装与构建
 
-安装器使用与桌面端相同的 Go 管理层。首次安装的自启动默认关闭，升级读取设备目录中的实际选择；选中的已有数据目录保持。未配置设备时只保存选择，首次配置成功后登记登录任务。升级正在运行的服务通过原 `service.update`，有活动或未确认任务时拒绝停止。卸载先关闭自启动并正常停止 Hub，随后只移除安装清单内的文件，保留设备数据。
-
-Windows 构建：
+安装器使用共用 Go 管理层。首次安装的自启动默认关闭，升级读取设备目录中的实际选择。尚未配置设备时先保存选择，首次配置成功后登记登录任务。升级正在运行的服务通过 `service.update`，有活动或未确认任务时返回错误。卸载先关闭自启动并正常停止 Hub，随后按安装清单移除程序文件。
 
 ```powershell
-./scripts/build-desktop-development.ps1 -SideBySide
+npm run build:app:windows
 python scripts/export-windows-development.py
-node scripts/build-windows-installer.mjs .state/desktop-development-next-target/debug
 ```
 
-Windows x64 包体固定输出到 `dist/windows/MewDex-Windows-x64` 和 `dist/windows/MewDex-Windows-x64.zip`，安装包默认命名为 `MewDex-Windows-x64.exe`。重新导出便携包会替换固定目录与 ZIP，并清理该目录下带版本后缀的旧包体。
+Windows x64 开发测试包输出到 `dist/windows/MewDex-Windows-x64` 和 `dist/windows/MewDex-Windows-x64.zip`，安装包默认命名为 `MewDex-Windows-x64.exe`。重新导出成功后会清理该目录下带版本后缀的旧包体。
 
-Windows Go 服务资源使用 `-H=windowsgui`，安装和登录入口直接执行该程序。NSIS 工具包核对 Tauri 官方发布的哈希，WebView2 引导程序核对 Microsoft 签名；运行时缺失时由安装器安装。静默安装可用 `/S /AUTOSTART=true` 或 `/AUTOSTART=false`；省略该参数则保留已有选择，首次安装关闭。
-
-已完成 Go 全量检查、客户端 59 项与 SDK 23 项检查、类型检查、Windows x64 Debug 构建，以及真实任务计划登记/启动/关闭登记不停止服务的隔离检查。新增 SSH 替身检查覆盖数据传输、断线重连、动态关闭、Hub 退出清理和拒绝错误主机密钥；迁移检查覆盖旧启动项删除、身份保留和幂等重试；Windows Shell 检查确认 Hub 自己创建并移除托盘图标。原生桌面端已操作自启动开关并读回启用和关闭结果。未重启或注销 Windows。
-
-本机既有安装已完成迁移：保留原先启用的公网代理和自动启动意图，删除旧回程的独立登录项，登记 GUI 子系统的 Hub 入口并由任务计划程序启动。设备配置摘要保持，Hub 内部 SSH 状态为 `connected`，原公网入口返回 HTTP 200。多主机密钥服务器按已有 `known_hosts` 优先选择已核对的密钥算法，保持严格校验。迁移前记录位于 `.state/hub-startup-20261102/before-migration/`，结果位于 `.state/hub-startup-20261102/migration.json`；未改变远端 HTTPS/SSH 配置。按照用户后续要求，验证收敛于受影响功能，未继续展开界面矩阵或全量重复回归。
-
-实现参考：[Go SSH](https://pkg.go.dev/golang.org/x/crypto/ssh)、[Windows 通知区域图标](https://learn.microsoft.com/en-us/windows/win32/api/shellapi/nf-shellapi-shell_notifyiconw)、[NSIS nsDialogs](https://nsis.sourceforge.io/Docs/nsDialogs/Readme.html)。
+Windows Go 服务资源使用 `-H=windowsgui`，安装和登录入口直接执行该程序。NSIS 工具包核对 Tauri 官方发布的哈希，WebView2 引导程序核对 Microsoft 签名。静默安装可用 `/S /AUTOSTART=true` 或 `/AUTOSTART=false`，省略该参数时采用已有选择。

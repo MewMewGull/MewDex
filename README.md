@@ -8,7 +8,9 @@ A Codex-based, cross-platform agent for starting and resuming tasks on your comp
 
 MewDex ships independent **APP**, **Web Input**, **Hub**, and **Executor** packages. The APP and browser share the input workbench, conversations, projects, and network management. The desktop APP or standalone Web Input service owns QQ, Weixin, and Feishu connections and submits processed messages to Hub. Hub owns models, sessions, and coordination. Executors connect to Hub over WebSocket.
 
-Choose the online input terminal that owns a channel under **Settings → Message channels**. Keep its APP or Web Input service running while using its channels. See the [messaging guide](docs/messaging.md).
+Configure platform credentials and allowed users under **Settings → Message channels**. Channels use the persistent Hub connector by default, with a separately deployable connector also available. Messages continue after the APP or browser closes. See the [messaging and migration guide](docs/messaging.md).
+
+**Settings → Hub and execution terminals** includes Skills, Memory, Hooks and Plugins. Manage project Skills and memory, native Hub Skills, automatic memory settings, Hook configuration and trust, and plugin sources and installation. Update the Hub to use these controls. See the [extension guide](docs/extensions.md).
 
 ## Source and license
 
@@ -52,6 +54,8 @@ On Windows and macOS, double-click a service executable or its `.app` launcher t
 
 The account command reads username and password JSON from standard input. Hub defaults to `127.0.0.1:47830`. Configure its listener, browser `allowedOrigins`, and model egress in `device.json`, then publish an HTTPS/WSS endpoint.
 
+For public access, configure dedicated reverse-proxy or mesh-networking software yourself and connect MewDex to the resulting Hub address.
+
 ### Executor control panel
 
 ```powershell
@@ -70,9 +74,9 @@ Linux hosts with AppArmor user-namespace restrictions need administrator prepara
 
 Deploy this server together with `ui/`. It forwards `/health` and `/v1/` to the configured Hub, including WebSocket upgrades, and serves the input UI independently. Add the browser's public origin to Hub `allowedOrigins`.
 
-The standalone service also provides the message connector. Closing the browser keeps its channels running; signing out or exiting the service disconnects that input terminal's channels. Choose either the desktop APP or Web Input for the same input features.
+Choose either the desktop APP or Web Input for the same input features. Channels use the persistent Hub connector by default. The Web Input service retains its original connector for existing channel configurations.
 
-Hub and Executor can share a computer with separate configuration directories. Existing combined profiles and databases remain in their original locations. Split packages use single-role profiles. Reconfigure legacy Hub channels in the selected input terminal, which owns channel credentials and delivery state.
+Hub and Executor can share a computer with separate configuration directories. Existing combined profiles and databases remain in their original locations. Split packages use single-role profiles. The persistent Hub connector uses a separate channel database. Existing channels remain manageable through their legacy input terminals and can be migrated using the messaging guide.
 
 ### Hub projects and connections
 

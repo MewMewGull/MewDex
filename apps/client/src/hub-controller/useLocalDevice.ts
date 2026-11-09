@@ -122,11 +122,7 @@ export function useLocalDevice(
     return value;
   }
   async function apply(request: Request) {
-    if (
-      ["service.port", "proxy.apply", "model-routing.apply"].includes(
-        request.operation,
-      )
-    )
+    if (["service.port", "model-routing.apply"].includes(request.operation))
       setError("");
     try {
       const value = await deviceRequest(request);

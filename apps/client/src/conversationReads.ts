@@ -129,6 +129,24 @@ export class ConversationReadLedger {
     return true;
   }
 
+  markAllRead(sessions: { id: string; deviceId: string }[]): boolean {
+    let changed = false;
+    for (const session of sessions) {
+      const update = this.latest.get(session.id);
+      if (update?.deviceId !== session.deviceId) continue;
+      const key = positionKey(session.deviceId, session.id);
+      if (
+        update.sequence <=
+        (this.saved.positions[key] ?? this.saved.baseline ?? 0)
+      )
+        continue;
+      this.saved.positions[key] = update.sequence;
+      changed = true;
+    }
+    if (changed) this.persist();
+    return changed;
+  }
+
   clear() {
     this.saved = empty();
     this.latest.clear();

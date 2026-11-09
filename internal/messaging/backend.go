@@ -11,7 +11,7 @@ import (
 
 var ErrHubUnavailable = errors.New("Hub is temporarily unavailable")
 
-// Backend separates Hub state from the APP's durable channel inbox and outbox.
+// Backend separates Hub state from a connector's durable channel inbox and outbox.
 type Backend interface {
 	Get(string, string, any) error
 	Configure(string, string, string, bool) (string, error)

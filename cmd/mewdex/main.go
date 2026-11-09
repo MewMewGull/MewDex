@@ -13,7 +13,6 @@ import (
 	"os/signal"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"syscall"
 	"time"
 
@@ -24,7 +23,6 @@ import (
 	"mewdex/internal/executor"
 	"mewdex/internal/hostidentity"
 	"mewdex/internal/hub"
-	"mewdex/internal/hubproxy"
 	"mewdex/internal/lifecycle"
 	"mewdex/internal/protocol"
 	"mewdex/internal/serviceguard"
@@ -452,6 +450,16 @@ func serveOwned(ctx context.Context, c config.Config) error {
 			return err
 		}
 		defer coordinator.Close()
+		channels, err := store.Open(filepath.Join(c.DataDir, "message-connector", "channels.db"))
+		if err != nil {
+			return err
+		}
+		defer channels.Close()
+		connector, err := h.StartMessaging(ctx, channels)
+		if err != nil {
+			return err
+		}
+		defer connector.Close()
 		go func() {
 			select {
 			case <-ctx.Done():
@@ -475,12 +483,6 @@ func serveOwned(ctx context.Context, c config.Config) error {
 			if ip := net.ParseIP(host); ip != nil && ip.IsLoopback() {
 				origins = append(origins, "http://"+net.JoinHostPort("localhost", port))
 			}
-			if c.ProfilePath != "" {
-				settings, _, err := hubproxy.Read(filepath.Dir(c.ProfilePath))
-				if err == nil && settings.Enabled && settings.PublicURL != "" {
-					origins = append(origins, strings.TrimRight(settings.PublicURL, "/"))
-				}
-			}
 			return origins
 		})
 		server := &http.Server{Addr: c.Listen, Handler: h.Handler(), ReadHeaderTimeout: 10 * time.Second}
@@ -501,11 +503,6 @@ func serveOwned(ctx context.Context, c config.Config) error {
 		return nil
 	}
 	control.Ready(localHubURL)
-	if c.Hub && c.ProfilePath != "" {
-		root := filepath.Dir(c.ProfilePath)
-		closeProxy := hubproxy.Start(ctx, root, c.DataDir, localHubURL[len("http://"):], control.InstanceID())
-		defer closeProxy()
-	}
 	if (c.Hub || c.Executor) && c.ProfilePath != "" && !c.DisableTray {
 		options, err := servicetray.Node(filepath.Dir(c.ProfilePath), stop)
 		if err != nil {

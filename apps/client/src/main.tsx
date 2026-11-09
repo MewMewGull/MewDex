@@ -12,6 +12,7 @@ import { createRoot } from "react-dom/client";
 import {
   QueryClient,
   QueryClientProvider,
+  focusManager,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
@@ -38,7 +39,7 @@ import {
   type MessageMatch,
 } from "@mewdex/sdk";
 import type { Connection } from "./platform";
-import { hostedHubURL, hubDisplayURL } from "./platform";
+import { hostedHubURL, hubDisplayURL, subscribeForeground } from "./platform";
 import { useDesktopTerminals } from "./hub-controller/useDesktopTerminals";
 import { attachInputViewport } from "./inputViewport";
 import {
@@ -149,8 +150,17 @@ import { LanguageSettings } from "./components/LanguageSettings";
 
 initializeAppearance();
 initializeLanguage();
+focusManager.setEventListener((onFocus) => subscribeForeground(onFocus));
 
-const queries = new QueryClient({ defaultOptions: { queries: { retry: 1 } } });
+const queries = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      refetchOnWindowFocus: false,
+      refetchIntervalInBackground: false,
+    },
+  },
+});
 const OutputPanel = lazy(() =>
   import("./components/OutputPanel").then((module) => ({
     default: module.OutputPanel,
@@ -421,6 +431,7 @@ function Workspace({
     queryFn: () => client.sessions(),
     enabled: network.ready,
     staleTime: 2000,
+    refetchInterval: 10000,
   });
   const identity = useQuery({
     queryKey: ["identity"],
@@ -945,7 +956,7 @@ function Workspace({
     );
     setDismissedCommands((old) => new Set(old).add(id));
   }
-  async function send(kind?: "enqueue") {
+  async function send(kind?: "enqueue", preparedText?: string) {
     const commandKind = kind ?? submissionIntent.command;
     if (
       !commandKind ||
@@ -958,6 +969,7 @@ function Workspace({
     const submittedText = text,
       submittedAttachments = uploads.map((upload) => upload.id),
       epoch = privateEpoch.current;
+    const messageText = preparedText ?? submittedText;
     let submittedSelection = selectionOf(useWorkspace.getState());
     let submittedDraftKey = drafts.key;
     let failure: string | undefined;
@@ -970,7 +982,7 @@ function Workspace({
             deviceId: activeDevice.id,
             projectId: project,
             kind: "create",
-            title: text.trim().slice(0, 40) || uploads[0].name,
+            title: messageText.trim().slice(0, 40) || uploads[0].name,
             policy: state.policy,
           },
           {
@@ -995,9 +1007,7 @@ function Workspace({
         }
       }
       const input = [
-        ...(submittedText.trim()
-          ? [{ type: "text", text: submittedText }]
-          : []),
+        ...(messageText.trim() ? [{ type: "text", text: messageText }] : []),
         ...uploads.map((a) => ({
           type: a.mediaType.startsWith("image/") ? "image" : "file",
           attachmentId: a.id,
@@ -1280,6 +1290,12 @@ function Workspace({
         brand={<Brand compact />}
         width={view.sidebarWidth}
         onWidthChange={view.setSidebarWidth}
+        sidebarLayout={view.sidebarLayout}
+        onSidebarLayout={view.setSidebarLayout}
+        canManageProjects={
+          network.ready && network.connected && identity.data.role === "admin"
+        }
+        onReadSessions={(items) => conversationReads.markAllRead(items)}
         devices={devices.data ?? []}
         sessions={sessions.data ?? []}
         deviceId={state.deviceId}
@@ -1913,6 +1929,39 @@ function Workspace({
             </div>
           )}
           <ConversationComposer
+            commands={{
+              client,
+              device: activeDevice,
+              projectId: activeSession?.projectId ?? project,
+              session: activeSession,
+              connected: network.connected,
+              onCommand: (command) => {
+                if (command === "new") newConversation();
+                else if (command === "plan" || command === "edit") {
+                  state.setPolicy({
+                    collaborationMode: command === "plan" ? "plan" : "default",
+                  });
+                  focusComposer();
+                } else if (command === "settings") setSettings(true);
+                else if (command === "model" || command === "permissions") {
+                  const selector =
+                    command === "model"
+                      ? ".composer-model-menu"
+                      : ".composer-access-menu";
+                  const menu =
+                    document.querySelector<HTMLDetailsElement>(selector);
+                  if (
+                    menu &&
+                    menu
+                      .querySelector("summary")
+                      ?.getAttribute("aria-disabled") !== "true"
+                  ) {
+                    menu.open = true;
+                    menu.querySelector<HTMLElement>("select, button")?.focus();
+                  }
+                }
+              },
+            }}
             projectLabel={target.project?.name ?? t("选择项目")}
             executorStatus={
               <ProjectExecutorStatus
@@ -1983,8 +2032,8 @@ function Workspace({
                 (activeSession.state === "running" ||
                   activeSession.state === "stopping" ||
                   activeSession.stopStatus === "background-running"),
-              onSend: (kind) => {
-                void send(kind);
+              onSend: (kind, preparedText) => {
+                void send(kind, preparedText);
               },
               onStop: () => {
                 void control("stop");
@@ -2198,6 +2247,7 @@ function Workspace({
           initialDeviceId={workspaceManager.deviceId}
           initialProject={workspaceManager.project}
           initialCategory={workspaceManager.category}
+          sectionNames={view.sidebarLayout.sections.filter(Boolean)}
           localAvailable={!!onLocalDevice}
           onClose={() => setWorkspaceManager(null)}
           onSelect={(device, selected) => selectProject(device, selected.id)}
@@ -2220,6 +2270,7 @@ function Workspace({
         initialModelDeviceId={modelSettingsDevice}
         initialExecutorSetup={executorSetup}
         initialSection={hubControllerSection}
+        initialProjectId={project}
         alerts={alerts}
         baseURL={connection.baseURL}
         loginKey={connection.credentials.token}

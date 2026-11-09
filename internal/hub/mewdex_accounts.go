@@ -35,6 +35,11 @@ func (h *Hub) serverInfo(w http.ResponseWriter, r *http.Request) {
 		capabilities = append(capabilities, "hub-projects", "hub-model-account", "project-removal")
 	}
 	capabilities = append(capabilities, "app-messaging-bridge")
+	h.mu.Lock()
+	if h.messaging != nil {
+		capabilities = append(capabilities, "hub-messaging-connector")
+	}
+	h.mu.Unlock()
 	reply(w, 200, protocol.ServerInfo{HubDeviceID: h.config.DeviceID, Name: "MewDex", ProtocolVersion: protocol.Version, Capabilities: capabilities, Authentication: auth, InputProxy: h.inputProxy()})
 }
 

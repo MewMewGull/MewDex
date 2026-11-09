@@ -285,6 +285,9 @@ func (x *Executor) execute(ctx context.Context, c protocol.Command) protocol.Com
 	if c.Kind == "model.list" {
 		return x.modelList(ctx, c)
 	}
+	if c.Kind == "skill.list" {
+		return x.skillList(ctx, c)
+	}
 	if strings.HasPrefix(c.Kind, "file.") {
 		return x.fileCommand(ctx, c)
 	}

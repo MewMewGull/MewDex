@@ -43,6 +43,10 @@ func New(s *store.Store, submit Submit) (*Manager, error) {
 	return NewWithBackend(s, storeBackend{s}, submit)
 }
 
+func NewForHub(channels, hub *store.Store, submit Submit) (*Manager, error) {
+	return NewWithBackend(channels, storeBackend{hub}, submit)
+}
+
 func NewWithBackend(s *store.Store, backend Backend, submit Submit) (*Manager, error) {
 	m := &Manager{store: s, backend: backend, submit: submit, configs: map[string]channel{}, status: map[string]protocol.MessagingChannel{}, runs: map[string]*running{}, active: map[string]bool{}}
 	m.loginClient = newHTTPClient()

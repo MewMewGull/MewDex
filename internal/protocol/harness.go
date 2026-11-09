@@ -8,6 +8,12 @@ type ProjectHarness struct {
 	Skills       []ProjectSkill    `json:"skills"`
 	Scripts      []ProjectScript   `json:"scripts"`
 	Workflows    []ProjectWorkflow `json:"workflows"`
+	Memory       *ProjectMemory    `json:"memory,omitempty"`
+}
+
+type ProjectMemory struct {
+	Enabled bool   `json:"enabled"`
+	Content string `json:"content"`
 }
 
 type ProjectSkill struct {

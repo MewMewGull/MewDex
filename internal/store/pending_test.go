@@ -14,6 +14,8 @@ func TestPendingAccountReadsKeepReceiptsWithoutBlockingActions(t *testing.T) {
 		{"read-unknown", "account.read", "unknown"},
 		{"models-accepted", "model.list", "accepted"},
 		{"models-unknown", "model.list", "unknown"},
+		{"skills-accepted", "skill.list", "accepted"},
+		{"skills-unknown", "skill.list", "unknown"},
 		{"login", "account.login", "unknown"},
 		{"cancel", "account.cancel", "accepted"},
 		{"send", "start", "unknown"},

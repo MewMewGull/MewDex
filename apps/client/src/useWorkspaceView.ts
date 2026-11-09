@@ -3,6 +3,11 @@ import { useRef, useState } from "react";
 import type { Device, NetworkSnapshot } from "@mewdex/sdk";
 import { useWorkspace } from "./state";
 import type { SendKey } from "./inputKeys";
+import {
+  emptySidebarLayout,
+  readSidebarLayout,
+  type SidebarLayout,
+} from "./sidebarLayout";
 
 interface WorkspaceView {
   deviceId: string;
@@ -13,6 +18,7 @@ interface WorkspaceView {
   outputWidth: number;
   sidebarWidth: number;
   sendKey: SendKey;
+  sidebarLayout: SidebarLayout;
 }
 
 const emptyView = (): WorkspaceView => ({
@@ -24,13 +30,19 @@ const emptyView = (): WorkspaceView => ({
   outputWidth: 38,
   sidebarWidth: 280,
   sendKey: "enter",
+  sidebarLayout: emptySidebarLayout(),
 });
 
 function loadView(key: string): { value: WorkspaceView; error: string } {
   try {
     const saved = localStorage.getItem(key);
+    const parsed = saved ? JSON.parse(saved) : {};
     return {
-      value: { ...emptyView(), ...(saved ? JSON.parse(saved) : {}) },
+      value: {
+        ...emptyView(),
+        ...parsed,
+        sidebarLayout: readSidebarLayout(parsed?.sidebarLayout),
+      },
       error: "",
     };
   } catch {
@@ -67,6 +79,10 @@ export function useWorkspaceView(scope: string) {
     outputWidth: value.outputWidth,
     sidebarWidth: value.sidebarWidth,
     sendKey: value.sendKey,
+    sidebarLayout: value.sidebarLayout,
+    setSidebarLayout(layout: SidebarLayout) {
+      commit({ ...current.current, sidebarLayout: layout });
+    },
     error,
     projectFor(device?: Device) {
       if (!device) return "";

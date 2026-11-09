@@ -1,6 +1,6 @@
 {
   "name": "mewdex",
-  "version": "0.1.12-preview.20261109",
+  "version": "0.1.13-preview.20261110",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -25,6 +25,7 @@
     "package:hub": "node scripts/package-components.mjs --component=hub",
     "package:executor": "node scripts/package-components.mjs --component=executor",
     "package:web": "node scripts/package-components.mjs --component=web",
+    "package:channel": "node scripts/package-components.mjs --component=channel",
     "build:app:windows": "powershell -NoProfile -File scripts/build-desktop-development.ps1",
     "package:app:windows": "python scripts/export-windows-development.py"
   },

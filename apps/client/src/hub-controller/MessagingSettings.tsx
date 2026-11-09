@@ -82,12 +82,14 @@ function ChannelEditor({
   devices,
   onSaved,
   bridgeId,
+  offline,
 }: {
   channel: MessagingChannel;
   client: MewDexClient;
   devices: Device[];
   onSaved: (channels: MessagingChannel[]) => void;
   bridgeId: string;
+  offline: boolean;
 }) {
   const [draft, setDraft] = useState(() => draftFor(channel));
   const [dirty, setDirty] = useState(false);
@@ -230,7 +232,7 @@ function ChannelEditor({
       <p className="muted" role="status">
         {channel.detail}
       </p>
-      <fieldset disabled={saving}>
+      <fieldset disabled={saving || offline}>
         <label className="checkbox">
           <input
             type="checkbox"
@@ -465,8 +467,12 @@ export function MessagingSettings({
     retry: false,
   });
   useEffect(() => {
-    if (!bridgeId && bridges.data?.length === 1)
-      setBridgeId(bridges.data[0].id);
+    if (bridgeId || !bridges.data?.length) return;
+    const preferred =
+      bridges.data.find((bridge) => bridge.kind === "hub") ??
+      bridges.data.find((bridge) => bridge.kind === "standalone");
+    if (preferred) setBridgeId(preferred.id);
+    else if (bridges.data.length === 1) setBridgeId(bridges.data[0].id);
   }, [bridgeId, bridges.data]);
   const channels = useQuery({
     queryKey: ["messaging-channels", client, bridgeId],
@@ -485,6 +491,7 @@ export function MessagingSettings({
   const selected = channels.data?.find(
     (channel) => channel.platform === platform,
   );
+  const service = bridges.data?.find((bridge) => bridge.id === bridgeId);
   return (
     <div className="messaging-settings">
       <div className="messaging-heading">
@@ -496,37 +503,59 @@ export function MessagingSettings({
           className="icon-button"
           type="button"
           aria-label={t("刷新渠道状态")}
-          onClick={() => void channels.refetch()}
+          onClick={() => {
+            void bridges.refetch();
+            if (bridgeId) void channels.refetch();
+          }}
         >
           <RefreshCw size={16} />
         </button>
       </div>
       <p className="muted">
         {t(
-          "由所选输入端连接微信、QQ 和飞书，消息经输入端处理后进入 Hub。请保持该输入端服务运行。",
+          "微信、QQ 和飞书通过常驻消息连接器接入 Hub，使用 Hub 的项目和会话。",
         )}
       </p>
       <label>
-        {t("渠道所在输入端")}
+        {t("连接服务")}
         <select
+          aria-label={t("连接服务")}
           value={bridgeId}
           onChange={(event) => setBridgeId(event.target.value)}
         >
-          <option value="">{t("选择在线输入端")}</option>
+          <option value="">{t("选择消息连接服务")}</option>
           {bridgeId &&
             !bridges.data?.some((bridge) => bridge.id === bridgeId) && (
-              <option value={bridgeId}>{t("所选输入端已离线")}</option>
+              <option value={bridgeId}>{t("所选连接服务已离线")}</option>
             )}
           {bridges.data?.map((bridge) => (
             <option key={bridge.id} value={bridge.id}>
-              {bridge.name} · {bridge.id.slice(0, 8)}
+              {bridge.kind === "hub"
+                ? t("Hub 常驻连接器")
+                : bridge.kind === "standalone"
+                  ? t("独立消息连接器")
+                  : t("兼容输入端")}
+              {bridge.name ? ` · ${bridge.name}` : ""}
+              {bridge.kind !== "hub" ? ` · ${bridge.id.slice(0, 8)}` : ""}
             </option>
           ))}
         </select>
       </label>
+      {service && (
+        <p className="muted" role="status">
+          {service.kind === "hub"
+            ? t("连接器随 Hub 服务运行，关闭 APP 或网页后继续收发消息。")
+            : service.kind === "standalone"
+              ? t("连接器独立运行并直连 Hub，关闭 APP 或网页后继续收发消息。")
+              : t(
+                  "当前使用旧版输入端连接器。迁移前请先关闭旧渠道，再选择 Hub 常驻连接器重新配置。",
+                )}
+        </p>
+      )}
+      {bridgeId && !service && <p role="status">{t("所选连接服务已离线")}</p>}
       {!bridges.isPending && !bridges.data?.length && (
         <p role="status">
-          {t("请运行已登录此账号的 APP 或网页输入端服务，以连接消息渠道。")}
+          {t("请升级并启动 Hub 的消息连接器，或运行独立消息连接器。")}
         </p>
       )}
       {bridges.error && (
@@ -566,6 +595,7 @@ export function MessagingSettings({
           devices={devices}
           onSaved={onSaved}
           bridgeId={bridgeId}
+          offline={!service}
         />
       )}
     </div>

@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 
 	"mewdex/internal/config"
-	"mewdex/internal/hubproxy"
 	"mewdex/internal/lifecycle"
 	"mewdex/internal/localnode"
 	"mewdex/internal/startup"
@@ -47,10 +46,6 @@ func Node(root string, stop context.CancelFunc) (Options, error) {
 				startupItem.ID, startupItem.Question, startupItem.Checked = "startup.disable", "关闭此组件的开机自启动？", true
 			}
 			items := []Item{{ID: "open", Label: "打开控制面板"}, {ID: "status", Label: "查看状态"}, {Separator: true}, startupItem}
-			if configuration.Hub {
-				settings, _, _ := hubproxy.Read(root)
-				items = append(items, Item{ID: "proxy.toggle", Label: "公网反向代理", Checked: settings.Enabled})
-			}
 			return append(items, Item{Separator: true}, Item{ID: "quit", Label: "退出 " + role, Question: "退出将停止此组件及其进行中的任务。是否继续？"})
 		},
 		Action: func(ctx context.Context, id string) (string, error) {
@@ -78,14 +73,6 @@ func Node(root string, stop context.CancelFunc) (Options, error) {
 				return text, nil
 			case "startup.enable", "startup.disable":
 				_, err = manager.Handle(ctx, localnode.Request{Operation: "startup.apply", ExpectedDeviceID: configuration.DeviceID, Startup: &localnode.StartupRequest{Enabled: id == "startup.enable"}})
-				return "", err
-			case "proxy.toggle":
-				settings, _, readErr := hubproxy.Read(root)
-				if readErr != nil {
-					return "", readErr
-				}
-				settings.Enabled = !settings.Enabled
-				_, err = manager.Handle(ctx, localnode.Request{Operation: "proxy.apply", ExpectedDeviceID: configuration.DeviceID, HubProxy: (*localnode.HubProxySettings)(&settings)})
 				return "", err
 			case "quit":
 				lease, lockErr := lifecycle.Acquire(filepath.Join(root, "management"))

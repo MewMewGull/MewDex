@@ -24,12 +24,13 @@ import (
 // Coordinator owns the only model engine in a MewDex network. The executor
 // implementation here supplies the existing queue, history and task lifecycle.
 type Coordinator struct {
-	hub    *Hub
-	runner *executor.Executor
-	store  *store.Store
-	engine *engine.Codex
-	config config.Config
-	root   string
+	hub          *Hub
+	runner       *executor.Executor
+	store        *store.Store
+	engine       *engine.Codex
+	config       config.Config
+	root         string
+	extensionsMu sync.Mutex
 }
 
 func (h *Hub) StartCoordinator(ctx context.Context) (*Coordinator, error) {
@@ -99,7 +100,7 @@ func (h *Hub) StartCoordinator(ctx context.Context) (*Coordinator, error) {
 		Projects:        projects,
 		Online:          true,
 		ProtocolVersion: protocol.Version,
-		Capabilities:    []string{"hub-projects", "project-files", "model-catalog", "reasoning-policy", "collaboration-modes", "account-limits", "access-modes", "project-harness-v1", "computer-use-v1"},
+		Capabilities:    []string{"hub-projects", "project-files", "model-catalog", "skill-catalog", "extension-management", "reasoning-policy", "collaboration-modes", "account-limits", "access-modes", "project-harness-v1", "computer-use-v1"},
 	}
 	if err = h.Device(device); err != nil {
 		coordinator.Close()
@@ -156,6 +157,18 @@ func (c *Coordinator) Handle(ctx context.Context, command protocol.Command) prot
 		if err := c.runner.EnsureProject(project); err != nil {
 			return protocol.CommandResult{CommandID: command.ID, State: "failed", Error: err.Error()}
 		}
+	}
+	if strings.HasPrefix(command.Kind, "extension.") {
+		c.extensionsMu.Lock()
+		defer c.extensionsMu.Unlock()
+		cwd := c.root
+		if command.ProjectID != "" {
+			cwd = filepath.Join(c.root, command.ProjectID)
+		}
+		if err := os.MkdirAll(cwd, 0700); err != nil {
+			return protocol.CommandResult{CommandID: command.ID, State: "failed", Error: err.Error()}
+		}
+		return extensionCommand(ctx, c.engine, c.config.Engine.Home, cwd, command)
 	}
 	result := c.runner.Handle(ctx, command)
 	if command.Kind == "policy.inspect" && result.State == "completed" {

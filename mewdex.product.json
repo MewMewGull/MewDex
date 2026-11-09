@@ -34,16 +34,17 @@
       "sources": [
         "apps/client/src/hub-controller"
       ],
-      "purpose": "通过 Hub 管理网络账号、项目、授权和在线输入端的消息渠道"
+      "purpose": "通过 Hub 管理网络账号、项目、授权和常驻消息连接服务"
     },
     "message-connector": {
       "name": "Message Connector",
       "label": "消息渠道连接器",
       "sources": [
         "internal/inputbridge",
-        "internal/messaging"
+        "internal/messaging",
+        "cmd/mewdex-input-bridge"
       ],
-      "purpose": "随 APP 或独立网页输入服务连接 QQ、微信和飞书，处理消息并经普通输入接口提交给 Hub"
+      "purpose": "在 Hub 常驻或独立部署，连接 QQ、微信和飞书，经普通输入身份提交任务并回传回复"
     },
     "executor-panel": {
       "name": "Executor Control Panel",
@@ -71,7 +72,7 @@
         ".exe",
         ".msi"
       ],
-      "installation": "安装 APP 后连接独立部署的 Hub。消息渠道由 APP 保持连接。"
+      "installation": "安装 APP 后连接独立部署的 Hub。消息渠道由 Hub 常驻连接器或独立连接服务保持连接。"
     },
     "macos": {
       "name": "macOS",
@@ -89,7 +90,7 @@
         ".dmg",
         ".pkg"
       ],
-      "installation": "安装 APP 后连接独立部署的 Hub。消息渠道由 APP 保持连接。"
+      "installation": "安装 APP 后连接独立部署的 Hub。消息渠道由 Hub 常驻连接器或独立连接服务保持连接。"
     },
     "linux": {
       "name": "Linux Desktop",
@@ -108,7 +109,7 @@
         ".deb",
         ".rpm"
       ],
-      "installation": "安装 APP 后连接独立部署的 Hub。消息渠道由 APP 保持连接。"
+      "installation": "安装 APP 后连接独立部署的 Hub。消息渠道由 Hub 常驻连接器或独立连接服务保持连接。"
     },
     "android": {
       "name": "Android",
@@ -161,7 +162,14 @@
     "hub": {
       "name": "Hub",
       "components": [
-        "hub"
+        "hub",
+        "message-connector"
+      ]
+    },
+    "channel": {
+      "name": "Message Connector",
+      "components": [
+        "message-connector"
       ]
     },
     "executor": {
